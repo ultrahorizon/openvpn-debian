@@ -39,7 +39,7 @@ endif
 config.status: $(QUILT_STAMPFN)
 	dh_testdir
 	# Add here commands to configure the package.
-	./configure --enable-iproute2 --enable-pthread --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-ifconfig-path=/sbin/ifconfig --with-route-path=$(ROUTE_PATH) CFLAGS='$(CFLAGS)'
+	./configure --enable-iproute2 --enable-pthread --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-ifconfig-path=/sbin/ifconfig --with-iproute-path=/bin/ip --with-route-path=$(ROUTE_PATH) CFLAGS='$(CFLAGS)'
 
 build: build-stamp
 

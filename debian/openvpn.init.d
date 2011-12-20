@@ -65,12 +65,12 @@ start_vpn () {
         $DAEMONARG $STATUSARG --cd $CONFIG_DIR \
         --config $CONFIG_DIR/$NAME.conf || STATUS=1
 
-    [ "$OMIT_SENDSIGS" -ne 0 ] || ln -s /var/run/openvpn.$NAME.pid /run/sendsigs.omit.d/openvpn.$NAME.pid
+    [ "$OMIT_SENDSIGS" -ne 1 ] || ln -s /var/run/openvpn.$NAME.pid /run/sendsigs.omit.d/openvpn.$NAME.pid
 }
 stop_vpn () {
   kill `cat $PIDFILE` || true
   rm -f $PIDFILE
-  [ "$OMIT_SENDSIGS" -ne 0 ] || rm -f /run/sendsigs.omit.d/openvpn.$NAME.pid
+  [ "$OMIT_SENDSIGS" -ne 1 ] || rm -f /run/sendsigs.omit.d/openvpn.$NAME.pid
   rm -f /var/run/openvpn.$NAME.status 2> /dev/null
 }
 
