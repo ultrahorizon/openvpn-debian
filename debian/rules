@@ -1,81 +1,38 @@
 #!/usr/bin/make -f
-# Sample debian/rules that uses debhelper.
-# GNU copyright 1997 to 1999 by Joey Hess.
 
-# Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
-
-include /usr/share/quilt/quilt.make
-
-
-# These are used for cross-compiling and for saving the configure script
-# from having to guess our platform (since we know it already)
-DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
-DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
-DEB_BUILD_ARCH_OS   ?= $(shell dpkg-architecture -qDEB_BUILD_ARCH_OS)
-
-CFLAGS:=-g
-
-ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
-	CFLAGS += -O0
-else
-	CFLAGS += -O2
-endif
-ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
-	NUMJOBS = $(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
-	MAKEFLAGS += -j$(NUMJOBS)
-endif
-ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
-	INSTALL_PROGRAM += -s
-endif
-
-ifeq ($(DEB_BUILD_ARCH_OS), kfreebsd)
+ifeq ($(DEB_HOST_ARCH_OS), kfreebsd)
 # Avoid the /sbin/route wrapper which doesn't provide FreeBSD CLI as expected
 ROUTE_PATH	:= /lib/freebsd/route
 else
 ROUTE_PATH	:= /sbin/route
 endif
 
-config.status: $(QUILT_STAMPFN)
-	dh_testdir
-	# Add here commands to configure the package.
-	./configure --enable-pthread --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-ifconfig-path=/sbin/ifconfig --with-route-path=$(ROUTE_PATH) CFLAGS='$(CFLAGS)'
+#export DH_VERBOSE=1
 
-build: build-stamp
+%:
+	dh $@
 
-build-stamp: config.status
-	dh_testdir
+override_dh_auto_configure:
+	dh_auto_configure -- $(shell dpkg-buildflags --export=configure) --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-ifconfig-path=/sbin/ifconfig --with-route-path=$(ROUTE_PATH)
 
-	# Add here commands to compile the package.
-	$(MAKE)
-	#make plugins
+
+override_dh_auto_build:
+	dh_auto_build
+	# make plugins
 	$(MAKE) -C plugin/auth-pam/
 	$(MAKE) -C plugin/down-root/
 
-	touch build-stamp
+# we may not want to run dh_auto_test
+#override_dh_auto_test:
 
-clean: unpatch
-	dh_testdir
-	dh_testroot
-	rm -f build-stamp 
-
-	# Add here commands to clean up after the build process.
-	[ ! -f Makefile ] || $(MAKE) distclean
-
-	#clean plugins
+override_dh_auto_clean:
+	dh_auto_clean
+	# clean plugins
 	$(MAKE) -C plugin/auth-pam/ clean
 	$(MAKE) -C plugin/down-root/ clean
 
-	dh_clean
-
-install: build
-	dh_testdir
-	dh_testroot
-	dh_prep
-	dh_installdirs
-
-	# Add here commands to install the package into debian/openvpn
-	$(MAKE) install prefix=$(CURDIR)/debian/openvpn/usr
+override_dh_auto_install:
+	dh_auto_install
 	install -m 755 sample-scripts/verify-cn $(CURDIR)/debian/openvpn/usr/share/openvpn
 	install -m 755 debian/openvpn.if-up.d $(CURDIR)/debian/openvpn/etc/network/if-up.d/openvpn
 	install -m 755 debian/openvpn.if-down.d $(CURDIR)/debian/openvpn/etc/network/if-down.d/openvpn
@@ -91,44 +48,17 @@ install: build
 	# bash completion
 	install -m 644 debian/openvpn.bash_completion $(CURDIR)/debian/openvpn/etc/bash_completion.d/openvpn
 
-# Build architecture-independent files here.
-binary-indep: build install
-# We have nothing to do by default.
-
-# Build architecture-dependent files here.
-binary-arch: build install
-	dh_testdir
-	dh_testroot
-	dh_installdebconf	
-	dh_installdocs
+override_dh_installexamples:
 	dh_installexamples
 	## remove windoze stuff
 	rm -rf $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/easy-rsa/Windows
 	# clean permissions to make lintian happy
 	chmod a-x $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/easy-rsa/2.0/vars
 	chmod a-x $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/easy-rsa/2.0/openssl-*.cnf
-	dh_installmenu
-#	dh_installlogrotate
-#	dh_installemacsen
-#	dh_installpam
-#	dh_installmime
-	dh_installinit --no-start -- defaults 16 80
-	dh_installcron
-	dh_installman
-	dh_installinfo
-#	dh_undocumented
-	dh_installchangelogs ChangeLog
-	dh_link
-	dh_strip
-	dh_compress --exclude=.cnf --exclude=pkitool
-	dh_fixperms
-#	dh_makeshlibs
-	dh_installdeb
-#	dh_perl
-	dh_shlibdeps
-	dh_gencontrol
-	dh_md5sums
-	dh_builddeb
 
-binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install 
+override_dh_installinit:
+	dh_installinit --no-start -- defaults 16 80
+
+override_dh_compress:
+	dh_compress --exclude=.cnf --exclude=pkitool
+

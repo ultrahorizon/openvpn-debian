@@ -4,6 +4,8 @@
 # Start only these VPNs automatically via init script.
 # Allowed values are "all", "none" or space separated list of
 # names of the VPNs. If empty, "all" is assumed.
+# The VPN name refers to the VPN configutation file name.
+# i.e. "home" would be /etc/openvpn/home.conf
 #
 #AUTOSTART="all"
 #AUTOSTART="none"
