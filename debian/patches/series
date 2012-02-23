@@ -6,3 +6,4 @@ jjo-ipv6-support.patch
 route_default_nil.patch
 ipv6-payload.patch
 kfreebsd_support.patch
+accommodate_typo.patch
