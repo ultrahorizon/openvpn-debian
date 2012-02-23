@@ -56,6 +56,22 @@ start_vpn () {
       STATUSARG="--status /var/run/openvpn.$NAME.status $STATUSREFRESH"
     fi
 
+    # tun using the "subnet" topology confuses the routing code that wrongly
+    # emits ICMP redirects for client to client communications
+    if grep -q '^[[:space:]]*dev[[:space:]]*tun' $CONFIG_DIR/$NAME.conf && \
+       grep -q '^[[:space:]]*topology[[:space:]]*subnet' $CONFIG_DIR/$NAME.conf ; then
+        # When using "client-to-client", OpenVPN routes the traffic itself without
+        # involving the TUN/TAP interface so no ICMP redirects are sent
+        if ! grep -q '^[[:space:]]*client-to-client' $CONFIG_DIR/$NAME.conf ; then
+            sysctl -w net.ipv4.conf.all.send_redirects=0 > /dev/null
+
+            # Save the default value for send_redirects before disabling it
+            # to make sure the tun device is created with send_redirects disabled
+            SAVED_DEFAULT_SEND_REDIRECTS=$(sysctl -n net.ipv4.conf.default.send_redirects)
+            sysctl -w net.ipv4.conf.default.send_redirects=0 > /dev/null
+        fi
+    fi
+
     log_progress_msg "$NAME"
     STATUS=0
 
@@ -66,6 +82,11 @@ start_vpn () {
         --config $CONFIG_DIR/$NAME.conf || STATUS=1
 
     [ "$OMIT_SENDSIGS" -ne 1 ] || ln -s /var/run/openvpn.$NAME.pid /run/sendsigs.omit.d/openvpn.$NAME.pid
+
+    # Set the back the original default value of send_redirects if it was changed
+    if [ -n "$SAVED_DEFAULT_SEND_REDIRECTS" ]; then
+      sysctl -w net.ipv4.conf.default.send_redirects=$SAVED_DEFAULT_SEND_REDIRECTS > /dev/null
+    fi
 }
 stop_vpn () {
   kill `cat $PIDFILE` || true
