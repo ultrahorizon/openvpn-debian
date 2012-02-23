@@ -11,6 +11,8 @@
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: Openvpn VPN service
+# Description: This script will start OpenVPN tunnels as specified
+#              in /etc/default/openvpn and /etc/openvpn/*.conf
 ### END INIT INFO
 
 # Original version by Robert Leslie
