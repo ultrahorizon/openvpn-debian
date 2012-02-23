@@ -1,7 +1,9 @@
+Description: Man page fixes
+Author: Alberto Gonzalez Iniesta <agi@inittab.org>
 Index: openvpn/openvpn.8
 ===================================================================
---- openvpn.orig/openvpn.8	2012-02-23 17:55:50.671749317 +0100
-+++ openvpn/openvpn.8	2012-02-23 18:00:56.229264498 +0100
+--- openvpn.orig/openvpn.8	2012-02-23 18:21:36.731415822 +0100
++++ openvpn/openvpn.8	2012-02-23 18:24:34.620297924 +0100
 @@ -21,13 +21,13 @@
  .\"  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  .\"
@@ -45,6 +47,15 @@ Index: openvpn/openvpn.8
  of the CN.
  .\"*********************************************************
  .TP
+@@ -4664,7 +4664,7 @@
+ .B \-\-dev tun
+ mode, OpenVPN will cause the DHCP server to masquerade as if it were
+ coming from the remote endpoint.  The optional offset parameter is
+-an integer which is > -256 and < 256 and which defaults to 0.
++an integer which is > \-256 and < 256 and which defaults to 0.
+ If offset is positive, the DHCP server will masquerade as the IP
+ address at network address + offset.
+ If offset is negative, the DHCP server will masquerade as the IP
 @@ -4958,26 +4958,26 @@
  documentation of the IPv6-related options. More documentation can be
  found on http://www.greenie.net/ipv6/openvpn.html.

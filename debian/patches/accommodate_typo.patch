@@ -1,3 +1,5 @@
+Description: Simple spelling fix
+Author: Alberto Gonzalez Iniesta <agi@inittab.org>
 Index: openvpn/occ.c
 ===================================================================
 --- openvpn.orig/occ.c	2012-02-23 17:35:52.609808455 +0100
