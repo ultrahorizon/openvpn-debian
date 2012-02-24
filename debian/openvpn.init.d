@@ -70,7 +70,10 @@ start_vpn () {
             # Save the default value for send_redirects before disabling it
             # to make sure the tun device is created with send_redirects disabled
             SAVED_DEFAULT_SEND_REDIRECTS=$(sysctl -n net.ipv4.conf.default.send_redirects)
-            sysctl -w net.ipv4.conf.default.send_redirects=0 > /dev/null
+
+            if [ "$SAVED_DEFAULT_SEND_REDIRECTS" -ne 0 ]; then
+              sysctl -w net.ipv4.conf.default.send_redirects=0 > /dev/null
+            fi
         fi
     fi
 
@@ -86,7 +89,7 @@ start_vpn () {
     [ "$OMIT_SENDSIGS" -ne 1 ] || ln -s /var/run/openvpn.$NAME.pid /run/sendsigs.omit.d/openvpn.$NAME.pid
 
     # Set the back the original default value of send_redirects if it was changed
-    if [ -n "$SAVED_DEFAULT_SEND_REDIRECTS" ]; then
+    if [ "$SAVED_DEFAULT_SEND_REDIRECTS" -ne 0 ]; then
       sysctl -w net.ipv4.conf.default.send_redirects=$SAVED_DEFAULT_SEND_REDIRECTS > /dev/null
     fi
 }

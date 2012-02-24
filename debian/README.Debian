@@ -10,6 +10,7 @@ In this file:
 - Out of memory issues
 - LDAP+TLS authentication runs into file exhaustion
 - Possible consequences of the 'chroot' option
+- Disabling all.send_redirects on tun + topology subnet setups
 
 
 openvpn for Debian
@@ -216,4 +217,14 @@ Create an additional "dev/log" socket in the jail by "-a" option to sysklogd or
 
 Kudos to him, for finding out and proposing a solution.
 
- -- Alberto Gonzalez Iniesta <agi@inittab.org>  Fri, 09 Jul 2010 12:46:30 +0200
+
+Disabling all.send_redirects on tun + topology subnet setups
+------------------------------------------------------------
+
+If any of your VPNs uses "dev tun" and "topology subnet" but does not use
+"client-to-client", OpenVPN's init.d script will disable all.send_redirects
+(set it to 0) to avoid sending ICMP redirects trough the tun interfaces (and
+confusing clients).
+
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Fri, 24 Feb 2012 11:03:50 +0100
