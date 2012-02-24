@@ -33,8 +33,8 @@ override_dh_auto_clean:
 	-test -f openvpn.spec.not || mv openvpn.spec openvpn.spec.not
 	-test -f t_client.sh.not || mv t_client.sh t_client.sh.not
 	dh_auto_clean
-	mv openvpn.spec.not openvpn.spec
-	mv t_client.sh.not t_client.sh
+	-test -f openvpn.spec.not && mv openvpn.spec.not openvpn.spec
+	-test -f t_client.sh.not && mv t_client.sh.not t_client.sh
 	# clean plugins
 	$(MAKE) -C plugin/auth-pam/ clean
 	$(MAKE) -C plugin/down-root/ clean

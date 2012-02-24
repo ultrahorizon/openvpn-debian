@@ -3,6 +3,8 @@ openvpn (2.2.1-5) unstable; urgency=low
   * Avoid sending ICMP redirects when using tun devices and "subnet"
     topology. Thanks Simon Deziel for testing and the patch.
     (Closes: #656241)
+    The init.d script will set all.send_redirects=0 when using "dev tun"
+    and "topology subnet". More info in README.Debian.
   * Several manpage fixes
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Thu, 23 Feb 2012 17:25:54 +0100
