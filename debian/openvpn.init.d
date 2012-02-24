@@ -60,6 +60,7 @@ start_vpn () {
 
     # tun using the "subnet" topology confuses the routing code that wrongly
     # emits ICMP redirects for client to client communications
+    SAVED_DEFAULT_SEND_REDIRECTS=0
     if grep -q '^[[:space:]]*dev[[:space:]]*tun' $CONFIG_DIR/$NAME.conf && \
        grep -q '^[[:space:]]*topology[[:space:]]*subnet' $CONFIG_DIR/$NAME.conf ; then
         # When using "client-to-client", OpenVPN routes the traffic itself without
