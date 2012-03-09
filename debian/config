@@ -10,7 +10,7 @@ test $DEBIAN_SCRIPT_DEBUG && set -v -x
 . /usr/share/debconf/confmodule
 
 # Do we want to create /dev/net/tun?
-if [ ! -e /dev/.udev ] && [ ! -e /dev/net/tun ]; then
+if [ ! -e /run/udev ] && [ ! -e /dev/net/tun ]; then
   db_input medium openvpn/create_tun || true
   db_go
 fi

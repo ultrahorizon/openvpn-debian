@@ -1,3 +1,13 @@
+openvpn (2.2.1-6) unstable; urgency=low
+
+  * /run transition: Replaced usage of /dev/.udev with /run/udev,
+    when checking for the usage of udev. Depend on initscripts
+    (>= 2.88dsf-13.3) to guarantee the existence of /run/udev
+    in case udev is being used. (Closes: #644321)
+    Patch by Pieter du Preez.
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Fri, 09 Mar 2012 13:44:50 +0100
+
 openvpn (2.2.1-5) unstable; urgency=low
 
   * Avoid sending ICMP redirects when using tun devices and "subnet"

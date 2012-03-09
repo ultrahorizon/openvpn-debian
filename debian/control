@@ -8,7 +8,7 @@ Homepage: http://www.openvpn.net/
 
 Package: openvpn
 Architecture: any
-Depends: debconf | debconf-2.0, ${shlibs:Depends}, ${misc:Depends}, net-tools
+Depends: debconf | debconf-2.0, ${shlibs:Depends}, ${misc:Depends}, net-tools, initscripts (>= 2.88dsf-13.3)
 Suggests: openssl, resolvconf
 Description: virtual private network daemon
  OpenVPN is an application to securely tunnel IP networks over a
