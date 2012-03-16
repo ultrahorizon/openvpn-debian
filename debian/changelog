@@ -1,3 +1,11 @@
+openvpn (2.2.1-7) unstable; urgency=low
+
+  * Add dpkg-buildflags call on plugins built too.
+    Thanks Simon Ruderich for finding out, the nice patch and
+    clarification. (Closes: #655130)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Fri, 16 Mar 2012 10:49:28 +0100
+
 openvpn (2.2.1-6) unstable; urgency=low
 
   * /run transition: Replaced usage of /dev/.udev with /run/udev,

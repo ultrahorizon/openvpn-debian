@@ -8,3 +8,4 @@ ipv6-payload.patch
 kfreebsd_support.patch
 accommodate_typo.patch
 manpage_fixes.patch
+use-dpkg-buildflags.patch
