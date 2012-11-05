@@ -1,9 +1,9 @@
 Description: Man page fixes
 Author: Alberto Gonzalez Iniesta <agi@inittab.org>
-Index: openvpn/openvpn.8
+Index: openvpn/doc/openvpn.8
 ===================================================================
---- openvpn.orig/openvpn.8	2012-02-23 18:21:36.731415822 +0100
-+++ openvpn/openvpn.8	2012-02-23 18:24:34.620297924 +0100
+--- openvpn.orig/doc/openvpn.8	2012-11-05 16:46:31.765870008 +0100
++++ openvpn/doc/openvpn.8	2012-11-05 16:51:54.803471868 +0100
 @@ -21,13 +21,13 @@
  .\"  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  .\"
@@ -20,7 +20,16 @@ Index: openvpn/openvpn.8
  .\" .nf -- no formatting
  .\" .fi -- resume formatting
  .\" .ft 3 -- boldface
-@@ -3620,7 +3620,7 @@
+@@ -2506,7 +2506,7 @@
+ .B \-\-management-signal
+ Send SIGUSR1 signal to OpenVPN if management session disconnects.
+ This is useful when you wish to disconnect an OpenVPN session on
+-user logoff. For --management-client this option is not needed since
++user logoff. For \-\-management-client this option is not needed since
+ a disconnect will always generate a SIGTERM.
+ .\"*********************************************************
+ .TP
+@@ -3865,7 +3865,7 @@
  This option is only relevant in UDP mode, i.e.
  when either
  .B \-\-proto udp
@@ -29,16 +38,7 @@ Index: openvpn/openvpn.8
  .B \-\-proto
  option is specified.
  
-@@ -4352,7 +4352,7 @@
- .TP
- .B \-\-tls-export-cert directory
- Store the certificates the clients uses upon connection to this
--directory. This will be done before --tls-verify is called.  The
-+directory. This will be done before \-\-tls-verify is called.  The
- certificates will use a temporary name and will be deleted when
- the tls-verify script returns.  The file name used for the certificate
- is available via the peer_cert environment variable.
-@@ -4362,7 +4362,7 @@
+@@ -4650,7 +4650,7 @@
  Field in x509 certificate subject to be used as username (default=CN).
  .B Fieldname
  will be uppercased before matching. When this option is used, the
@@ -47,7 +47,16 @@ Index: openvpn/openvpn.8
  of the CN.
  .\"*********************************************************
  .TP
-@@ -4664,7 +4664,7 @@
+@@ -4935,7 +4935,7 @@
+ 
+ This option have changed behaviour in OpenVPN 2.3.  Earlier you had to
+ define
+-.B --win-sys env
++.B \-\-win-sys env
+ to use the SystemRoot environment variable, otherwise it defaulted to C:\\WINDOWS.
+ It is not needed to use the
+ .B env
+@@ -4978,7 +4978,7 @@
  .B \-\-dev tun
  mode, OpenVPN will cause the DHCP server to masquerade as if it were
  coming from the remote endpoint.  The optional offset parameter is
@@ -56,7 +65,7 @@ Index: openvpn/openvpn.8
  If offset is positive, the DHCP server will masquerade as the IP
  address at network address + offset.
  If offset is negative, the DHCP server will masquerade as the IP
-@@ -4958,26 +4958,26 @@
+@@ -5272,26 +5272,26 @@
  documentation of the IPv6-related options. More documentation can be
  found on http://www.greenie.net/ipv6/openvpn.html.
  .TP
@@ -91,7 +100,7 @@ Index: openvpn/openvpn.8
  Specify an IPv6 address pool for dynamic assignment to clients.  The
  pool starts at
  .B ipv6addr
-@@ -4985,20 +4985,20 @@
+@@ -5299,20 +5299,20 @@
  .B /bits
  setting controls the size of the pool.
  .TP
@@ -119,7 +128,7 @@ Index: openvpn/openvpn.8
  interact.
  
  .\"*********************************************************
-@@ -5417,7 +5417,7 @@
+@@ -5798,7 +5798,7 @@
  .TP
  .B peer_cert
  Temporary file name containing the client certificate upon

@@ -1,10 +1,10 @@
 Description: Unpriviledged group in Debian is called nogroup instead of nobody
 Author: Alberto Gonzalez Iniesta <agi@inittab.org>
 Bug-Debian: http://bugs.debian.org/317987
-Index: openvpn-2.1_rc15/sample-config-files/server.conf
+Index: openvpn/sample/sample-config-files/server.conf
 ===================================================================
---- openvpn-2.1_rc15.orig/sample-config-files/server.conf	2009-04-30 12:58:46.468752631 +0200
-+++ openvpn-2.1_rc15/sample-config-files/server.conf	2009-04-30 12:59:03.535984196 +0200
+--- openvpn.orig/sample/sample-config-files/server.conf	2012-11-05 16:29:30.264804667 +0100
++++ openvpn/sample/sample-config-files/server.conf	2012-11-05 16:43:32.080979003 +0100
 @@ -260,7 +260,7 @@
  # You can uncomment this out on
  # non-Windows systems.
@@ -14,10 +14,10 @@ Index: openvpn-2.1_rc15/sample-config-files/server.conf
  
  # The persist options will try to avoid
  # accessing certain resources on restart
-Index: openvpn-2.1_rc15/sample-config-files/tls-home.conf
+Index: openvpn/sample/sample-config-files/tls-home.conf
 ===================================================================
---- openvpn-2.1_rc15.orig/sample-config-files/tls-home.conf	2009-04-30 12:58:46.484747045 +0200
-+++ openvpn-2.1_rc15/sample-config-files/tls-home.conf	2009-04-30 12:59:03.536981682 +0200
+--- openvpn.orig/sample/sample-config-files/tls-home.conf	2012-11-05 16:29:30.264804667 +0100
++++ openvpn/sample/sample-config-files/tls-home.conf	2012-11-05 16:43:32.080979003 +0100
 @@ -51,7 +51,7 @@
  # "nobody" after initialization
  # for extra security.
@@ -27,10 +27,10 @@ Index: openvpn-2.1_rc15/sample-config-files/tls-home.conf
  
  # If you built OpenVPN with
  # LZO compression, uncomment
-Index: openvpn-2.1_rc15/sample-config-files/static-home.conf
+Index: openvpn/sample/sample-config-files/static-home.conf
 ===================================================================
---- openvpn-2.1_rc15.orig/sample-config-files/static-home.conf	2009-04-30 12:58:46.505740620 +0200
-+++ openvpn-2.1_rc15/sample-config-files/static-home.conf	2009-04-30 12:59:03.541035034 +0200
+--- openvpn.orig/sample/sample-config-files/static-home.conf	2012-11-05 16:29:30.264804667 +0100
++++ openvpn/sample/sample-config-files/static-home.conf	2012-11-05 16:43:32.080979003 +0100
 @@ -40,7 +40,7 @@
  # "nobody" after initialization
  # for extra security.
@@ -40,10 +40,10 @@ Index: openvpn-2.1_rc15/sample-config-files/static-home.conf
  
  # If you built OpenVPN with
  # LZO compression, uncomment
-Index: openvpn-2.1_rc15/sample-config-files/static-office.conf
+Index: openvpn/sample/sample-config-files/static-office.conf
 ===================================================================
---- openvpn-2.1_rc15.orig/sample-config-files/static-office.conf	2009-04-30 12:58:46.528733358 +0200
-+++ openvpn-2.1_rc15/sample-config-files/static-office.conf	2009-04-30 12:59:03.549976933 +0200
+--- openvpn.orig/sample/sample-config-files/static-office.conf	2012-11-05 16:29:30.264804667 +0100
++++ openvpn/sample/sample-config-files/static-office.conf	2012-11-05 16:43:32.084979030 +0100
 @@ -37,7 +37,7 @@
  # "nobody" after initialization
  # for extra security.
@@ -53,10 +53,10 @@ Index: openvpn-2.1_rc15/sample-config-files/static-office.conf
  
  # If you built OpenVPN with
  # LZO compression, uncomment
-Index: openvpn-2.1_rc15/sample-config-files/client.conf
+Index: openvpn/sample/sample-config-files/client.conf
 ===================================================================
---- openvpn-2.1_rc15.orig/sample-config-files/client.conf	2009-04-30 12:58:46.548728609 +0200
-+++ openvpn-2.1_rc15/sample-config-files/client.conf	2009-04-30 12:59:03.551976933 +0200
+--- openvpn.orig/sample/sample-config-files/client.conf	2012-11-05 16:29:30.264804667 +0100
++++ openvpn/sample/sample-config-files/client.conf	2012-11-05 16:43:32.084979030 +0100
 @@ -59,7 +59,7 @@
  
  # Downgrade privileges after initialization (non-Windows only)
@@ -66,10 +66,10 @@ Index: openvpn-2.1_rc15/sample-config-files/client.conf
  
  # Try to preserve some state across restarts.
  persist-key
-Index: openvpn-2.1_rc15/sample-config-files/tls-office.conf
+Index: openvpn/sample/sample-config-files/tls-office.conf
 ===================================================================
---- openvpn-2.1_rc15.orig/sample-config-files/tls-office.conf	2009-04-30 12:58:46.574722464 +0200
-+++ openvpn-2.1_rc15/sample-config-files/tls-office.conf	2009-04-30 12:59:03.553977212 +0200
+--- openvpn.orig/sample/sample-config-files/tls-office.conf	2012-11-05 16:29:30.264804667 +0100
++++ openvpn/sample/sample-config-files/tls-office.conf	2012-11-05 16:43:32.084979030 +0100
 @@ -51,7 +51,7 @@
  # "nobody" after initialization
  # for extra security.

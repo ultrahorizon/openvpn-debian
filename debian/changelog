@@ -1,3 +1,9 @@
+openvpn (2.3rc1-9) experimental; urgency=low
+
+  * Upload to experimental
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 05 Nov 2012 16:31:15 +0100
+
 openvpn (2.2.1-8) unstable; urgency=low
 
   * Enable "PIE" and "BINDOW" hardening flags.

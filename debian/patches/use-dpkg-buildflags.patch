@@ -3,8 +3,8 @@ Description: Use build flags from environment for plugins (dpkg-buildflags).
 Author: Simon Ruderich <simon@ruderich.org>
 Last-Update: 2012-03-16
 
---- openvpn-2.2.1.orig/plugin/auth-pam/Makefile
-+++ openvpn-2.2.1/plugin/auth-pam/Makefile
+--- openvpn-2.2.1.orig/src/plugins/auth-pam/Makefile
++++ openvpn-2.2.1/src/plugins/auth-pam/Makefile
 @@ -18,13 +18,13 @@ INCLUDE=-I../..
  CC_FLAGS=-O2 -Wall -DDLOPEN_PAM=$(DLOPEN_PAM)
  
@@ -22,8 +22,8 @@ Last-Update: 2012-03-16
  
  clean :
  	rm -f *.o *.so
---- openvpn-2.2.1.orig/plugin/down-root/Makefile
-+++ openvpn-2.2.1/plugin/down-root/Makefile
+--- openvpn-2.2.1.orig/src/plugins/down-root/Makefile
++++ openvpn-2.2.1/src/plugins/down-root/Makefile
 @@ -8,10 +8,10 @@ INCLUDE=-I../..
  CC_FLAGS=-O2 -Wall
  

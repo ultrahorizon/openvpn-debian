@@ -1,10 +1,10 @@
 Description: Simple spelling fix
 Author: Alberto Gonzalez Iniesta <agi@inittab.org>
-Index: openvpn/occ.c
+Index: openvpn/src/openvpn/occ.c
 ===================================================================
---- openvpn.orig/occ.c	2012-02-23 17:35:52.609808455 +0100
-+++ openvpn/occ.c	2012-02-23 17:37:34.086311649 +0100
-@@ -373,7 +373,7 @@
+--- openvpn.orig/src/openvpn/occ.c	2012-11-05 16:29:30.284804762 +0100
++++ openvpn/src/openvpn/occ.c	2012-11-05 16:49:06.630637944 +0100
+@@ -379,7 +379,7 @@
  	      && c->c2.max_send_size_local > TUN_MTU_MIN
  	      && (c->c2.max_recv_size_remote < c->c2.max_send_size_local
  		  || c->c2.max_recv_size_local < c->c2.max_send_size_remote))

@@ -4,11 +4,11 @@ Description: Set socket's FD_CLOEXEC flag before calling up script
 Author: Julien Cristau <jcristau@debian.org>
 Bug-Debian: http://bugs.debian.org/367716
 
-Index: openvpn-2.2.0/socket.c
+Index: openvpn/src/openvpn/socket.c
 ===================================================================
---- openvpn-2.2.0.orig/socket.c	2011-04-21 21:13:34.000000000 +0200
-+++ openvpn-2.2.0/socket.c	2011-05-10 16:18:35.300018716 +0200
-@@ -1327,6 +1327,10 @@
+--- openvpn.orig/src/openvpn/socket.c	2012-11-05 16:29:30.292804798 +0100
++++ openvpn/src/openvpn/socket.c	2012-11-05 16:42:09.072567383 +0100
+@@ -1491,6 +1491,10 @@
        resolve_bind_local (sock);
        resolve_remote (sock, 1, NULL, NULL);
      }
@@ -19,7 +19,7 @@ Index: openvpn-2.2.0/socket.c
  }
  
  /* finalize socket initialization */
-@@ -1532,10 +1536,6 @@
+@@ -1721,10 +1725,6 @@
    /* set socket to non-blocking mode */
    set_nonblock (sock->sd);
  
