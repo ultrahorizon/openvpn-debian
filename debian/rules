@@ -20,7 +20,7 @@ override_dh_auto_configure:
 override_dh_auto_build:
 	dh_auto_build
 	# The one shipped in the tarball gets rebuild (chaging /bin/sh in some cases)
-	sed -i -e '1s%.*%#!/bin/sh%' t_client.sh
+	sed -i -e '1s%.*%#!/bin/sh%' tests/t_client.sh
 	# make plugins
 # 	$(MAKE) -C plugin/auth-pam/ $(shell dpkg-buildflags --export=configure)
 # 	$(MAKE) -C plugin/down-root/ $(shell dpkg-buildflags --export=configure)
@@ -32,10 +32,10 @@ override_dh_auto_clean:
 	# These two get deleted on "make clean", but come in the tarball
 	# hack to keep them around after "make clean"
 	-test -f openvpn.spec.not || mv openvpn.spec openvpn.spec.not
-	-test -f t_client.sh.not || mv t_client.sh t_client.sh.not
+	-test -f tests/t_client.sh.not || mv tests/t_client.sh tests/t_client.sh.not
 	dh_auto_clean
 	-test -f openvpn.spec.not && mv openvpn.spec.not openvpn.spec
-	-test -f t_client.sh.not && mv t_client.sh.not t_client.sh
+	-test -f tests/t_client.sh.not && mv tests/t_client.sh.not tests/t_client.sh
 	# clean plugins
 # 	$(MAKE) -C plugin/auth-pam/ clean
 # 	$(MAKE) -C plugin/down-root/ clean
