@@ -14,7 +14,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 	dh $@
 
 override_dh_auto_configure:
-	dh_auto_configure -- $(shell dpkg-buildflags --export=configure) --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-ifconfig-path=/sbin/ifconfig --with-route-path=$(ROUTE_PATH)
+	dh_auto_configure -- $(shell dpkg-buildflags --export=configure) --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-ifconfig-path=/sbin/ifconfig --with-route-path=$(ROUTE_PATH) --with-plugindir=\$${prefix}/lib/openvpn --includedir=\$${prefix}/include/openvpn --sampledir=\$${prefix}/share/doc/openvpn/examples
 
 
 override_dh_auto_build:
@@ -45,16 +45,11 @@ override_dh_clean:
 
 override_dh_auto_install:
 	dh_auto_install
-	# install -m 755 sample/sample-scripts/verify-cn $(CURDIR)/debian/openvpn/usr/share/openvpn
+	install -m 755 sample/sample-scripts/verify-cn $(CURDIR)/debian/openvpn/usr/share/openvpn
 	install -m 755 debian/openvpn.if-up.d $(CURDIR)/debian/openvpn/etc/network/if-up.d/openvpn
 	install -m 755 debian/openvpn.if-down.d $(CURDIR)/debian/openvpn/etc/network/if-down.d/openvpn
-	# #install plugins
-	# install -m 644 plugin/auth-pam/openvpn-auth-pam.so $(CURDIR)/debian/openvpn/usr/lib/openvpn
-	# install -m 644 plugin/down-root/openvpn-down-root.so $(CURDIR)/debian/openvpn/usr/lib/openvpn
-	# install -m 644 plugin/auth-pam/README $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/README.auth-pam
-	# install -m 644 plugin/down-root/README $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/README.down-root
-	# # intall plugin headers 
-	# install -m 644 openvpn-plugin.h $(CURDIR)/debian/openvpn/usr/include/openvpn/openvpn-plugin.h
+	# remove unwanted plugin files
+	rm -f $(CURDIR)/debian/openvpn/usr/lib/openvpn/*.la
 	# resolvconf script
 	install -m 755 debian/update-resolv-conf $(CURDIR)/debian/openvpn/etc/openvpn/update-resolv-conf
 	# bash completion

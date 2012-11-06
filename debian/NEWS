@@ -1,6 +1,6 @@
 openvpn (2.1~rc15-1) unstable; urgency=low
 
-  * The openvpn utility changed its handling of pkcs11 certificates when it
+    The openvpn utility changed its handling of pkcs11 certificates when it
     switched from built-in code to the pkcs11-helper library (package
     libpkcs11-helper1 on Debian). This means that you will have to update your
     openvpn configuration files if you are using such certificates. For
@@ -52,7 +52,7 @@ openvpn (2.1~rc15-1) unstable; urgency=low
 
 openvpn (2.1~rc9-3) unstable; urgency=low
 
-  * Calling of external commands/scripts 
+    Calling of external commands/scripts 
 
     Starting with version 2.1~rc9, openvpn has a new option to control the
     ability to execute external commands (--script-security).
