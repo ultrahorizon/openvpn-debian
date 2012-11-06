@@ -1,6 +1,7 @@
 openvpn (2.3~rc1-1) experimental; urgency=low
 
   * Upload to experimental
+  * New upstream release with reworked build system
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 05 Nov 2012 16:31:15 +0100
 

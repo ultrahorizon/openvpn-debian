@@ -14,7 +14,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 	dh $@
 
 override_dh_auto_configure:
-	dh_auto_configure -- $(shell dpkg-buildflags --export=configure) --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-ifconfig-path=/sbin/ifconfig --with-route-path=$(ROUTE_PATH) --with-plugindir=\$${prefix}/lib/openvpn --includedir=\$${prefix}/include/openvpn --sampledir=\$${prefix}/share/doc/openvpn/examples
+	dh_auto_configure -- $(shell dpkg-buildflags --export=configure) --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-ifconfig-path=/sbin/ifconfig --with-route-path=$(ROUTE_PATH) --with-plugindir=\$${prefix}/lib/openvpn --includedir=\$${prefix}/include/openvpn
 
 
 override_dh_auto_build:
@@ -59,6 +59,7 @@ override_dh_installexamples:
 	dh_installexamples
 	## remove windoze stuff
 	rm -rf $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/easy-rsa/Windows
+	rm -rf $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/sample
 	# clean permissions to make lintian happy
 	# chmod a-x $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/easy-rsa/2.0/vars
 	# chmod a-x $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/easy-rsa/2.0/openssl-*.cnf

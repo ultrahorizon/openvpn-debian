@@ -1,3 +1,11 @@
+openvpn (2.3~rc1-1) experimental; urgency=low
+    
+    auth-pam and down-root plugins renamed to:
+    openvpn-plugin-auth-pam.so
+    openvpn-plugin-down-root.so
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Tue, 06 Nov 2012 13:22:13 +0100
+
 openvpn (2.1~rc15-1) unstable; urgency=low
 
     The openvpn utility changed its handling of pkcs11 certificates when it
