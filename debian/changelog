@@ -1,4 +1,4 @@
-openvpn (2.3-1) experimental; urgency=low
+openvpn (2.3.0-1) experimental; urgency=low
 
   * New upstream release
   * Add easy-rsa to Recommends
