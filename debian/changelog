@@ -1,3 +1,9 @@
+openvpn (2.3~rc1-2) UNRELEASED; urgency=low
+
+  * Add easy-rsa to Recommends
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 12 Nov 2012 16:56:47 +0100
+
 openvpn (2.3~rc1-1) experimental; urgency=low
 
   * Upload to experimental
