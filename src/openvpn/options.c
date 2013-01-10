@@ -2274,7 +2274,7 @@ options_postprocess_verify_ce (const struct options *options, const struct conne
 	    {
 	      notnull (options->cert_file, "certificate file (--cert) or PKCS#12 file (--pkcs12)");
 #ifdef MANAGMENT_EXTERNAL_KEY
-          if (!options->management_flags & MF_EXTERNAL_KEY)
+          if (!(options->management_flags & MF_EXTERNAL_KEY))
 #endif
 	      notnull (options->priv_key_file, "private key file (--key) or PKCS#12 file (--pkcs12)");
 	    }
@@ -2666,7 +2666,7 @@ options_postprocess_filechecks (struct options *options)
   errs |= check_file_access (CHKACC_FILE|CHKACC_INLINE, options->extra_certs_file, R_OK,
                              "--extra-certs");
 #ifdef MANAGMENT_EXTERNAL_KEY
-  if(!options->management_flags & MF_EXTERNAL_KEY)
+  if(!(options->management_flags & MF_EXTERNAL_KEY))
 #endif
      errs |= check_file_access (CHKACC_FILE|CHKACC_INLINE, options->priv_key_file, R_OK,
                              "--key");
@@ -2917,7 +2917,11 @@ options_string (const struct options *o,
   buf_printf (&out, ",link-mtu %d", EXPANDED_SIZE (frame));
   buf_printf (&out, ",tun-mtu %d", PAYLOAD_SIZE (frame));
   buf_printf (&out, ",proto %s", proto2ascii (proto_remote (o->ce.proto, remote), true));
-  if (o->tun_ipv6)
+
+  /* send tun_ipv6 only in peer2peer mode - in client/server mode, it
+   * is usually pushed by the server, triggering a non-helpful warning
+   */
+  if (o->tun_ipv6 && o->mode == MODE_POINT_TO_POINT && !PULL_DEFINED(o))
     buf_printf (&out, ",tun-ipv6");
 
   /*
@@ -3097,6 +3101,15 @@ options_warning_safe_scan2 (const int msglevel,
 			    const char *b1_name,
 			    const char *b2_name)
 {
+  /* we will stop sending 'proto xxx' in OCC in a future version
+   * (because it's not useful), and to reduce questions when
+   * interoperating, we start not-printing a warning about it today
+   */
+  if (strncmp(p1, "proto ", 6) == 0 )
+    {
+      return;
+    }
+
   if (strlen (p1) > 0)
     {
       struct gc_arena gc = gc_new ();
@@ -5141,6 +5154,11 @@ add_option (struct options *options,
 	  msg (msglevel, "--max-routes parameter is out of range");
 	  goto err;
 	}
+      if (options->routes || options->routes_ipv6)
+        {
+          msg (msglevel, "--max-routes must to be specifed before any route/route-ipv6/redirect-gateway option");
+          goto err;
+        }
       options->max_routes = max_routes;
     }
   else if (streq (p[0], "route-gateway") && p[1])
