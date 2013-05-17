@@ -1,3 +1,10 @@
+openvpn (2.3.0-2) unstable; urgency=low
+
+  * Applied patch use of non-constant-time memcmp in HMAC comparison.
+    (Closes: #707329)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Fri, 17 May 2013 11:54:31 +0200
+
 openvpn (2.3.0-1) experimental; urgency=low
 
   * New upstream release
