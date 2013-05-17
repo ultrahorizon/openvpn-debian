@@ -1,7 +1,7 @@
-openvpn (2.3.0-2) unstable; urgency=low
+openvpn (2.3.1-1) unstable; urgency=low
 
-  * Applied patch use of non-constant-time memcmp in HMAC comparison.
-    CVE-2013-2061 (Closes: #707329)
+  * New upstream version. Fixes use of non-constant-time memcmp in HMAC
+    comparison. CVE-2013-2061 (Closes: #707329)
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Fri, 17 May 2013 11:54:31 +0200
 

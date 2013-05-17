@@ -3,9 +3,9 @@ Author: Gonéri Le Bouder <goneri@rulezlan.org>
 Bug-Debian: http://bugs.debian.org/626062
 Index: openvpn/src/openvpn/route.c
 ===================================================================
---- openvpn.orig/src/openvpn/route.c	2012-11-05 16:29:30.292804798 +0100
-+++ openvpn/src/openvpn/route.c	2012-11-05 16:48:38.766499773 +0100
-@@ -1412,7 +1412,7 @@
+--- openvpn.orig/src/openvpn/route.c	2013-05-17 12:04:05.250078543 +0200
++++ openvpn/src/openvpn/route.c	2013-05-17 12:04:05.242078504 +0200
+@@ -1415,7 +1415,7 @@
    argv_msg (D_ROUTE, &argv);
    status = openvpn_execve_check (&argv, es, 0, "ERROR: Solaris route add command failed");
  
@@ -16,9 +16,9 @@ Index: openvpn/src/openvpn/route.c
  		ROUTE_PATH);
 Index: openvpn/src/openvpn/tun.c
 ===================================================================
---- openvpn.orig/src/openvpn/tun.c	2012-11-05 16:29:30.296804820 +0100
-+++ openvpn/src/openvpn/tun.c	2012-11-05 16:48:38.770499790 +0100
-@@ -1097,7 +1097,7 @@
+--- openvpn.orig/src/openvpn/tun.c	2013-05-17 12:04:05.250078543 +0200
++++ openvpn/src/openvpn/tun.c	2013-05-17 12:04:05.246078520 +0200
+@@ -1089,7 +1089,7 @@
  	  add_route_connected_v6_net(tt, es);
  	}
  
