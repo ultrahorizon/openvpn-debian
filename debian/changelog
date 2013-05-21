@@ -1,3 +1,9 @@
+openvpn (2.3.1-2) unstable; urgency=low
+
+  * Add net-tools to Build-Depends. (Closes: #709108)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Tue, 21 May 2013 12:31:39 +0200
+
 openvpn (2.3.1-1) unstable; urgency=low
 
   * New upstream version. Fixes use of non-constant-time memcmp in HMAC
