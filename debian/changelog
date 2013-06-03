@@ -1,3 +1,13 @@
+openvpn (2.3.2-1) unstable; urgency=low
+
+  * New upstream version.
+    Less messages about script security (Closes: #573129)
+  * Add --enable-pkcs11 to configure to avoid losing PKCS11.
+    Thanks Jaak Pruulmann-Vengerfeldt for noticing before the
+    upload! (Closes: #710085)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 03 Jun 2013 18:48:44 +0200
+
 openvpn (2.3.1-2) unstable; urgency=low
 
   * Add net-tools to Build-Depends. (Closes: #709108)
