@@ -1,3 +1,11 @@
+openvpn (2.3.2-3) unstable; urgency=low
+
+  * Add iproute2 support on linux archs.
+  * Add versioned Build-Depends on dpkg-dev since --export=configure
+    is used. (Closes: #697560)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Thu, 20 Jun 2013 13:23:24 +0200
+
 openvpn (2.3.2-2) unstable; urgency=low
 
   * Add pkg-config to Build-Depends while waiting for libpkcs11-helper1-dev's

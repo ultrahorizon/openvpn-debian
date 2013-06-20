@@ -2,9 +2,9 @@
 
 ifeq ($(DEB_HOST_ARCH_OS), kfreebsd)
 # Avoid the /sbin/route wrapper which doesn't provide FreeBSD CLI as expected
-ROUTE_PATH	:= /lib/freebsd/route
+ROUTE_ARGS	:= --with-route-path=/lib/freebsd/route
 else
-ROUTE_PATH	:= /sbin/route
+ROUTE_ARGS	:= --with-route-path=/sbin/route --with-iproute-path=/sbin/ip --enable-iproute2
 endif
 
 #export DH_VERBOSE=1
@@ -14,7 +14,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 	dh $@
 
 override_dh_auto_configure:
-	dh_auto_configure -- $(shell dpkg-buildflags --export=configure) --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-ifconfig-path=/sbin/ifconfig --with-route-path=$(ROUTE_PATH) --with-plugindir=\$${prefix}/lib/openvpn --includedir=\$${prefix}/include/openvpn --enable-pkcs11
+	dh_auto_configure -- $(shell dpkg-buildflags --export=configure) --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-ifconfig-path=/sbin/ifconfig $(ROUTE_ARGS) --with-plugindir=\$${prefix}/lib/openvpn --includedir=\$${prefix}/include/openvpn --enable-pkcs11
 
 
 override_dh_auto_build:

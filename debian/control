@@ -2,13 +2,13 @@ Source: openvpn
 Section: net
 Priority: optional
 Maintainer: Alberto Gonzalez Iniesta <agi@inittab.org>
-Build-Depends: debhelper (>= 7.0.50~), libssl-dev (>> 0.9.8g-9), liblzo2-dev, libpam0g-dev, libpkcs11-helper1-dev, net-tools, pkg-config
+Build-Depends: debhelper (>= 7.0.50~), libssl-dev (>> 0.9.8g-9), liblzo2-dev, libpam0g-dev, libpkcs11-helper1-dev, net-tools, pkg-config, dpkg-dev (>= 1.16.1)
 Standards-Version: 3.9.3
 Homepage: http://www.openvpn.net/
 
 Package: openvpn
 Architecture: any
-Depends: debconf | debconf-2.0, ${shlibs:Depends}, ${misc:Depends}, net-tools, initscripts (>= 2.88dsf-13.3)
+Depends: debconf | debconf-2.0, ${shlibs:Depends}, ${misc:Depends}, net-tools, initscripts (>= 2.88dsf-13.3), iproute [linux-any]
 Suggests: openssl, resolvconf
 Recommends: easy-rsa
 Description: virtual private network daemon
