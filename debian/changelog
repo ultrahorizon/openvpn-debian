@@ -1,3 +1,9 @@
+openvpn (2.3.2-4) unstable; urgency=low
+
+  * Fix depends on iproute to iproute2.
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Fri, 21 Jun 2013 11:17:52 +0200
+
 openvpn (2.3.2-3) unstable; urgency=low
 
   * Add iproute2 support on linux archs.
