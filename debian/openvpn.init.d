@@ -95,10 +95,13 @@ start_vpn () {
     fi
 }
 stop_vpn () {
-  kill `cat $PIDFILE` || true
-  rm -f $PIDFILE
-  [ "$OMIT_SENDSIGS" -ne 1 ] || rm -f /run/sendsigs.omit.d/openvpn.$NAME.pid
-  rm -f /var/run/openvpn.$NAME.status 2> /dev/null
+  start-stop-daemon --stop --quiet --oknodo \
+      --pidfile $PIDFILE --exec $DAEMON --retry 5
+  if [ "$?" -eq 0 ]; then
+    rm -f $PIDFILE
+    [ "$OMIT_SENDSIGS" -ne 1 ] || rm -f /run/sendsigs.omit.d/openvpn.$NAME.pid
+    rm -f /var/run/openvpn.$NAME.status 2> /dev/null
+  fi
 }
 
 case "$1" in
@@ -180,7 +183,6 @@ reload|force-reload)
 # If openvpn if running under a different user than root we'll need to restart
     if egrep '^[[:blank:]]*user[[:blank:]]' $CONFIG_DIR/$NAME.conf > /dev/null 2>&1 ; then
       stop_vpn
-      sleep 1
       start_vpn
       log_progress_msg "(restarted)"
     else
@@ -206,7 +208,6 @@ soft-restart)
 restart)
   shift
   $0 stop ${@}
-  sleep 1
   $0 start ${@}
   ;;
 cond-restart)
@@ -215,7 +216,6 @@ cond-restart)
     NAME=`echo $PIDFILE | cut -c18-`
     NAME=${NAME%%.pid}
     stop_vpn
-    sleep 1
     start_vpn
   done
   log_end_msg 0
