@@ -1,3 +1,12 @@
+openvpn (2.3.2-5) unstable; urgency=low
+
+  * Patch init script to fix race conditions on restarts.
+    (Closes: #716794). Thanks Simon Deziel for the patch.
+  * Improve update-resolv-conf script. Thanks Thomas Hood
+    for the patch. (Closes: #721082)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 15 Jul 2013 16:10:59 +0200
+
 openvpn (2.3.2-4) unstable; urgency=low
 
   * Fix depends on iproute to iproute2.
