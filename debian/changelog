@@ -3,6 +3,7 @@ openvpn (2.3.2-6) unstable; urgency=low
   * Move PID and status files to openvpn subdir in /run.
     (Closes: #614036). Thanks Stephen Gildea for the patch and Simon Deziel
     for the upgrade path.
+  * Add --enable-x509-alt-username option to ./configure
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Wed, 27 Nov 2013 13:58:33 +0100
 
