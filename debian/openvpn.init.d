@@ -55,8 +55,10 @@ start_vpn () {
       STATUSARG=""
     else
       # prepare default status file
-      STATUSARG="--status /var/run/openvpn.$NAME.status $STATUSREFRESH"
+      STATUSARG="--status /run/openvpn/$NAME.status $STATUSREFRESH"
     fi
+
+    mkdir -p /run/openvpn
 
     # tun using the "subnet" topology confuses the routing code that wrongly
     # emits ICMP redirects for client to client communications
@@ -82,12 +84,12 @@ start_vpn () {
     STATUS=0
 
     start-stop-daemon --start --quiet --oknodo \
-        --pidfile /var/run/openvpn.$NAME.pid \
-        --exec $DAEMON -- $OPTARGS --writepid /var/run/openvpn.$NAME.pid \
+        --pidfile /run/openvpn/$NAME.pid \
+        --exec $DAEMON -- $OPTARGS --writepid /run/openvpn/$NAME.pid \
         $DAEMONARG $STATUSARG --cd $CONFIG_DIR \
         --config $CONFIG_DIR/$NAME.conf || STATUS=1
 
-    [ "$OMIT_SENDSIGS" -ne 1 ] || ln -s /var/run/openvpn.$NAME.pid /run/sendsigs.omit.d/openvpn.$NAME.pid
+    [ "$OMIT_SENDSIGS" -ne 1 ] || ln -s /run/openvpn/$NAME.pid /run/sendsigs.omit.d/openvpn.$NAME.pid
 
     # Set the back the original default value of send_redirects if it was changed
     if [ "$SAVED_DEFAULT_SEND_REDIRECTS" -ne 0 ]; then
@@ -100,7 +102,7 @@ stop_vpn () {
   if [ "$?" -eq 0 ]; then
     rm -f $PIDFILE
     [ "$OMIT_SENDSIGS" -ne 1 ] || rm -f /run/sendsigs.omit.d/openvpn.$NAME.pid
-    rm -f /var/run/openvpn.$NAME.status 2> /dev/null
+    rm -f /run/openvpn/$NAME.status 2> /dev/null
   fi
 }
 
@@ -152,7 +154,7 @@ stop)
   log_daemon_msg "Stopping $DESC"
 
   if test -z "$2" ; then
-    for PIDFILE in `ls /var/run/openvpn.*.pid 2> /dev/null`; do
+    for PIDFILE in `ls /run/openvpn/*.pid 2> /dev/null`; do
       NAME=`echo $PIDFILE | cut -c18-`
       NAME=${NAME%%.pid}
       stop_vpn
@@ -161,8 +163,8 @@ stop)
   else
     while shift ; do
       [ -z "$1" ] && break
-      if test -e /var/run/openvpn.$1.pid ; then
-        PIDFILE=`ls /var/run/openvpn.$1.pid 2> /dev/null`
+      if test -e /run/openvpn/$1.pid ; then
+        PIDFILE=`ls /run/openvpn/$1.pid 2> /dev/null`
         NAME=`echo $PIDFILE | cut -c18-`
         NAME=${NAME%%.pid}
         stop_vpn
@@ -177,7 +179,7 @@ stop)
 # Only 'reload' running VPNs. New ones will only start with 'start' or 'restart'.
 reload|force-reload)
  log_daemon_msg "Reloading $DESC"
-  for PIDFILE in `ls /var/run/openvpn.*.pid 2> /dev/null`; do
+  for PIDFILE in `ls /run/openvpn/*.pid 2> /dev/null`; do
     NAME=`echo $PIDFILE | cut -c18-`
     NAME=${NAME%%.pid}
 # If openvpn if running under a different user than root we'll need to restart
@@ -196,7 +198,7 @@ reload|force-reload)
 # Only 'soft-restart' running VPNs. New ones will only start with 'start' or 'restart'.
 soft-restart)
  log_daemon_msg "$DESC sending SIGUSR1"
-  for PIDFILE in `ls /var/run/openvpn.*.pid 2> /dev/null`; do
+  for PIDFILE in `ls /run/openvpn/*.pid 2> /dev/null`; do
     NAME=`echo $PIDFILE | cut -c18-`
     NAME=${NAME%%.pid}
     kill -USR1 `cat $PIDFILE` || true
@@ -212,7 +214,7 @@ restart)
   ;;
 cond-restart)
   log_daemon_msg "Restarting $DESC."
-  for PIDFILE in `ls /var/run/openvpn.*.pid 2> /dev/null`; do
+  for PIDFILE in `ls /run/openvpn/*.pid 2> /dev/null`; do
     NAME=`echo $PIDFILE | cut -c18-`
     NAME=${NAME%%.pid}
     stop_vpn
@@ -259,9 +261,9 @@ status)
       fi
       if test "x$AUTOVPN" = "x1" ; then
         # If it is autostarted, then it contributes to global status
-        status_of_proc -p /var/run/openvpn.${NAME}.pid openvpn "VPN '${NAME}'" || GLOBAL_STATUS=1
+        status_of_proc -p /run/openvpn/${NAME}.pid openvpn "VPN '${NAME}'" || GLOBAL_STATUS=1
       else
-        status_of_proc -p /var/run/openvpn.${NAME}.pid openvpn "VPN '${NAME}' (non autostarted)" || true
+        status_of_proc -p /run/openvpn/${NAME}.pid openvpn "VPN '${NAME}' (non autostarted)" || true
       fi
     done
   else
@@ -272,7 +274,7 @@ status)
       NAME=$1
       if test -e $CONFIG_DIR/$NAME.conf ; then
         # Config exists
-        status_of_proc -p /var/run/openvpn.${NAME}.pid openvpn "VPN '${NAME}'" || GLOBAL_STATUS=1
+        status_of_proc -p /run/openvpn/${NAME}.pid openvpn "VPN '${NAME}'" || GLOBAL_STATUS=1
       else
         # Config does not exist
         log_warning_msg "VPN '$NAME': missing $CONFIG_DIR/$NAME.conf file !"
