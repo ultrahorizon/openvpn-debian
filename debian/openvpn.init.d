@@ -155,7 +155,7 @@ stop)
 
   if test -z "$2" ; then
     for PIDFILE in `ls /run/openvpn/*.pid 2> /dev/null`; do
-      NAME=`echo $PIDFILE | cut -c18-`
+      NAME=`echo $PIDFILE | cut -c14-`
       NAME=${NAME%%.pid}
       stop_vpn
       log_progress_msg "$NAME"
@@ -165,7 +165,7 @@ stop)
       [ -z "$1" ] && break
       if test -e /run/openvpn/$1.pid ; then
         PIDFILE=`ls /run/openvpn/$1.pid 2> /dev/null`
-        NAME=`echo $PIDFILE | cut -c18-`
+        NAME=`echo $PIDFILE | cut -c14-`
         NAME=${NAME%%.pid}
         stop_vpn
         log_progress_msg "$NAME"
@@ -180,7 +180,7 @@ stop)
 reload|force-reload)
  log_daemon_msg "Reloading $DESC"
   for PIDFILE in `ls /run/openvpn/*.pid 2> /dev/null`; do
-    NAME=`echo $PIDFILE | cut -c18-`
+    NAME=`echo $PIDFILE | cut -c14-`
     NAME=${NAME%%.pid}
 # If openvpn if running under a different user than root we'll need to restart
     if egrep '^[[:blank:]]*user[[:blank:]]' $CONFIG_DIR/$NAME.conf > /dev/null 2>&1 ; then
@@ -199,7 +199,7 @@ reload|force-reload)
 soft-restart)
  log_daemon_msg "$DESC sending SIGUSR1"
   for PIDFILE in `ls /run/openvpn/*.pid 2> /dev/null`; do
-    NAME=`echo $PIDFILE | cut -c18-`
+    NAME=`echo $PIDFILE | cut -c14-`
     NAME=${NAME%%.pid}
     kill -USR1 `cat $PIDFILE` || true
     log_progress_msg "$NAME"
@@ -215,7 +215,7 @@ restart)
 cond-restart)
   log_daemon_msg "Restarting $DESC."
   for PIDFILE in `ls /run/openvpn/*.pid 2> /dev/null`; do
-    NAME=`echo $PIDFILE | cut -c18-`
+    NAME=`echo $PIDFILE | cut -c14-`
     NAME=${NAME%%.pid}
     stop_vpn
     start_vpn
