@@ -26,6 +26,8 @@ case "$1" in
     for f in /run/sendsigs.omit.d/openvpn.*.pid; do
       [ -e "$f" ] && continue
       b="$(basename $f|sed 's/openvpn\.//')"
+      # make sure is a vpn name, not *.pid (#730679)
+      echo "$b" | grep -q '\*' && continue
       ln -sf "/run/openvpn/$b" "/run/sendsigs.omit.d/openvpn.$b"
     done
   ;;

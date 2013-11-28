@@ -1,3 +1,10 @@
+openvpn (2.3.2-7) unstable; urgency=low
+
+  * Fix postinst when no *.pid files exist in /run/sendsigs.omit.d/.
+    (Closes: #730679)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Thu, 28 Nov 2013 13:05:31 +0100
+
 openvpn (2.3.2-6) unstable; urgency=low
 
   * Move PID and status files to openvpn subdir in /run.
