@@ -1,6 +1,8 @@
 #!/bin/sh
 
-OPENVPN=/etc/init.d/openvpn
+OPENVPN=/usr/sbin/openvpn
+OPENVPN_INIT=/etc/init.d/openvpn
+SYSTEMCTL=/bin/systemctl
 
 if [ ! -x $OPENVPN ]; then
   exit 0
@@ -8,6 +10,11 @@ fi
 
 if [ -n "$IF_OPENVPN" ]; then
   for vpn in $IF_OPENVPN; do
-    $OPENVPN start $vpn
+    ## check systemd present
+    if [ -x $SYSTEMCTL ]; then
+      $SYSTEMCTL start openvpn@$vpn
+    else
+      $OPENVPN_INIT start $vpn
+    fi
   done
 fi

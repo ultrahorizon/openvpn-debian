@@ -1,3 +1,10 @@
+openvpn (2.3.2-8) unstable; urgency=medium
+
+  * Add support for systemd. (Closes: #700888)
+    Add openvpn@.service and --enable-systemd to ./configure.
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Fri, 14 Mar 2014 12:59:57 +0100
+
 openvpn (2.3.2-7) unstable; urgency=low
 
   * Fix postinst when no *.pid files exist in /run/sendsigs.omit.d/.
