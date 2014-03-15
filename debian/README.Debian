@@ -57,6 +57,14 @@ Just put the names after the action (start|stop), like this:
 
 /etc/init.d/openvpn start vpn1 vpn4 vpn5
 
+This only works with sysvinit(-core), if you're running systemd, you cannot
+pass arguments to init.d scripts. 
+
+In order to start/stop a particular VPN you may use:
+# service openvpn@VPN_NAME start
+or
+# systemctl start openvpn@VPN_NAME
+
 /etc/network/interfaces
 -----------------------
 
