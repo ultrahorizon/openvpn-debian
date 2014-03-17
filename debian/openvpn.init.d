@@ -58,8 +58,6 @@ start_vpn () {
       STATUSARG="--status /run/openvpn/$NAME.status $STATUSREFRESH"
     fi
 
-    mkdir -p /run/openvpn
-
     # tun using the "subnet" topology confuses the routing code that wrongly
     # emits ICMP redirects for client to client communications
     SAVED_DEFAULT_SEND_REDIRECTS=0
@@ -109,6 +107,11 @@ stop_vpn () {
 case "$1" in
 start)
   log_daemon_msg "Starting $DESC"
+
+  # first create /run directory so it's present even
+  # when no VPN are autostarted by this script, but later
+  # by systemd openvpn@.service
+  mkdir -p /run/openvpn
 
   # autostart VPNs
   if test -z "$2" ; then
