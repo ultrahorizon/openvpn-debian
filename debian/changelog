@@ -2,6 +2,7 @@ openvpn (2.3.2-10) UNRELEASED; urgency=medium
 
   * Install tmpfiles.d configuration to create /run/openvpn in
     systemd.
+  * Add reload to openvpn@.service.
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 17 Mar 2014 19:40:12 +0100
 
