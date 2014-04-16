@@ -1,2 +1,4 @@
 debian/openvpn@.service /lib/systemd/system
 debian/openvpn.conf	/usr/lib/tmpfiles.d
+debian/openvpn.service /lib/systemd/system
+debian/openvpn-systemd-helper /usr/sbin

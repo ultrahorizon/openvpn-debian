@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenVPN service
+After=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/openvpn-systemd-helper start
+ExecStop=/usr/sbin/openvpn-systemd-helper stop
+ExecReload=/usr/sbin/openvpn-systemd-helper reload
+WorkingDirectory=/etc/openvpn
+
+[Install]
+WantedBy=multi-user.target
+
+
