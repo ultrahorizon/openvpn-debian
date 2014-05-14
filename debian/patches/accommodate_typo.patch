@@ -2,8 +2,8 @@ Description: Simple spelling fix
 Author: Alberto Gonzalez Iniesta <agi@inittab.org>
 Index: openvpn/src/openvpn/occ.c
 ===================================================================
---- openvpn.orig/src/openvpn/occ.c	2012-11-05 16:29:30.284804762 +0100
-+++ openvpn/src/openvpn/occ.c	2012-11-05 16:49:06.630637944 +0100
+--- openvpn.orig/src/openvpn/occ.c	2014-05-14 12:58:59.805184504 +0200
++++ openvpn/src/openvpn/occ.c	2014-05-14 12:58:59.805184504 +0200
 @@ -379,7 +379,7 @@
  	      && c->c2.max_send_size_local > TUN_MTU_MIN
  	      && (c->c2.max_recv_size_remote < c->c2.max_send_size_local

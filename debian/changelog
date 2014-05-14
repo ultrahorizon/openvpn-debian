@@ -6,6 +6,8 @@ openvpn (2.3.3-1) experimental; urgency=medium
   * New upstream release
   * New openvpn.service to override LSB script when running systemd.
     (Closes: #700888)
+  * Apply patch from upstream's BTS to improve systemd detection.
+    (Closes: #747265)
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 17 Mar 2014 19:40:12 +0100
 

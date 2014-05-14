@@ -6,9 +6,9 @@ Bug-Debian: http://bugs.debian.org/367716
 
 Index: openvpn/src/openvpn/socket.c
 ===================================================================
---- openvpn.orig/src/openvpn/socket.c	2012-11-05 16:29:30.292804798 +0100
-+++ openvpn/src/openvpn/socket.c	2012-11-05 16:42:09.072567383 +0100
-@@ -1491,6 +1491,10 @@
+--- openvpn.orig/src/openvpn/socket.c	2014-05-14 12:58:44.345184272 +0200
++++ openvpn/src/openvpn/socket.c	2014-05-14 12:58:44.341184271 +0200
+@@ -1493,6 +1493,10 @@
        resolve_bind_local (sock);
        resolve_remote (sock, 1, NULL, NULL);
      }
@@ -19,7 +19,7 @@ Index: openvpn/src/openvpn/socket.c
  }
  
  /* finalize socket initialization */
-@@ -1721,10 +1725,6 @@
+@@ -1723,10 +1727,6 @@
    /* set socket to non-blocking mode */
    set_nonblock (sock->sd);
  
