@@ -17,8 +17,6 @@
 # VPN you want to start on boot
 # 
 
-echo "$*" > /tmp/ovpn
-
 test $DEBIAN_SCRIPT_DEBUG && set -v -x
 
 DAEMON=/usr/sbin/openvpn
@@ -54,7 +52,6 @@ else
   done
 fi
 
-
 case "$1" in
 start)
   for NAME in $VPNS ; do
@@ -80,20 +77,8 @@ reload)
     fi
   done
   ;;
-restart)
-  for NAME in $VPNS ; do
-    systemctl restart openvpn@${NAME}
-    [ "$?" -ne 0 ] && { echo "Error stopping $NAME"; STATUS=1; }
-  done
-  ;;
-cond-restart|soft-restart)
-  for NAME in $VPNS ; do
-    systemctl condrestart openvpn@${NAME}
-    [ "$?" -ne 0 ] && { echo "Error stopping $NAME"; STATUS=1; }
-  done
-  ;;
 *)
-  echo "Usage: $0 {start|stop|reload|restart|cond-restart}" >&2
+  echo "Usage: $0 {start|stop|reload}" >&2
   exit 1
   ;;
 esac
