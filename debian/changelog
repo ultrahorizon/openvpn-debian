@@ -2,7 +2,7 @@ openvpn (2.3.3-1) experimental; urgency=medium
 
   * Install tmpfiles.d configuration to create /run/openvpn in
     systemd. Properly fixing #741938.
-  * Add reload to openvpn@.service.
+  * Add reload to openvpn@.service. (Closes: #747840)
   * New upstream release
   * New openvpn.service to override LSB script when running systemd.
     (Closes: #700888)
