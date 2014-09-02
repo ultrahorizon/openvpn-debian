@@ -1,3 +1,10 @@
+openvpn (2.3.3-2) unstable; urgency=medium
+
+  * Upload to unstable.
+  * Add Turkish debconf translation. (Closes: #759879)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Tue, 02 Sep 2014 12:06:06 +0200
+
 openvpn (2.3.3-1) experimental; urgency=medium
 
   * Install tmpfiles.d configuration to create /run/openvpn in
