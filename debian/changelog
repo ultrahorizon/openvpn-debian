@@ -1,6 +1,7 @@
-openvpn (2.3.3-2) unstable; urgency=medium
+openvpn (2.3.4-1) unstable; urgency=medium
 
   * Upload to unstable.
+  * New upstream release. (Closes: #752568)
   * Add Turkish debconf translation. (Closes: #759879)
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Tue, 02 Sep 2014 12:06:06 +0200
