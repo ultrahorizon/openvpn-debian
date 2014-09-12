@@ -7,6 +7,11 @@
 # The VPN name refers to the VPN configutation file name.
 # i.e. "home" would be /etc/openvpn/home.conf
 #
+# If you're running systemd, changing this variable will
+# require running "systemctl daemon-reload" followed by
+# a restart of the openvpn service (if you removed entries
+# you may have to stop those manually)
+#
 #AUTOSTART="all"
 #AUTOSTART="none"
 #AUTOSTART="home office"

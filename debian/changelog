@@ -3,6 +3,9 @@ openvpn (2.3.4-1) unstable; urgency=medium
   * Upload to unstable.
   * New upstream release. (Closes: #752568)
   * Add Turkish debconf translation. (Closes: #759879)
+  * Replace openvpn-systemd-helper with a systemd generator.
+    Thanks Ondřej Surý, Ansgar Burchardt and postgresql-common for
+    the ideas, help and inspiration.
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Tue, 02 Sep 2014 12:06:06 +0200
 

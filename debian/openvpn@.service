@@ -1,6 +1,7 @@
 [Unit]
 Description=OpenVPN connection to %i
-After=network.target
+PartOf=openvpn.service
+ReloadPropagatedFrom=openvpn.service
 
 [Service]
 Type=forking
