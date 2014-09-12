@@ -6,6 +6,8 @@ openvpn (2.3.4-1) unstable; urgency=medium
   * Replace openvpn-systemd-helper with a systemd generator.
     Thanks Ondřej Surý, Ansgar Burchardt and postgresql-common for
     the ideas, help and inspiration.
+  * Bumped Standards-Version to 3.9.5
+  * debian/control: Add Vcs-*
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Tue, 02 Sep 2014 12:06:06 +0200
 
