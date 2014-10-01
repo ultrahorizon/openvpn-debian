@@ -1,3 +1,10 @@
+openvpn (2.3.4-2) unstable; urgency=medium
+
+  * openvpn.service. Remove ExecStop, add ExecReload.
+    Fixes reload of openvpn service. (Closes: #763411)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Tue, 30 Sep 2014 13:05:45 +0200
+
 openvpn (2.3.4-1) unstable; urgency=medium
 
   * Upload to unstable.
