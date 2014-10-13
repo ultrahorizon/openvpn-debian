@@ -1,3 +1,10 @@
+openvpn (2.3.4-3) unstable; urgency=medium
+
+  * Apply patch by Samuel Thibault to clean up temporary files.
+    (Closes: #764651). Thanks Samuel!
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 13 Oct 2014 18:24:03 +0200
+
 openvpn (2.3.4-2) unstable; urgency=medium
 
   * openvpn.service. Remove ExecStop, add ExecReload.
