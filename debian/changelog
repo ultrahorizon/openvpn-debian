@@ -1,3 +1,9 @@
+openvpn (2.3.5-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Wed, 29 Oct 2014 17:44:06 +0100
+
 openvpn (2.3.4-3) unstable; urgency=medium
 
   * Apply patch by Samuel Thibault to clean up temporary files.
