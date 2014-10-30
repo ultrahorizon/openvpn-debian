@@ -6,5 +6,3 @@ route_default_nil.patch
 kfreebsd_support.patch
 accommodate_typo.patch
 manpage_fixes.patch
-better_systemd_detection.patch
-client_connect_tmp_files.patch
