@@ -16,6 +16,9 @@
 #AUTOSTART="none"
 #AUTOSTART="home office"
 #
+# WARNING: If you're running systemd the rest of the
+# options in this file are ignored.
+#
 # Refresh interval (in seconds) of default status files
 # located in /var/run/openvpn.$NAME.status
 # Defaults to 10, 0 disables status file generation

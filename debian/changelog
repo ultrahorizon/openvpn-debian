@@ -1,3 +1,12 @@
+openvpn (2.3.4-4) unstable; urgency=medium
+
+  * Use dh-systemd in order to enable the service unit.
+    (Closes: #768411)
+  * Add comment on /etc/default/openvpn file about options
+    not supported on systemd. (Closes: #768384)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Fri, 07 Nov 2014 13:59:54 +0100
+
 openvpn (2.3.4-3) unstable; urgency=medium
 
   * Apply patch by Samuel Thibault to clean up temporary files.
