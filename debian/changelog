@@ -2,6 +2,8 @@ openvpn (2.3.4-5) unstable; urgency=high
 
   * Apply upstream patch that fixes possible DoS by authenticated
     clients. CVE-2014-8104
+  * Patch sample certs since they were expired and made the package
+    build fail. (Closes: #770835)
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 01 Dec 2014 16:10:37 +0100
 
