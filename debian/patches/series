@@ -8,3 +8,4 @@ accommodate_typo.patch
 manpage_fixes.patch
 better_systemd_detection.patch
 client_connect_tmp_files.patch
+0001-Drop-too-short-control-channel-packets-instead-of-as.patch
