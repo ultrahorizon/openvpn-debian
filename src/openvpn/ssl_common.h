@@ -277,6 +277,7 @@ struct tls_options
   const char *auth_user_pass_verify_script;
   bool auth_user_pass_verify_script_via_file;
   const char *tmp_dir;
+  const char *auth_user_pass_file;
 
   /* use the client-config-dir as a positive authenticator */
   const char *client_config_dir_exclusive;
@@ -291,8 +292,10 @@ struct tls_options
 # define SSLF_AUTH_USER_PASS_OPTIONAL  (1<<2)
 # define SSLF_OPT_VERIFY               (1<<4)
 # define SSLF_CRL_VERIFY_DIR           (1<<5)
-# define SSLF_TLS_VERSION_SHIFT        6
-# define SSLF_TLS_VERSION_MASK         0xF /* (uses bit positions 6 to 9) */
+# define SSLF_TLS_VERSION_MIN_SHIFT    6
+# define SSLF_TLS_VERSION_MIN_MASK     0xF /* (uses bit positions 6 to 9) */
+# define SSLF_TLS_VERSION_MAX_SHIFT    10
+# define SSLF_TLS_VERSION_MAX_MASK     0xF /* (uses bit positions 10 to 13) */
   unsigned int ssl_flags;
 
 #ifdef MANAGEMENT_DEF_AUTH
@@ -488,6 +491,10 @@ struct tls_multi
   time_t tas_last;
 #endif
 
+  /* For P_DATA_V2 */
+  uint32_t peer_id;
+  bool use_peer_id;
+
   /*
    * Our session objects.
    */
@@ -497,5 +504,10 @@ struct tls_multi
                                  *   sessions with the remote peer. */
 };
 
+
+#define SHOW_TLS_CIPHER_LIST_WARNING \
+  "Be aware that that whether a cipher suite in this list can actually work\n" \
+  "depends on the specific setup of both peers. See the man page entries of\n" \
+  "--tls-cipher and --show-tls for more details.\n\n"
 
 #endif /* SSL_COMMON_H_ */
