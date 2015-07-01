@@ -6,3 +6,5 @@ route_default_nil.patch
 kfreebsd_support.patch
 accommodate_typo.patch
 manpage_fixes.patch
+0001-Drop-too-short-control-channel-packets-instead-of-as.patch
+update_sample_certs.patch

@@ -7,6 +7,24 @@ openvpn (2.3.5-1) unstable; urgency=medium
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Wed, 29 Oct 2014 17:44:06 +0100
 
+openvpn (2.3.4-5) unstable; urgency=high
+
+  * Apply upstream patch that fixes possible DoS by authenticated
+    clients. CVE-2014-8104
+  * Patch sample certs since they were expired and made the package
+    build fail. (Closes: #770835)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 01 Dec 2014 16:10:37 +0100
+
+openvpn (2.3.4-4) unstable; urgency=medium
+
+  * Use dh-systemd in order to enable the service unit.
+    (Closes: #768411)
+  * Add comment on /etc/default/openvpn file about options
+    not supported on systemd. (Closes: #768384)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Fri, 07 Nov 2014 13:59:54 +0100
+
 openvpn (2.3.4-3) unstable; urgency=medium
 
   * Apply patch by Samuel Thibault to clean up temporary files.
