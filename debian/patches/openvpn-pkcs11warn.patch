@@ -3,9 +3,9 @@ Author: Florian Kulzer <florian.kulzer+debian@icfo.es>
 Bug-Debian: http://bugs.debian.org/475353
 Index: openvpn/src/openvpn/options.c
 ===================================================================
---- openvpn.orig/src/openvpn/options.c	2014-10-30 11:31:06.334658772 +0100
-+++ openvpn/src/openvpn/options.c	2014-10-30 11:31:06.330658772 +0100
-@@ -6247,6 +6247,20 @@
+--- openvpn.orig/src/openvpn/options.c	2015-07-01 14:10:25.083929500 +0200
++++ openvpn/src/openvpn/options.c	2015-07-01 14:10:25.083929500 +0200
+@@ -6293,6 +6293,20 @@
      {
        VERIFY_PERMISSION (OPT_P_ROUTE_EXTRAS);
      }
