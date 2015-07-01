@@ -13,7 +13,7 @@ if [ -n "$IF_OPENVPN" ]; then
   for vpn in $IF_OPENVPN; do
     ## check systemd present
     if [ -d $SYSTEMD ]; then
-      $SYSTEMCTL start openvpn@$vpn
+      $SYSTEMCTL --no-block start openvpn@$vpn
     else
       $OPENVPN_INIT start $vpn
     fi
