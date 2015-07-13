@@ -1,3 +1,10 @@
+openvpn (2.3.7-2) UNRELEASED; urgency=medium
+
+  * debian/control: Move libsystemd-daemon-dev Build-Dep to libsystemd-dev.
+    (Closes: #791904)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 13 Jul 2015 19:27:39 +0200
+
 openvpn (2.3.7-1) unstable; urgency=medium
 
   * New upstream version
