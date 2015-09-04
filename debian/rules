@@ -2,9 +2,11 @@
 
 ifeq ($(DEB_HOST_ARCH_OS), kfreebsd)
 # Avoid the /sbin/route wrapper which doesn't provide FreeBSD CLI as expected
-ROUTE_ARGS	:= --with-route-path=/lib/freebsd/route
+ENV_VARS	:= IFCONFIG=/sbin/ifconfig ROUTE=/lib/freebsd/route
+EXTRA_ARGS	:= 
 else
-ROUTE_ARGS	:= --with-route-path=/sbin/route --with-iproute-path=/sbin/ip --enable-iproute2
+ENV_VARS	:= SYSTEMD_ASK_PASSWORD=/bin/systemd-ask-password IFCONFIG=/sbin/ifconfig ROUTE=/sbin/route IPROUTE=/sbin/ip
+EXTRA_ARGS	:= --enable-systemd --enable-iproute2
 endif
 
 #export DH_VERBOSE=1
@@ -14,7 +16,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 	dh $@ --with systemd
 
 override_dh_auto_configure:
-	dh_auto_configure -- $(shell dpkg-buildflags --export=configure) --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-plugindir=\$${prefix}/lib/openvpn --includedir=\$${prefix}/include/openvpn --enable-pkcs11 --enable-x509-alt-username --enable-systemd
+	$(ENV_VARS) dh_auto_configure -- $(shell dpkg-buildflags --export=configure) --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-plugindir=\$${prefix}/lib/openvpn --includedir=\$${prefix}/include/openvpn --enable-pkcs11 --enable-x509-alt-username $(EXTRA_ARGS)
 
 
 override_dh_auto_build:
