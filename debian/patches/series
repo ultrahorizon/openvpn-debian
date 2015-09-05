@@ -6,4 +6,3 @@ route_default_nil.patch
 kfreebsd_support.patch
 accommodate_typo.patch
 manpage_fixes.patch
-configure_systemd-daemon.patch
