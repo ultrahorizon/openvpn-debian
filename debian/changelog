@@ -1,15 +1,22 @@
 openvpn (2.3.8-1) unstable; urgency=medium
 
-  * debian/control: Move libsystemd-daemon-dev Build-Dep to libsystemd-dev.
-    (Closes: #791904). Add systemd as Build-Dep on [linux-any]
-  * New upstream release. (Closes: #791829)
+  * New upstream release. Drop patch from 2.3.7-2.
   * debian/rules: remove obsolete options (*-path) to configure
   * openvpn@.service: Use KillMode=mixed to fix signaling of some plugins.
     (Closes: #792907). Also add PrivateTmp & LimitNPROC options.
     Thanks Daniel Hahler for the patch.
-  * Bumped Standards-Version to 3.9.6
 
- -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 10 Aug 2015 16:46:20 +0200
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  ZZZZZZZZZZZZZZZZZZ
+
+openvpn (2.3.7-2) unstable; urgency=medium
+
+  * Move libsystemd-daemon-dev Build-Dep to libsystemd-dev.
+    Add Build-Dep on systemd. (Closes: #791904)
+  * Bumped Standards-Version to 3.9.6
+  * Apply upstream patch to fix stdin password prompt.
+    (Closes: #791829)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Tue, 08 Sep 2015 08:23:19 +0000
 
 openvpn (2.3.7-1) unstable; urgency=medium
 
