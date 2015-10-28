@@ -1,12 +1,13 @@
 openvpn (2.3.8-1) unstable; urgency=medium
 
   * New upstream release. Drop patch from 2.3.7-2.
+    Hopefully (Closes: #791829)
   * debian/rules: remove obsolete options (*-path) to configure
   * openvpn@.service: Use KillMode=mixed to fix signaling of some plugins.
     (Closes: #792907). Also add PrivateTmp & LimitNPROC options.
     Thanks Daniel Hahler for the patch.
 
- -- Alberto Gonzalez Iniesta <agi@inittab.org>  ZZZZZZZZZZZZZZZZZZ
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Wed, 28 Oct 2015 17:34:26 +0100
 
 openvpn (2.3.7-2) unstable; urgency=medium
 
