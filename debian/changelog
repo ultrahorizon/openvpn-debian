@@ -2,6 +2,8 @@ openvpn (2.3.8-1) unstable; urgency=medium
 
   * New upstream release. Drop patch from 2.3.7-2.
     Hopefully (Closes: #791829)
+  * Apply upstream fix for systemd password prompt that
+    delayed this upload. Sorry SysV users.
   * debian/rules: remove obsolete options (*-path) to configure
   * openvpn@.service: Use KillMode=mixed to fix signaling of some plugins.
     (Closes: #792907). Also add PrivateTmp & LimitNPROC options.
