@@ -7,6 +7,8 @@ openvpn (2.3.10-1) unstable; urgency=medium
   * Increase start-stop-daemon timeout on stop to let openvpn
     tear down the connection properly in some cases.
     (Closes: #799592, #796914)
+  * Add CAP_AUDIT_WRITE to openvpn@.service CapabilityBoundingSet
+    to fix auth-pam plugin. (Closes: #795313)
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Wed, 20 Jan 2016 12:01:36 +0100
 
