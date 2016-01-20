@@ -2,6 +2,7 @@
 Description=OpenVPN connection to %i
 PartOf=openvpn.service
 ReloadPropagatedFrom=openvpn.service
+Before=systemd-user-sessions.service
 Documentation=man:openvpn(8)
 Documentation=https://community.openvpn.net/openvpn/wiki/Openvpn23ManPage
 Documentation=https://community.openvpn.net/openvpn/wiki/HOWTO
