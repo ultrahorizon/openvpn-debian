@@ -1,6 +1,6 @@
 openvpn (2.3.10-1) unstable; urgency=medium
 
-  * New upstream release.
+  * New upstream release. (Closes: #804368)
     Drop password_prompt_in_systemd.patch. Applied upstream.
   * Unify pidfile path on systemd and sysV. (Closes: #811010)
     Thanks Guillem Jover for noticing.
