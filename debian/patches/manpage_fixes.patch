@@ -2,8 +2,8 @@ Description: Man page fixes
 Author: Alberto Gonzalez Iniesta <agi@inittab.org>
 Index: openvpn/doc/openvpn.8
 ===================================================================
---- openvpn.orig/doc/openvpn.8	2015-09-04 13:13:36.785038213 +0200
-+++ openvpn/doc/openvpn.8	2015-09-04 13:13:36.781038257 +0200
+--- openvpn.orig/doc/openvpn.8	2016-01-20 12:02:48.997189277 +0100
++++ openvpn/doc/openvpn.8	2016-01-20 12:02:48.993189319 +0100
 @@ -21,13 +21,13 @@
  .\"  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  .\"
@@ -20,7 +20,7 @@ Index: openvpn/doc/openvpn.8
  .\" .nf -- no formatting
  .\" .fi -- resume formatting
  .\" .ft 3 -- boldface
-@@ -4007,7 +4007,7 @@
+@@ -4005,7 +4005,7 @@
  This option is only relevant in UDP mode, i.e.
  when either
  .B \-\-proto udp
@@ -29,7 +29,7 @@ Index: openvpn/doc/openvpn.8
  .B \-\-proto
  option is specified.
  
-@@ -5282,7 +5282,7 @@
+@@ -5277,7 +5277,7 @@
  .B \-\-dev tun
  mode, OpenVPN will cause the DHCP server to masquerade as if it were
  coming from the remote endpoint.  The optional offset parameter is
