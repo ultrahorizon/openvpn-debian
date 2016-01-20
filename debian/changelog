@@ -4,6 +4,9 @@ openvpn (2.3.10-1) unstable; urgency=medium
     Drop password_prompt_in_systemd.patch. Applied upstream.
   * Unify pidfile path on systemd and sysV. (Closes: #811010)
     Thanks Guillem Jover for noticing.
+  * Increase start-stop-daemon timeout on stop to let openvpn
+    tear down the connection properly in some cases.
+    (Closes: #799592, #796914)
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Wed, 20 Jan 2016 12:01:36 +0100
 

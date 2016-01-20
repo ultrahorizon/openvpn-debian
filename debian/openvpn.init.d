@@ -96,7 +96,7 @@ start_vpn () {
 }
 stop_vpn () {
   start-stop-daemon --stop --quiet --oknodo \
-      --pidfile $PIDFILE --exec $DAEMON --retry 5
+      --pidfile $PIDFILE --exec $DAEMON --retry 10
   if [ "$?" -eq 0 ]; then
     rm -f $PIDFILE
     [ "$OMIT_SENDSIGS" -ne 1 ] || rm -f /run/sendsigs.omit.d/openvpn.$NAME.pid
