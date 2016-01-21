@@ -11,6 +11,8 @@ openvpn (2.3.10-1) unstable; urgency=medium
     to fix auth-pam plugin. (Closes: #795313)
   * Patch from Martin Pitt to start OpenVPN before user sessions
     to avoid hidding possible password prompts. (Closes: #803032)
+  * Make another copy of t_client.sh to help keeping the build
+    environment clean. (Closes: #765447)
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Wed, 20 Jan 2016 12:01:36 +0100
 

@@ -16,6 +16,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 	dh $@ --with systemd
 
 override_dh_auto_configure:
+	-test -f tests/t_client.sh.not || mv tests/t_client.sh tests/t_client.sh.not
 	$(ENV_VARS) dh_auto_configure -- $(shell dpkg-buildflags --export=configure) --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-plugindir=\$${prefix}/lib/openvpn --includedir=\$${prefix}/include/openvpn --enable-pkcs11 --enable-x509-alt-username $(EXTRA_ARGS)
 
 
