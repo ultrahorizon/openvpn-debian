@@ -3,6 +3,8 @@ openvpn (2.3.11-1) unstable; urgency=medium
   * New upstream release.
   * tun.c: patch to fix FTBFS in kfreebsd. (Closes: #815283)
     Thanks Steven Chamberlain for the patch.
+  * README.Debian: Document limits in the service file.
+    (Closes: #819919, #823621)
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Tue, 10 May 2016 17:41:53 +0200
 

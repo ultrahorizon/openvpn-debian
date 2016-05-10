@@ -1,5 +1,6 @@
 In this file:
 
+- systemd service file and limits/capabilities
 - 'writepid' option warning
 - Multiple tunnels
 - Starting or stopping multiple tunnels with a single command
@@ -25,6 +26,18 @@ tun device file. If it's not present on your system, you may create one
 with these commands (as root):
 # mkdir /dev/net
 # mknod /dev/net/tun c 10 200
+
+systemd service file and limits/capabilities
+--------------------------------------------
+
+If you encounter problems [1] or errors related to permissions starting
+OpenVPN, you may want to check the limits imposed to the OpenVPN service in
+/lib/systemd/system/openvpn@.service, notably CapabilityBoundingSet and
+LimitNPROC. You may override those with a custom openvpn@.service file in
+/etc/systemd/system/.
+
+[1] daemon() failed or unsupported: Resource temporarily unavailable (errno=11)
+[2] Failed running command (--route-up): external program exited with error status: 1
 
 'writepid' option warning
 -------------------------
@@ -116,7 +129,7 @@ can look like this:
       bridge_ports eth0 tap0
       pre-up openvpn --mktun --dev tap0
 
-It's recommended to read the manpage - man 5 bridge-utils-interfaces - aswell.
+It's recommended to read the manpage - man 5 bridge-utils-interfaces - as well.
 
 
 #####################################
