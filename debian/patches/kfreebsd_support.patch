@@ -3,8 +3,8 @@ Author: Gonéri Le Bouder <goneri@rulezlan.org>
 Bug-Debian: http://bugs.debian.org/626062
 Index: openvpn/src/openvpn/route.c
 ===================================================================
---- openvpn.orig/src/openvpn/route.c	2016-01-20 12:02:41.441269913 +0100
-+++ openvpn/src/openvpn/route.c	2016-01-20 12:02:41.437269956 +0100
+--- openvpn.orig/src/openvpn/route.c	2016-05-10 17:46:23.708838589 +0200
++++ openvpn/src/openvpn/route.c	2016-05-10 17:46:23.704838624 +0200
 @@ -1421,7 +1421,7 @@
    argv_msg (D_ROUTE, &argv);
    status = openvpn_execve_check (&argv, es, 0, "ERROR: Solaris route add command failed");
@@ -16,8 +16,17 @@ Index: openvpn/src/openvpn/route.c
  		ROUTE_PATH);
 Index: openvpn/src/openvpn/tun.c
 ===================================================================
---- openvpn.orig/src/openvpn/tun.c	2016-01-20 12:02:41.441269913 +0100
-+++ openvpn/src/openvpn/tun.c	2016-01-20 12:02:41.437269956 +0100
+--- openvpn.orig/src/openvpn/tun.c	2016-05-10 17:46:23.708838589 +0200
++++ openvpn/src/openvpn/tun.c	2016-05-10 17:46:39.656696603 +0200
+@@ -625,7 +625,7 @@
+ }
+ #endif
+ 
+-#if defined(TARGET_FREEBSD)||defined(TARGET_DRAGONFLY)
++#if defined(TARGET_FREEBSD)||defined(__FreeBSD_kernel__)||defined(TARGET_DRAGONFLY)
+ /* we can't use true subnet mode on tun on all platforms, as that
+  * conflicts with IPv6 (wants to use ND then, which we don't do),
+  * but the OSes want "a remote address that is different from ours"
 @@ -1124,7 +1124,7 @@
  	  add_route_connected_v6_net(tt, es);
  	}
