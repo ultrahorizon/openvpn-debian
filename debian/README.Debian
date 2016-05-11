@@ -30,11 +30,15 @@ with these commands (as root):
 systemd service file and limits/capabilities
 --------------------------------------------
 
-If you encounter problems [1] or errors related to permissions starting
+If you encounter problems [1] (or errors related to permissions) starting
 OpenVPN, you may want to check the limits imposed to the OpenVPN service in
 /lib/systemd/system/openvpn@.service, notably CapabilityBoundingSet and
-LimitNPROC. You may override those with a custom openvpn@.service file in
-/etc/systemd/system/.
+LimitNPROC. You may override those executing:
+# systemctl edit openvpn@.service
+
+And setting CapabilityBoundingSet (or LimitNPROC) to be empty:
+[Service]
+CapabilityBoundingSet=
 
 [1] daemon() failed or unsupported: Resource temporarily unavailable (errno=11)
 [2] Failed running command (--route-up): external program exited with error status: 1
