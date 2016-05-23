@@ -38,7 +38,7 @@ LimitNPROC. You may override those executing:
 
 And setting CapabilityBoundingSet (or LimitNPROC) to be empty:
 [Service]
-CapabilityBoundingSet=
+CapabilityBoundingSet=~
 
 [1] daemon() failed or unsupported: Resource temporarily unavailable (errno=11)
 [2] Failed running command (--route-up): external program exited with error status: 1

@@ -1,3 +1,10 @@
+openvpn (2.3.11-2) unstable; urgency=medium
+
+  * Remove dependency on initscripts. (Closes: #804968)
+  * README.Debian. Fix CapabilityBoundingSet reference.
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 23 May 2016 09:55:30 +0200
+
 openvpn (2.3.11-1) unstable; urgency=medium
 
   * New upstream release.
