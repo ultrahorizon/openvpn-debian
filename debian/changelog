@@ -1,6 +1,9 @@
 openvpn (2.4~beta1-1) experimental; urgency=medium
 
   * New upstream release
+  * Change Build-Dep on libssl-dev to libssl1.0-dev since upstream is not
+    transitioning to libssl1.1 yet.
+  * Moved to debhelper compat 9.
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 21 Nov 2016 10:15:40 +0100
 
