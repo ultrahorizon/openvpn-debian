@@ -42,9 +42,12 @@
 #include "integer.h"
 #include "crypto.h"
 #include "crypto_backend.h"
-#include <openssl/objects.h>
-#include <openssl/evp.h>
+
 #include <openssl/des.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
+#include <openssl/objects.h>
+#include <openssl/ssl.h>
 
 /*
  * Check for key size creepage.
@@ -56,41 +59,6 @@
 
 #if MAX_HMAC_KEY_LENGTH < EVP_MAX_MD_SIZE
 #warning Some OpenSSL HMAC message digests now support key lengths greater than MAX_HMAC_KEY_LENGTH -- consider increasing MAX_HMAC_KEY_LENGTH
-#endif
-
-/*
- *
- * Workarounds for incompatibilites between OpenSSL libraries.
- * Right now we accept OpenSSL libraries from 0.9.5 to 0.9.7.
- *
- */
-
-#if SSLEAY_VERSION_NUMBER < 0x00907000L
-
-/* Workaround: EVP_CIPHER_mode is defined wrong in OpenSSL 0.9.6 but is fixed in 0.9.7 */
-#undef EVP_CIPHER_mode
-#define EVP_CIPHER_mode(e)                (((e)->flags) & EVP_CIPH_MODE)
-
-#define DES_cblock                        des_cblock
-#define DES_is_weak_key                   des_is_weak_key
-#define DES_check_key_parity              des_check_key_parity
-#define DES_set_odd_parity                des_set_odd_parity
-
-#define HMAC_CTX_init(ctx)                CLEAR (*ctx)
-#define HMAC_Init_ex(ctx,sec,len,md,impl) HMAC_Init(ctx, sec, len, md)
-#define HMAC_CTX_cleanup(ctx)             HMAC_cleanup(ctx)
-#define EVP_MD_CTX_cleanup(md)            CLEAR (*md)
-
-#define INFO_CALLBACK_SSL_CONST
-
-#endif
-
-#ifndef EVP_CIPHER_name
-#define EVP_CIPHER_name(e)		OBJ_nid2sn(EVP_CIPHER_nid(e))
-#endif
-
-#ifndef EVP_MD_name
-#define EVP_MD_name(e)			OBJ_nid2sn(EVP_MD_type(e))
 #endif
 
 #if HAVE_OPENSSL_ENGINE
@@ -179,14 +147,6 @@ crypto_init_lib_engine (const char *engine_name)
 void
 crypto_init_lib (void)
 {
-#ifndef ENABLE_SSL
-  /* If SSL is enabled init is taken care of in ssl_openssl.c */
-#ifndef ENABLE_SMALL
-  ERR_load_crypto_strings ();
-#endif
-  OpenSSL_add_all_algorithms ();
-#endif
-
   /*
    * If you build the OpenSSL library and OpenVPN with
    * CRYPTO_MDEBUG, you will get a listing of OpenSSL
@@ -201,14 +161,6 @@ crypto_init_lib (void)
 void
 crypto_uninit_lib (void)
 {
-#ifndef ENABLE_SSL
-  /* If SSL is enabled cleanup is taken care of in ssl_openssl.c */
-  EVP_cleanup ();
-#ifndef ENABLE_SMALL
-  ERR_free_strings ();
-#endif
-#endif
-
 #ifdef CRYPTO_MDEBUG
   FILE* fp = fopen ("sdlog", "w");
   ASSERT (fp);
@@ -237,8 +189,20 @@ crypto_print_openssl_errors(const unsigned int flags) {
   size_t err = 0;
 
   while ((err = ERR_get_error ()))
-    msg (flags, "OpenSSL: %s", ERR_error_string (err, NULL));
+    {
+      /* Be more clear about frequently occurring "no shared cipher" error */
+      if (err == ERR_PACK(ERR_LIB_SSL,SSL_F_SSL3_GET_CLIENT_HELLO,
+	  SSL_R_NO_SHARED_CIPHER))
+	{
+	  msg (D_CRYPT_ERRORS, "TLS error: The server has no TLS ciphersuites "
+	      "in common with the client. Your --tls-cipher setting might be "
+	      "too restrictive.");
+	}
+
+      msg (flags, "OpenSSL: %s", ERR_error_string (err, NULL));
+    }
 }
+
 
 /*
  *
@@ -276,55 +240,97 @@ crypto_init_dmalloc (void)
 }
 #endif /* DMALLOC */
 
-const char *
-translate_cipher_name_from_openvpn (const char *cipher_name) {
-  // OpenSSL doesn't require any translation
-  return cipher_name;
+const cipher_name_pair cipher_name_translation_table[] = {
+    { "AES-128-GCM", "id-aes128-GCM" },
+    { "AES-192-GCM", "id-aes192-GCM" },
+    { "AES-256-GCM", "id-aes256-GCM" },
+};
+const size_t cipher_name_translation_table_count =
+    sizeof (cipher_name_translation_table) / sizeof (*cipher_name_translation_table);
+
+
+static int
+cipher_name_cmp(const void *a, const void *b)
+{
+  const EVP_CIPHER * const *cipher_a = a;
+  const EVP_CIPHER * const *cipher_b = b;
+
+  const char *cipher_name_a =
+      translate_cipher_name_to_openvpn(EVP_CIPHER_name(*cipher_a));
+  const char *cipher_name_b =
+      translate_cipher_name_to_openvpn(EVP_CIPHER_name(*cipher_b));
+
+  return strcmp(cipher_name_a, cipher_name_b);
 }
 
-const char *
-translate_cipher_name_to_openvpn (const char *cipher_name) {
-  // OpenSSL doesn't require any translation
-  return cipher_name;
+static void
+print_cipher(const EVP_CIPHER *cipher)
+{
+  const char *var_key_size =
+	(EVP_CIPHER_flags (cipher) & EVP_CIPH_VARIABLE_LENGTH) ?
+	     " by default" : "";
+  const char *ssl_only = cipher_kt_mode_cbc(cipher) ?
+	"" : ", TLS client/server mode only";
+
+  printf ("%s  (%d bit key%s, %d bit block%s)\n",
+	translate_cipher_name_to_openvpn (EVP_CIPHER_name (cipher)),
+	EVP_CIPHER_key_length (cipher) * 8, var_key_size,
+	cipher_kt_block_size (cipher) * 8, ssl_only);
 }
 
 void
 show_available_ciphers ()
 {
   int nid;
+  size_t i;
 
+  /* If we ever exceed this, we must be more selective */
+  const size_t cipher_list_len = 1000;
+  const EVP_CIPHER *cipher_list[cipher_list_len];
+  size_t num_ciphers = 0;
 #ifndef ENABLE_SMALL
-  printf ("The following ciphers and cipher modes are available\n"
-	  "for use with " PACKAGE_NAME ".  Each cipher shown below may be\n"
-	  "used as a parameter to the --cipher option.  The default\n"
-	  "key size is shown as well as whether or not it can be\n"
-          "changed with the --keysize directive.  Using a CBC mode\n"
-	  "is recommended. In static key mode only CBC mode is allowed.\n\n");
+  printf ("The following ciphers and cipher modes are available for use\n"
+	  "with " PACKAGE_NAME ".  Each cipher shown below may be use as a\n"
+	  "parameter to the --cipher option.  The default key size is\n"
+	  "shown as well as whether or not it can be changed with the\n"
+          "--keysize directive.  Using a CBC or GCM mode is recommended.\n"
+	  "In static key mode only CBC mode is allowed.\n\n");
 #endif
 
-  for (nid = 0; nid < 10000; ++nid)	/* is there a better way to get the size of the nid list? */
+  for (nid = 0; nid < 10000; ++nid)
     {
-      const EVP_CIPHER *cipher = EVP_get_cipherbynid (nid);
-      if (cipher)
-	{
-	  if (cipher_kt_mode_cbc(cipher)
+      const EVP_CIPHER *cipher = EVP_get_cipherbynid(nid);
+      if (cipher && (cipher_kt_mode_cbc(cipher)
 #ifdef ENABLE_OFB_CFB_MODE
 	      || cipher_kt_mode_ofb_cfb(cipher)
 #endif
-	      )
-	    {
-	      const char *var_key_size =
-		  (EVP_CIPHER_flags (cipher) & EVP_CIPH_VARIABLE_LENGTH) ?
-		       "variable" : "fixed";
-	      const char *ssl_only = cipher_kt_mode_ofb_cfb(cipher) ?
-		  " (TLS client/server mode)" : "";
-
-	      printf ("%s %d bit default key (%s)%s\n", OBJ_nid2sn (nid),
-		      EVP_CIPHER_key_length (cipher) * 8, var_key_size,
-		      ssl_only);
-	    }
+#ifdef HAVE_AEAD_CIPHER_MODES
+	      || cipher_kt_mode_aead(cipher)
+#endif
+          ))
+	{
+	  cipher_list[num_ciphers++] = cipher;
+	}
+      if (num_ciphers == cipher_list_len)
+	{
+	  msg (M_WARN, "WARNING: Too many ciphers, not showing all");
+	  break;
 	}
     }
+
+  qsort (cipher_list, num_ciphers, sizeof(*cipher_list), cipher_name_cmp);
+
+  for (i = 0; i < num_ciphers; i++) {
+      if (cipher_kt_block_size(cipher_list[i]) >= 128/8)
+	print_cipher(cipher_list[i]);
+  }
+
+  printf ("\nThe following ciphers have a block size of less than 128 bits, \n"
+	  "and are therefore deprecated.  Do not use unless you have to.\n\n");
+  for (i = 0; i < num_ciphers; i++) {
+      if (cipher_kt_block_size(cipher_list[i]) < 128/8)
+	print_cipher(cipher_list[i]);
+  }
   printf ("\n");
 }
 
@@ -498,13 +504,20 @@ cipher_kt_get (const char *ciphername)
   cipher = EVP_get_cipherbyname (ciphername);
 
   if (NULL == cipher)
-    crypto_msg (M_FATAL, "Cipher algorithm '%s' not found", ciphername);
+    {
+      crypto_msg (D_LOW, "Cipher algorithm '%s' not found", ciphername);
+      return NULL;
+    }
+
 
   if (EVP_CIPHER_key_length (cipher) > MAX_CIPHER_KEY_LENGTH)
-    msg (M_FATAL, "Cipher algorithm '%s' uses a default key size (%d bytes) which is larger than " PACKAGE_NAME "'s current maximum key size (%d bytes)",
-	 ciphername,
-	 EVP_CIPHER_key_length (cipher),
-	 MAX_CIPHER_KEY_LENGTH);
+    {
+      msg (D_LOW, "Cipher algorithm '%s' uses a default key size (%d bytes) "
+	  "which is larger than " PACKAGE_NAME "'s current maximum key size "
+	  "(%d bytes)", ciphername, EVP_CIPHER_key_length (cipher),
+	  MAX_CIPHER_KEY_LENGTH);
+      return NULL;
+    }
 
   return cipher;
 }
@@ -530,9 +543,46 @@ cipher_kt_iv_size (const EVP_CIPHER *cipher_kt)
 }
 
 int
-cipher_kt_block_size (const EVP_CIPHER *cipher_kt)
+cipher_kt_block_size (const EVP_CIPHER *cipher) {
+  /* OpenSSL reports OFB/CFB/GCM cipher block sizes as '1 byte'.  To work
+   * around that, try to replace the mode with 'CBC' and return the block size
+   * reported for that cipher, if possible.  If that doesn't work, just return
+   * the value reported by OpenSSL.
+   */
+  char *name = NULL;
+  char *mode_str = NULL;
+  const char *orig_name = NULL;
+  const EVP_CIPHER *cbc_cipher = NULL;
+
+  int block_size = EVP_CIPHER_block_size(cipher);
+
+  orig_name = cipher_kt_name(cipher);
+  if (!orig_name)
+    goto cleanup;
+
+  name = string_alloc(translate_cipher_name_to_openvpn(orig_name), NULL);
+  mode_str = strrchr (name, '-');
+  if (!mode_str || strlen(mode_str) < 4)
+    goto cleanup;
+
+  strcpy (mode_str, "-CBC");
+
+  cbc_cipher = EVP_get_cipherbyname(translate_cipher_name_from_openvpn(name));
+  if (cbc_cipher)
+    block_size = EVP_CIPHER_block_size(cbc_cipher);
+
+cleanup:
+  free (name);
+  return block_size;
+}
+
+int
+cipher_kt_tag_size (const EVP_CIPHER *cipher_kt)
 {
-  return EVP_CIPHER_block_size (cipher_kt);
+  if (cipher_kt_mode_aead(cipher_kt))
+    return OPENVPN_AEAD_TAG_LENGTH;
+  else
+    return 0;
 }
 
 int
@@ -563,6 +613,16 @@ cipher_kt_mode_ofb_cfb(const cipher_kt_t *cipher)
       && !(EVP_CIPHER_flags(cipher) & EVP_CIPH_FLAG_AEAD_CIPHER)
 #endif
     ;
+}
+
+bool
+cipher_kt_mode_aead(const cipher_kt_t *cipher)
+{
+#ifdef HAVE_AEAD_CIPHER_MODES
+  return cipher && (cipher_kt_mode(cipher) == OPENVPN_MODE_GCM);
+#else
+  return false;
+#endif
 }
 
 /*
@@ -606,6 +666,15 @@ cipher_ctx_iv_length (const EVP_CIPHER_CTX *ctx)
   return EVP_CIPHER_CTX_iv_length (ctx);
 }
 
+int cipher_ctx_get_tag (EVP_CIPHER_CTX *ctx, uint8_t *tag_buf, int tag_size)
+{
+#ifdef HAVE_AEAD_CIPHER_MODES
+  return EVP_CIPHER_CTX_ctrl (ctx, EVP_CTRL_GCM_GET_TAG, tag_size, tag_buf);
+#else
+  ASSERT (0);
+#endif
+}
+
 int
 cipher_ctx_block_size(const EVP_CIPHER_CTX *ctx)
 {
@@ -621,7 +690,7 @@ cipher_ctx_mode (const EVP_CIPHER_CTX *ctx)
 const cipher_kt_t *
 cipher_ctx_get_cipher_kt (const cipher_ctx_t *ctx)
 {
-  return EVP_CIPHER_CTX_cipher(ctx);
+  return ctx ? EVP_CIPHER_CTX_cipher(ctx) : NULL;
 }
 
 
@@ -629,6 +698,19 @@ int
 cipher_ctx_reset (EVP_CIPHER_CTX *ctx, uint8_t *iv_buf)
 {
   return EVP_CipherInit (ctx, NULL, NULL, iv_buf, -1);
+}
+
+int
+cipher_ctx_update_ad (EVP_CIPHER_CTX *ctx, const uint8_t *src, int src_len)
+{
+#ifdef HAVE_AEAD_CIPHER_MODES
+  int len;
+  if (!EVP_CipherUpdate (ctx, NULL, &len, src, src_len))
+    crypto_msg(M_FATAL, "%s: EVP_CipherUpdate() failed", __func__);
+  return 1;
+#else
+  ASSERT (0);
+#endif
 }
 
 int
@@ -646,6 +728,20 @@ cipher_ctx_final (EVP_CIPHER_CTX *ctx, uint8_t *dst, int *dst_len)
   return EVP_CipherFinal (ctx, dst, dst_len);
 }
 
+int
+cipher_ctx_final_check_tag (EVP_CIPHER_CTX *ctx, uint8_t *dst, int *dst_len,
+    uint8_t *tag, size_t tag_len)
+{
+#ifdef HAVE_AEAD_CIPHER_MODES
+  ASSERT (tag_len < SIZE_MAX);
+  if (!EVP_CIPHER_CTX_ctrl (ctx, EVP_CTRL_GCM_SET_TAG, tag_len, tag))
+    return 0;
+
+  return cipher_ctx_final (ctx, dst, dst_len);
+#else
+  ASSERT (0);
+#endif
+}
 
 void
 cipher_des_encrypt_ecb (const unsigned char key[DES_KEY_LENGTH],
