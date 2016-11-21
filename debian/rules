@@ -69,6 +69,8 @@ override_dh_installexamples:
 
 override_dh_installinit:
 	dh_installinit --no-start -- defaults 16 80
+	install -m 644 distro/systemd/openvpn-server@.service $(CURDIR)/debian/openvpn/lib/systemd/system
+	install -m 644 distro/systemd/openvpn-client@.service $(CURDIR)/debian/openvpn/lib/systemd/system
 
 override_dh_compress:
 	dh_compress --exclude=.cnf --exclude=pkitool

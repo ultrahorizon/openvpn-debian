@@ -6,10 +6,10 @@ Bug-Debian: http://bugs.debian.org/367716
 
 Index: openvpn/src/openvpn/socket.c
 ===================================================================
---- openvpn.orig/src/openvpn/socket.c	2016-05-10 17:41:14.575583789 +0200
-+++ openvpn/src/openvpn/socket.c	2016-05-10 17:41:14.571583824 +0200
-@@ -1502,6 +1502,10 @@
-       resolve_bind_local (sock);
+--- openvpn.orig/src/openvpn/socket.c	2016-11-21 09:58:03.562096178 +0100
++++ openvpn/src/openvpn/socket.c	2016-11-21 10:01:20.143091482 +0100
+@@ -1625,6 +1625,10 @@
+       }
        resolve_remote (sock, 1, NULL, NULL);
      }
 +
@@ -18,8 +18,8 @@ Index: openvpn/src/openvpn/socket.c
 +  set_cloexec (sock->sd);
  }
  
- /* finalize socket initialization */
-@@ -1732,10 +1736,6 @@
+ static
+@@ -1677,10 +1681,6 @@
    /* set socket to non-blocking mode */
    set_nonblock (sock->sd);
  
@@ -27,6 +27,6 @@ Index: openvpn/src/openvpn/socket.c
 -     scripts don't have access to it */
 -  set_cloexec (sock->sd);
 -
- #ifdef ENABLE_SOCKS
    if (socket_defined (sock->ctrl_sd))
      set_cloexec (sock->ctrl_sd);
+ 

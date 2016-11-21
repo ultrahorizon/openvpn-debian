@@ -2,9 +2,9 @@ Description: Fix small wording in man page.
 Author: Alberto Gonzalez Iniesta <agi@inittab.org>
 Index: openvpn/doc/openvpn.8
 ===================================================================
---- openvpn.orig/doc/openvpn.8	2015-07-01 14:10:31.563860364 +0200
-+++ openvpn/doc/openvpn.8	2015-07-01 14:10:31.559860407 +0200
-@@ -989,7 +989,7 @@
+--- openvpn.orig/doc/openvpn.8	2016-11-21 09:54:04.404957249 +0100
++++ openvpn/doc/openvpn.8	2016-11-21 09:54:04.400957231 +0100
+@@ -973,7 +973,7 @@
  otherwise 0.
  
  The default can be specified by leaving an option blank or setting

@@ -3,6 +3,4 @@ close_socket_before_scripts.patch
 debian_nogroup_for_sample_files.patch
 openvpn-pkcs11warn.patch
 route_default_nil.patch
-kfreebsd_support.patch
-accommodate_typo.patch
-manpage_fixes.patch
+#kfreebsd_support.patch
