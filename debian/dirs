@@ -1,4 +1,6 @@
 etc/openvpn
+etc/openvpn/client
+etc/openvpn/server
 etc/network/if-up.d
 etc/network/if-down.d
 etc/bash_completion.d
