@@ -30,6 +30,10 @@
 
 #include "syshead.h"
 
+#ifdef ENABLE_SYSTEMD
+#include <systemd/sd-daemon.h>
+#endif
+
 #include "win32.h"
 #include "init.h"
 #include "sig.h"
@@ -926,6 +930,13 @@ bool
 possibly_become_daemon (const struct options *options)
 {
   bool ret = false;
+
+#ifdef ENABLE_SYSTEMD
+  /* return without forking if we are running from systemd */
+  if (sd_notify(0, "READY=0") > 0)
+    return ret;
+#endif
+
   if (options->daemon)
     {
       ASSERT (!options->inetd);
@@ -1251,11 +1262,19 @@ initialization_sequence_completed (struct context *c, const unsigned int flags)
       show_adapters (M_INFO|M_NOPREFIX);
       msg (M_INFO, "%s With Errors ( see http://openvpn.net/faq.html#dhcpclientserv )", message);
 #else
+#ifdef ENABLE_SYSTEMD
+      sd_notifyf(0, "STATUS=Failed to start up: %s With Errors\nERRNO=1", message);
+#endif /* HAVE_SYSTEMD_SD_DAEMON_H */
       msg (M_INFO, "%s With Errors", message);
 #endif
     }
   else
-    msg (M_INFO, "%s", message);
+    {
+#ifdef ENABLE_SYSTEMD
+      sd_notifyf(0, "READY=1\nSTATUS=%s\nMAINPID=%lu", message, (unsigned long) getpid());
+#endif
+      msg (M_INFO, "%s", message);
+    }
 
   /* Flag that we initialized */
   if ((flags & (ISC_ERRORS|ISC_SERVER)) == 0)
@@ -1932,8 +1951,14 @@ do_deferred_options (struct context *c, const unsigned int found)
     {
       struct tls_session *session = &c->c2.tls_multi->session[TM_ACTIVE];
       if (found & OPT_P_NCP)
-	msg (D_PUSH, "OPTIONS IMPORT: data channel crypto options modified");
-      /* Do not regenerate keys if server sends an extra push request */
+	{
+	  msg (D_PUSH, "OPTIONS IMPORT: data channel crypto options modified");
+	}
+      else if (c->options.ncp_enabled)
+	{
+	  tls_poor_mans_ncp(&c->options, c->c2.tls_multi->remote_ciphername);
+	}
+      /* Do not regenerate keys if server sends an extra push reply */
       if (!session->key[KS_PRIMARY].crypto_options.key_ctx_bi.initialized &&
 	  !tls_session_update_crypto_params(session, &c->options, &c->c2.frame))
 	{
