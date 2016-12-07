@@ -70,15 +70,8 @@
 #define P_FIRST_OPCODE                 1
 #define P_LAST_OPCODE                  9
 
-/* Should we aggregate TLS
- * acknowledgements, and tack them onto
- * control packets? */
-#define TLS_AGGREGATE_ACK
-
 /*
- * If TLS_AGGREGATE_ACK, set the
- * max number of acknowledgments that
- * can "hitch a ride" on an outgoing
+ * Set the max number of acknowledgments that can "hitch a ride" on an outgoing
  * non-P_ACK_V1 control packet.
  */
 #define CONTROL_SEND_ACK_MAX 4
@@ -489,6 +482,15 @@ void tls_update_remote_addr (struct tls_multi *multi,
 bool tls_session_update_crypto_params(struct tls_session *session,
     const struct options *options, struct frame *frame);
 
+/**
+ * "Poor man's NCP": Use peer cipher if it is an allowed (NCP) cipher.
+ * Allows non-NCP peers to upgrade their cipher individually.
+ *
+ * Make sure to call tls_session_update_crypto_params() after calling this
+ * function.
+ */
+void tls_poor_mans_ncp(struct options *o, const char *remote_ciphername);
+
 #ifdef MANAGEMENT_DEF_AUTH
 static inline char *
 tls_get_peer_info(const struct tls_multi *multi)
@@ -511,6 +513,13 @@ int tls_peer_info_ncp_ver(const char *peer_info);
  * @returns true iff all ciphers in list are supported.
  */
 bool tls_check_ncp_cipher_list(const char *list);
+
+/**
+ * Return true iff item is present in the colon-separated zero-terminated
+ * cipher list.
+ */
+bool tls_item_in_cipher_list(const char *item, const char *list);
+
 
 /*
  * inline functions

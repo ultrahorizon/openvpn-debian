@@ -155,7 +155,9 @@ void
 buf_clear (struct buffer *buf)
 {
   if (buf->capacity > 0)
-    memset (buf->data, 0, buf->capacity);
+    {
+      secure_memzero (buf->data, buf->capacity);
+    }
   buf->len = 0;
   buf->offset = 0;
 }
@@ -438,13 +440,16 @@ format_hex_ex (const uint8_t *data, int size, int maxoutput,
 	       unsigned int space_break_flags, const char* separator,
 	       struct gc_arena *gc)
 {
-  struct buffer out = alloc_buf_gc (maxoutput ? maxoutput :
-				    ((size * 2) + (size / (space_break_flags & FHE_SPACE_BREAK_MASK)) * (int) strlen (separator) + 2),
-				    gc);
-  int i;
-  for (i = 0; i < size; ++i)
+  const size_t bytes_per_hexblock = space_break_flags & FHE_SPACE_BREAK_MASK;
+  const size_t separator_len = separator ? strlen (separator) : 0;
+  static_assert (INT_MAX <= SIZE_MAX, "Code assumes INT_MAX <= SIZE_MAX");
+  const size_t out_len = maxoutput > 0 ? maxoutput :
+	    ((size * 2) + ((size / bytes_per_hexblock) * separator_len) + 2);
+
+  struct buffer out = alloc_buf_gc (out_len, gc);
+  for (int i = 0; i < size; ++i)
     {
-      if (separator && i && !(i % (space_break_flags & FHE_SPACE_BREAK_MASK)))
+      if (separator && i && !(i % bytes_per_hexblock))
 	buf_printf (&out, "%s", separator);
       if (space_break_flags & FHE_CAPS)
 	buf_printf (&out, "%02X", data[i]);
@@ -616,9 +621,7 @@ string_clear (char *str)
 {
   if (str)
     {
-      const int len = strlen (str);
-      if (len > 0)
-	memset (str, 0, len);
+      secure_memzero (str, strlen (str));
     }
 }
 

@@ -55,7 +55,7 @@ extern "C" {
  */
 #define OPENVPN_VERSION_MAJOR 2
 #define OPENVPN_VERSION_MINOR 4
-#define OPENVPN_VERSION_PATCH "_beta1"
+#define OPENVPN_VERSION_PATCH "_rc1"
 
 /*
  * Plug-in types.  These types correspond to the set of script callbacks

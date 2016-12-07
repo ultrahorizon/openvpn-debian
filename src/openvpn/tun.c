@@ -68,6 +68,9 @@ static void netsh_ifconfig (const struct tuntap_options *to,
 			    const in_addr_t ip,
 			    const in_addr_t netmask,
 			    const unsigned int flags);
+static void netsh_set_dns6_servers (const struct in6_addr *addr_list,
+				    const int addr_len,
+				    const char *flex_name);
 static void netsh_command (const struct argv *a, int n, int msglevel);
 
 static const char *netsh_get_id (const char *dev_node, struct gc_arena *gc);
@@ -125,6 +128,74 @@ do_address_service (const bool add, const short family, const struct tuntap *tt)
       goto out;
     }
 
+  ret = true;
+
+out:
+  gc_free (&gc);
+  return ret;
+}
+
+static bool
+do_dns6_service (bool add, const struct tuntap *tt)
+{
+  DWORD len;
+  bool ret = false;
+  ack_message_t ack;
+  struct gc_arena gc = gc_new ();
+  HANDLE pipe = tt->options.msg_channel;
+  int addr_len = add ? tt->options.dns6_len : 0;
+
+  if (addr_len == 0 && add) /* no addresses to add */
+      return true;
+
+  dns_cfg_message_t dns = {
+    .header = {
+      (add ? msg_add_dns_cfg : msg_del_dns_cfg),
+      sizeof (dns_cfg_message_t),
+      0 },
+    .iface = { .index = tt->adapter_index, .name = "" },
+    .domains = "",
+    .family = AF_INET6,
+    .addr_len = addr_len
+  };
+
+  /* interface name is required */
+  strncpy (dns.iface.name, tt->actual_name, sizeof (dns.iface.name));
+  dns.iface.name[sizeof (dns.iface.name) - 1] = '\0';
+
+  if (addr_len > _countof(dns.addr))
+    {
+      addr_len = _countof(dns.addr);
+      dns.addr_len = addr_len;
+      msg(M_WARN, "Number of IPv6 DNS addresses sent to service truncated to %d",
+          addr_len);
+    }
+
+  for (int i = 0; i < addr_len; ++i)
+    {
+      dns.addr[i].ipv6 = tt->options.dns6[i];
+    }
+
+  msg (D_LOW, "%s IPv6 dns servers on '%s' (if_index = %d) using service",
+       (add ? "Setting" : "Deleting"), dns.iface.name, dns.iface.index);
+
+  if (!WriteFile (pipe, &dns, sizeof (dns), &len, NULL) ||
+      !ReadFile (pipe, &ack, sizeof (ack), &len, NULL))
+    {
+      msg (M_WARN, "TUN: could not talk to service: %s [%lu]",
+           strerror_win32 (GetLastError (), &gc), GetLastError ());
+      goto out;
+    }
+
+  if (ack.error_number != NO_ERROR)
+    {
+      msg (M_WARN, "TUN: %s IPv6 dns failed using service: %s [status=%u if_name=%s]",
+           (add ? "adding" : "deleting"), strerror_win32 (ack.error_number, &gc),
+           ack.error_number, dns.iface.name);
+      goto out;
+    }
+
+  msg (M_INFO, "IPv6 dns servers %s using service", (add ? "set" : "deleted"));
   ret = true;
 
 out:
@@ -1372,9 +1443,16 @@ do_ifconfig (struct tuntap *tt,
 
     if ( do_ipv6 )
       {
-	if (tt->options.msg_channel)
+	if (tt->options.ip_win32_type == IPW32_SET_MANUAL)
+	  {
+	    msg (M_INFO, "******** NOTE:  Please manually set the v6 IP of '%s' to %s (if it is not already set)",
+	         actual,
+	         ifconfig_ipv6_local);
+          }
+	else if (tt->options.msg_channel)
 	  {
 	    do_address_service (true, AF_INET6, tt);
+	    do_dns6_service (true, tt);
 	  }
 	else
 	  {
@@ -1388,10 +1466,15 @@ do_ifconfig (struct tuntap *tt,
 			 iface,
 			 ifconfig_ipv6_local );
 	    netsh_command (&argv, 4, M_FATAL);
+	    /* set ipv6 dns servers if any are specified */
+	    netsh_set_dns6_servers(tt->options.dns6, tt->options.dns6_len, actual);
 	  }
 
 	/* explicit route needed */
-	add_route_connected_v6_net(tt, es);
+	if (tt->options.ip_win32_type != IPW32_SET_MANUAL)
+	  {
+	    add_route_connected_v6_net(tt, es);
+	  }
       }
 #else
       msg (M_FATAL, "Sorry, but I don't know how to do 'ifconfig' commands on this operating system.  You should ifconfig your TUN/TAP device manually or use an --up script.");
@@ -1623,14 +1706,20 @@ void
 open_tun (const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt)
 {
 #define ANDROID_TUNNAME "vpnservice-tun"
-  int i;
   struct user_pass up;
   struct gc_arena gc = gc_new ();
   bool opentun;
 
   int oldtunfd = tt->fd;
 
-  for (i = 0; i < tt->options.dns_len; ++i) {
+  /* Prefer IPv6 DNS servers,
+   * Android will use the DNS server in the order we specify*/
+  for (int i = 0; i < tt->options.dns6_len; i++) {
+    management_android_control (management, "DNS6SERVER",
+				print_in6_addr (tt->options.dns6[i], 0, &gc));
+  }
+
+  for (int i = 0; i < tt->options.dns_len; i++) {
     management_android_control (management, "DNSSERVER",
 				print_in_addr_t(tt->options.dns[i], 0, &gc));
   }
@@ -4508,22 +4597,8 @@ ipconfig_register_dns (const struct env_set *es)
   bool status;
   const char err[] = "ERROR: Windows ipconfig command failed";
 
-  msg (D_TUNTAP_INFO, "Start net commands...");
+  msg (D_TUNTAP_INFO, "Start ipconfig commands for register-dns...");
   netcmd_semaphore_lock ();
-
-  argv_printf (&argv, "%s%sc stop dnscache",
-	       get_win_sys_path(),
-	       WIN_NET_PATH_SUFFIX);
-  argv_msg (D_TUNTAP_INFO, &argv);
-  status = openvpn_execve_check (&argv, es, 0, err);
-  argv_reset(&argv);
-
-  argv_printf (&argv, "%s%sc start dnscache",
-	       get_win_sys_path(),
-	       WIN_NET_PATH_SUFFIX);
-  argv_msg (D_TUNTAP_INFO, &argv);
-  status = openvpn_execve_check (&argv, es, 0, err);
-  argv_reset(&argv);
 
   argv_printf (&argv, "%s%sc /flushdns",
 	       get_win_sys_path(),
@@ -4540,7 +4615,7 @@ ipconfig_register_dns (const struct env_set *es)
   argv_reset(&argv);
 
   netcmd_semaphore_release ();
-  msg (D_TUNTAP_INFO, "End net commands...");
+  msg (D_TUNTAP_INFO, "End ipconfig commands for register-dns...");
 }
 
 void
@@ -4615,6 +4690,41 @@ ip_addr_member_of (const in_addr_t addr, const IP_ADDR_STRING *ias)
 	return true;
     }
   return false;
+}
+
+/**
+ * Set the ipv6 dns servers on the specified interface.
+ * The list of dns servers currently set on the interface
+ * are cleared first.
+ * No action is taken if number of addresses (addr_len) < 1.
+ */
+static void
+netsh_set_dns6_servers (const struct in6_addr *addr_list,
+			const int addr_len,
+			const char *flex_name)
+{
+    struct gc_arena gc = gc_new ();
+    struct argv argv = argv_new ();
+
+    for (int i = 0; i < addr_len; ++i)
+    {
+	const char *fmt = (i == 0) ?
+	    "%s%sc interface ipv6 set dns %s static %s"
+	    : "%s%sc interface ipv6 add dns %s %s";
+	argv_printf (&argv, fmt, get_win_sys_path(),
+		     NETSH_PATH_SUFFIX, flex_name,
+		     print_in6_addr (addr_list[i], 0, &gc));
+
+	/* disable slow address validation on Windows 7 and higher */
+	if (win32_version_info() >= WIN_7)
+	    argv_printf_cat (&argv, "%s", "validate=no");
+
+	/* Treat errors while adding as non-fatal as we do not check for duplicates */
+	netsh_command (&argv, 1, (i==0)? M_FATAL : M_NONFATAL);
+    }
+
+    argv_reset (&argv);
+    gc_free (&gc);
 }
 
 static void
@@ -5540,6 +5650,8 @@ close_tun (struct tuntap *tt)
           if (tt->options.msg_channel)
             {
               do_address_service (false, AF_INET6, tt);
+	      if (tt->options.dns6_len > 0)
+		  do_dns6_service (false, tt);
             }
           else
             {
@@ -5563,6 +5675,17 @@ close_tun (struct tuntap *tt)
                            ifconfig_ipv6_local);
 
               netsh_command (&argv, 1, M_WARN);
+
+	      /* delete ipv6 dns servers if any were set */
+	      if (tt->options.dns6_len > 0)
+		{
+		  argv_printf (&argv,
+			       "%s%sc interface ipv6 delete dns %s all",
+			       get_win_sys_path(),
+			       NETSH_PATH_SUFFIX,
+			       tt->actual_name);
+		  netsh_command (&argv, 1, M_WARN);
+		}
               argv_reset (&argv);
             }
 	}

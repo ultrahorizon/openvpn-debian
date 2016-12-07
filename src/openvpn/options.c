@@ -704,7 +704,8 @@ static const char usage_message[] =
   "                    which allow multiple addresses,\n"
   "                    --dhcp-option must be repeated.\n"
   "                    DOMAIN name : Set DNS suffix\n"
-  "                    DNS addr    : Set domain name server address(es)\n"
+  "                    DNS addr    : Set domain name server address(es) (IPv4)\n"
+  "                    DNS6 addr   : Set domain name server address(es) (IPv6)\n"
   "                    NTP         : Set NTP server address(es)\n"
   "                    NBDD        : Set NBDD server address(es)\n"
   "                    WINS addr   : Set WINS server address(es)\n"
@@ -716,8 +717,8 @@ static const char usage_message[] =
   "--dhcp-pre-release : Ask Windows to release the previous TAP adapter lease on\n"
 "                       startup.\n"
   "--dhcp-release     : Ask Windows to release the TAP adapter lease on shutdown.\n"
-  "--register-dns  : Run net stop dnscache, net start dnscache, ipconfig /flushdns\n"
-  "                  and ipconfig /registerdns on connection initiation.\n"
+  "--register-dns  : Run ipconfig /flushdns and ipconfig /registerdns\n"
+  "                  on connection initiation.\n"
   "--tap-sleep n   : Sleep for n seconds after TAP adapter open before\n"
   "                  attempting to set adapter properties.\n"
   "--pause-exit         : When run from a console window, pause before exiting.\n"
@@ -1642,6 +1643,8 @@ show_settings (const struct options *o)
   SHOW_STR (shared_secret_file);
   SHOW_INT (key_direction);
   SHOW_STR (ciphername);
+  SHOW_BOOL (ncp_enabled);
+  SHOW_STR (ncp_ciphers);
   SHOW_STR (authname);
   SHOW_STR (prng_hash);
   SHOW_INT (prng_nonce_secret_len);
@@ -2523,6 +2526,22 @@ options_postprocess_mutate_ce (struct options *o, struct connection_entry *ce)
 
 }
 
+#ifdef _WIN32
+/* If iservice is in use, we need def1 method for redirect-gateway */
+static void
+remap_redirect_gateway_flags (struct options *opt)
+{
+  if (opt->routes
+      && opt->route_method == ROUTE_METHOD_SERVICE
+      && opt->routes->flags & RG_REROUTE_GW
+      && !(opt->routes->flags & RG_DEF1))
+    {
+      msg (M_INFO, "Flag 'def1' added to --redirect-gateway (iservice is in use)");
+      opt->routes->flags |= RG_DEF1;
+    }
+}
+#endif
+
 static void
 options_postprocess_mutate_invariant (struct options *options)
 {
@@ -2552,6 +2571,8 @@ options_postprocess_mutate_invariant (struct options *options)
       options->tuntap_options.ip_win32_type = IPW32_SET_MANUAL;
       options->ifconfig_noexec = false;
     }
+
+  remap_redirect_gateway_flags (options);
 #endif
 
 #if P2MP_SERVER
@@ -3444,6 +3465,36 @@ options_string_version (const char* s, struct gc_arena *gc)
 
 #endif /* ENABLE_OCC */
 
+char *
+options_string_extract_option (const char *options_string,const char *opt_name,
+    struct gc_arena *gc)
+{
+  char *ret = NULL;
+  const size_t opt_name_len = strlen(opt_name);
+
+  const char *p = options_string;
+  while (p)
+    {
+      if (0 == strncmp(p, opt_name, opt_name_len) &&
+	  strlen(p) > (opt_name_len+1) && p[opt_name_len] == ' ')
+	{
+	  /* option found, extract value */
+	  const char *start = &p[opt_name_len+1];
+	  const char *end = strchr (p, ',');
+	  size_t val_len = end ? end - start : strlen (start);
+	  ret = gc_malloc (val_len+1, true, gc);
+	  memcpy (ret, start, val_len);
+	  break;
+	}
+      p = strchr (p, ',');
+      if (p)
+	{
+	  p++; /* skip delimiter */
+	}
+    }
+  return ret;
+}
+
 static void
 foreign_option (struct options *o, char *argv[], int len, struct env_set *es)
 {
@@ -3652,7 +3703,7 @@ usage_version (void)
   show_windows_version( M_INFO|M_NOPREFIX );
 #endif
   msg (M_INFO|M_NOPREFIX, "Originally developed by James Yonan");
-  msg (M_INFO|M_NOPREFIX, "Copyright (C) 2002-2010 OpenVPN Technologies, Inc. <sales@openvpn.net>");
+  msg (M_INFO|M_NOPREFIX, "Copyright (C) 2002-2016 OpenVPN Technologies, Inc. <sales@openvpn.net>");
 #ifndef ENABLE_SMALL
 #ifdef CONFIGURE_DEFINES
   msg (M_INFO|M_NOPREFIX, "Compile time defines: %s", CONFIGURE_DEFINES);
@@ -3935,7 +3986,7 @@ read_inline_file (struct in_src *is, const char *close_tag, struct gc_arena *gc)
   ret = string_alloc (BSTR (&buf), gc);
   buf_clear (&buf);
   free_buf (&buf);
-  CLEAR (line);
+  secure_memzero (line, sizeof (line));
   return ret;
 }
 
@@ -4050,7 +4101,7 @@ read_config_file (struct options *options,
     {
       msg (msglevel, "In %s:%d: Maximum recursive include levels exceeded in include attempt of file %s -- probably you have a configuration file that tries to include itself.", top_file, top_line, file);
     }
-  CLEAR (line);
+  secure_memzero (line, sizeof (line));
   CLEAR (p);
 }
 
@@ -4082,7 +4133,7 @@ read_config_string (const char *prefix,
 	}
       CLEAR (p);
     }
-  CLEAR (line);
+  secure_memzero (line, sizeof (line));
 }
 
 void
@@ -4374,6 +4425,8 @@ add_option (struct options *options,
    */
   if (streq (p[0], "setenv") && p[1] && streq (p[1], "opt") && !(permission_mask & OPT_P_PULL_MODE))
     {
+      if (!p[2])
+        p[2] = "setenv opt"; /* will trigger an error that includes setenv opt */
       p += 2;
       msglevel_fc = M_WARN;
     }
@@ -5672,6 +5725,10 @@ add_option (struct options *options,
 	      goto err;
 	    }
 	}
+#ifdef _WIN32
+      /* we need this here to handle pushed --redirect-gateway */
+      remap_redirect_gateway_flags (options);
+#endif
       options->routes->flags |= RG_ENABLE;
     }
   else if (streq (p[0], "remote-random-hostname") && !p[1])
@@ -6406,6 +6463,20 @@ add_option (struct options *options,
 	{
 	  dhcp_option_address_parse ("DNS", p[2], o->dns, &o->dns_len, msglevel);
 	}
+      else if (streq (p[1], "DNS6") && p[2] && ipv6_addr_safe(p[2]))
+	{
+	  struct in6_addr addr;
+	  foreign_option (options, p, 3, es);
+	  if (o->dns6_len >= N_DHCP_ADDR)
+	    {
+	      msg (msglevel, "--dhcp-option DNS6: maximum of %d dns servers can be specified",
+		   N_DHCP_ADDR);
+	    }
+	  else if (get_ipv6_addr (p[2], &addr, NULL, msglevel))
+	    {
+	      o->dns6[o->dns6_len++] = addr;
+	    }
+	}
       else if (streq (p[1], "WINS") && p[2])
 	{
 	  dhcp_option_address_parse ("WINS", p[2], o->wins, &o->wins_len, msglevel);
@@ -6427,7 +6498,14 @@ add_option (struct options *options,
 	  msg (msglevel, "--dhcp-option: unknown option type '%s' or missing or unknown parameter", p[1]);
 	  goto err;
 	}
-      o->dhcp_options = true;
+
+      /* flag that we have options to give to the TAP driver's DHCPv4 server
+       *  - skipped for "DNS6", as that's not a DHCPv4 option
+       */
+      if (!streq (p[1], "DNS6"))
+	{
+	  o->dhcp_options = true;
+	}
     }
 #endif
 #ifdef _WIN32
