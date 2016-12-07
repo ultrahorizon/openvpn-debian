@@ -1,3 +1,10 @@
+openvpn (2.4~rc1-1) experimental; urgency=medium
+
+  * New upstream release
+  * Update close_socket_before_scripts.patch to upstream's version
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Wed, 07 Dec 2016 13:14:46 +0100
+
 openvpn (2.4~beta1-1) experimental; urgency=medium
 
   * New upstream release
