@@ -1,9 +1,11 @@
-openvpn (2.4~rc1-1) experimental; urgency=medium
+openvpn (2.4~rc1-1) unstable; urgency=medium
 
   * New upstream release
   * Update close_socket_before_scripts.patch to upstream's version
+  * Add /etc/openvpn/client & /etc/openvpn/server directories for
+    upstream's systemd units.
 
- -- Alberto Gonzalez Iniesta <agi@inittab.org>  Wed, 07 Dec 2016 13:14:46 +0100
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Sat, 10 Dec 2016 19:06:15 +0100
 
 openvpn (2.4~beta1-1) experimental; urgency=medium
 
