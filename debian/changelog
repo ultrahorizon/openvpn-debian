@@ -5,6 +5,8 @@ openvpn (2.4~rc1-2) unstable; urgency=medium
     - Remove .gitignore file from samples
     - Add Depends on lsb-base
     - Move bash completion file to /usr/share
+    - Remove unneeded dot in manpage
+  * debian/patches/kfreebsd_support: Update patch for 2.4 series.
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 12 Dec 2016 20:20:09 +0100
 
