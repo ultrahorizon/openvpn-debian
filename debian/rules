@@ -56,7 +56,9 @@ override_dh_auto_install:
 	# resolvconf script
 	install -m 755 debian/update-resolv-conf $(CURDIR)/debian/openvpn/etc/openvpn/update-resolv-conf
 	# bash completion
-	install -m 644 debian/openvpn.bash_completion $(CURDIR)/debian/openvpn/etc/bash_completion.d/openvpn
+	install -m 644 debian/openvpn.bash_completion $(CURDIR)/debian/openvpn/usr/share/bash-completion/completions/openvpn
+	# remove gitignore file from samples
+	rm -f $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/sample-keys/.gitignore
 
 override_dh_installexamples:
 	dh_installexamples

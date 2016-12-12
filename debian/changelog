@@ -1,3 +1,13 @@
+openvpn (2.4~rc1-2) unstable; urgency=medium
+
+  * Make lintian happy:
+    - Update debian/watch
+    - Remove .gitignore file from samples
+    - Add Depends on lsb-base
+    - Move bash completion file to /usr/share
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 12 Dec 2016 20:20:09 +0100
+
 openvpn (2.4~rc1-1) unstable; urgency=medium
 
   * New upstream release
