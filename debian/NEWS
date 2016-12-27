@@ -1,3 +1,11 @@
+openvpn (2.4.0-1) unstable; urgency=medium
+    
+    OpenVPN 2.4 removed tls-remote option. Current setups using that option
+    will fail to work. Update your configuration to use verify-x509-name
+    instead.
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Tue, 27 Dec 2016 22:50:20 +0100
+
 openvpn (2.3~rc1-1) experimental; urgency=low
     
     auth-pam and down-root plugins renamed to:
