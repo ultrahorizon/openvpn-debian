@@ -4,7 +4,7 @@ dnl             session authentication and key exchange,
 dnl             packet encryption, packet authentication, and
 dnl             packet compression.
 dnl
-dnl  Copyright (C) 2002-2010 OpenVPN Technologies, Inc. <sales@openvpn.net>
+dnl  Copyright (C) 2002-2017 OpenVPN Technologies, Inc. <sales@openvpn.net>
 dnl  Copyright (C) 2006-2012 Alon Bar-Lev <alon.barlev@gmail.com>
 dnl
 dnl  This program is free software; you can redistribute it and/or modify
@@ -266,8 +266,8 @@ AC_ARG_ENABLE(
 
 AC_ARG_ENABLE(
 	[async-push],
-	[AS_HELP_STRING([--enable-async-push], [enable async-push support @<:@default=no@:>@])],
-	[enable_async_push="yes"],
+	[AS_HELP_STRING([--enable-async-push], [enable async-push support for plugins providing deferred authentication @<:@default=no@:>@])],
+	,
 	[enable_async_push="no"]
 )
 
