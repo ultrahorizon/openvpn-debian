@@ -1,3 +1,10 @@
+openvpn (2.4.0-2) unstable; urgency=medium
+
+  * Enable lz4 compression (Closes: #849563).
+    Thanks Laurent Bigonville for noticing.
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Wed, 28 Dec 2016 18:43:12 +0100
+
 openvpn (2.4.0-1) unstable; urgency=medium
 
   * New upstream release.
