@@ -1,3 +1,17 @@
+openvpn (2.4.0-4) unstable; urgency=medium
+
+    If you're upgrading a previous OpenVPN installation, you should check your
+    current CRL file expiraton date. "crl-verify" option now also checks that.
+    Regenerate your CRL file if the expiration date is in the past or your
+    clients won't be able to connect.
+
+    OpenVPN 2.4 will try to connect using IPv6 first if you're using a hostname
+    with both A and AAAA entries, if your VPN server is still running a
+    previous (<2.4) version a long wait may occur until your 2.4 client tries
+    with the IPv4 address.
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Thu, 02 Feb 2017 14:15:42 +0100
+
 openvpn (2.4.0-1) unstable; urgency=medium
     
     OpenVPN 2.4 removed tls-remote option. Current setups using that option

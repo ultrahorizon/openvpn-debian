@@ -1,3 +1,10 @@
+openvpn (2.4.0-4) unstable; urgency=medium
+
+  * Add NEWS entries on possible 2.4 migration issues.
+    (Closes: #852381, #849909)
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Thu, 02 Feb 2017 14:15:42 +0100
+
 openvpn (2.4.0-3) unstable; urgency=medium
 
   * You shall run debdiff even when the change is only a word, or you may find
