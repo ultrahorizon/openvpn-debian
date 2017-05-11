@@ -1,3 +1,26 @@
+openvpn (2.4.0-5) unstable; urgency=high
+
+  * Change typo fix in command line help.
+  * SECURITY UPDATE: pre-authentication denial-of-service vulnerability
+    (both client and server) from a too-large control packet.
+    - debian/patches/CVE-2017-7478.patch: Do not assert on too-large
+      control packet
+    - CVE-2017-7478
+  * SECURITY UPDATE: authenticated remote DoS vulnerability due to
+    packet ID rollover
+    - debian/patches/CVE-2017-7479-prereq.patch: merge
+      packet_id_alloc_outgoing() into packet_id_write()
+    - debian/patches/CVE-2017-7479.patch: do not assert when packet ID
+      rollover occurs
+    - CVE-2017-7479
+  * SECURITY UPDATE: auth tokens left in memory after de-auth
+    - debian/patches/wipe_tokens_on_de-auth.patch: always wipe token
+      as soon as a TLS session is considered broken.
+   * Kudos to Steve Beattie <sbeattie@ubuntu.com> for doing all the
+     backporting work for this upload.
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Thu, 11 May 2017 14:15:21 +0200
+
 openvpn (2.4.0-4) unstable; urgency=medium
 
   * Add NEWS entries on possible 2.4 migration issues.
