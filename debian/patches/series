@@ -7,3 +7,4 @@ CVE-2017-7478.patch
 CVE-2017-7479-prereq.patch
 CVE-2017-7479.patch
 wipe_tokens_on_de-auth.patch
+upstream-issue-879.patch

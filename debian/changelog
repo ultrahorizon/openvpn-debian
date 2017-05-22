@@ -1,3 +1,10 @@
+openvpn (2.4.0-6) unstable; urgency=medium
+
+  * Apply upstream patch to fix shrinking MTU sizes on reconnects causing not
+    usable VPN tunnels.
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Mon, 22 May 2017 14:59:49 +0200
+
 openvpn (2.4.0-5) unstable; urgency=high
 
   * Change typo fix in command line help.
