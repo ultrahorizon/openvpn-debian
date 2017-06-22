@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef SYSHEAD_H
@@ -286,6 +285,10 @@
 
 #ifdef HAVE_NETINET_IP_H
 #include <netinet/ip.h>
+#endif
+
+#ifdef HAVE_NETINET_TCP_H
+#include <netinet/tcp.h>
 #endif
 
 #ifdef HAVE_NET_IF_TUN_H
@@ -589,9 +592,7 @@ socket_defined(const socket_descriptor_t sd)
 /*
  * Should we include OCC (options consistency check) code?
  */
-#ifndef ENABLE_SMALL
 #define ENABLE_OCC
-#endif
 
 /*
  * Should we include NTLM proxy functionality

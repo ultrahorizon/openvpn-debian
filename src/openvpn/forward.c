@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -866,9 +865,16 @@ process_incoming_link_part1(struct context *c, struct link_socket_info *lsi, boo
              * will load crypto_options with the correct encryption key
              * and return false.
              */
+            uint8_t opcode = *BPTR(&c->c2.buf) >> P_OPCODE_SHIFT;
             if (tls_pre_decrypt(c->c2.tls_multi, &c->c2.from, &c->c2.buf, &co,
                                 floated, &ad_start))
             {
+                /* Restore pre-NCP frame parameters */
+                if (is_hard_reset(opcode, c->options.key_method))
+                {
+                    c->c2.frame = c->c2.frame_initial;
+                }
+
                 interval_action(&c->c2.tmp_int);
 
                 /* reset packet received timer if TLS packet */

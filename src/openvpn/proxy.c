@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -318,6 +317,7 @@ get_proxy_authenticate(socket_descriptor_t sd,
     {
         if (!recv_line(sd, buf, sizeof(buf), timeout, true, NULL, signal_received))
         {
+            free(*data);
             *data = NULL;
             return HTTP_AUTH_NONE;
         }
@@ -381,7 +381,9 @@ get_key_value(const char *str,       /* source string */
     bool escape = false;
 
     for (c = max_key_len-1; (*str && (*str != '=') && c--); )
+    {
         *key++ = *str++;
+    }
     *key = '\0';
 
     if ('=' != *str++)
@@ -475,7 +477,9 @@ get_pa_var(const char *key, const char *pa, struct gc_arena *gc)
             ++content;
         }
         while (*content && isspace(*content))
+        {
             ++content;
+        }
     }
 }
 
@@ -774,7 +778,8 @@ establish_http_proxy_passthru(struct http_proxy_info *p,
 
             /* receive and discard everything else */
             while (recv_line(sd, NULL, 0, 2, true, NULL, signal_received))
-                ;
+            {
+            }
 
             /* now send the phase 3 reply */
 
@@ -869,6 +874,13 @@ establish_http_proxy_passthru(struct http_proxy_info *p,
                 const char *nonce = get_pa_var("nonce", pa, &gc);
                 const char *algor = get_pa_var("algorithm", pa, &gc);
                 const char *opaque = get_pa_var("opaque", pa, &gc);
+
+                if ( !realm || !nonce )
+                {
+                    msg(D_LINK_ERRORS, "HTTP proxy: digest auth failed, malformed response "
+                            "from server: realm= or nonce= missing" );
+                    goto error;
+                }
 
                 /* generate a client nonce */
                 ASSERT(rand_bytes(cnonce_raw, sizeof(cnonce_raw)));
@@ -986,6 +998,7 @@ establish_http_proxy_passthru(struct http_proxy_info *p,
                 if (p->options.auth_retry == PAR_NCT && method == HTTP_AUTH_BASIC)
                 {
                     msg(D_PROXY, "HTTP proxy: support for basic auth and other cleartext proxy auth methods is disabled");
+                    free(pa);
                     goto error;
                 }
                 p->auth_method = method;
@@ -1041,7 +1054,8 @@ establish_http_proxy_passthru(struct http_proxy_info *p,
      * start of the OpenVPN data stream (put it in lookahead).
      */
     while (recv_line(sd, NULL, 0, 2, false, lookahead, signal_received))
-        ;
+    {
+    }
 
     /* reset queried_creds so that we don't think that the next creds request is due to an auth error */
     p->queried_creds = false;

@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -44,7 +43,8 @@ __memrchr(const char *str, int c, size_t n)
     const char *end = str;
 
     end += n - 1; /* Go to the end of the string */
-    while (end >= str) {
+    while (end >= str)
+    {
         if (c == *end)
         {
             return end;
@@ -82,10 +82,12 @@ dirname(char *path)
         char *runp;
 
         for (runp = last_slash; runp != path; --runp)
+        {
             if (runp[-1] != separator)
             {
                 break;
             }
+        }
 
         /* The '/' is the last character, we have to look further.  */
         if (runp != path)
@@ -100,10 +102,12 @@ dirname(char *path)
         char *runp;
 
         for (runp = last_slash; runp != path; --runp)
+        {
             if (runp[-1] != separator)
             {
                 break;
             }
+        }
 
         /* Terminate the path.  */
         if (runp == path)

@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -332,7 +331,8 @@ openvpn_main(int argc, char *argv[])
 
 #ifdef _WIN32
 int
-wmain(int argc, wchar_t *wargv[]) {
+wmain(int argc, wchar_t *wargv[])
+{
     char **argv;
     int ret;
     int i;
@@ -361,7 +361,8 @@ wmain(int argc, wchar_t *wargv[]) {
 }
 #else  /* ifdef _WIN32 */
 int
-main(int argc, char *argv[]) {
+main(int argc, char *argv[])
+{
     return openvpn_main(argc, argv);
 }
 #endif /* ifdef _WIN32 */

@@ -18,10 +18,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -49,7 +48,8 @@ query_user_clear()
 {
     int i;
 
-    for (i = 0; i < QUERY_USER_NUMSLOTS; i++) {
+    for (i = 0; i < QUERY_USER_NUMSLOTS; i++)
+    {
         CLEAR(query_user[i]);
     }
 }
@@ -68,7 +68,8 @@ query_user_add(char *prompt, size_t prompt_len,
     ASSERT( prompt_len > 0 && prompt != NULL && resp_len > 0 && resp != NULL );
 
     /* Seek to the last unused slot */
-    for (i = 0; i < QUERY_USER_NUMSLOTS; i++) {
+    for (i = 0; i < QUERY_USER_NUMSLOTS; i++)
+    {
         if (query_user[i].prompt == NULL)
         {
             break;

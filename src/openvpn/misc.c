@@ -18,10 +18,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -650,7 +649,8 @@ const char *
 env_set_get(const struct env_set *es, const char *name)
 {
     const struct env_item *item = es->list;
-    while (item && !env_string_equal(item->string, name)) {
+    while (item && !env_string_equal(item->string, name))
+    {
         item = item->next;
     }
     return item ? item->string : NULL;
@@ -700,57 +700,6 @@ env_set_inherit(struct env_set *es, const struct env_set *src)
     }
 }
 
-void
-env_set_add_to_environment(const struct env_set *es)
-{
-    if (es)
-    {
-        struct gc_arena gc = gc_new();
-        const struct env_item *e;
-
-        e = es->list;
-
-        while (e)
-        {
-            const char *name;
-            const char *value;
-
-            if (deconstruct_name_value(e->string, &name, &value, &gc))
-            {
-                setenv_str(NULL, name, value);
-            }
-
-            e = e->next;
-        }
-        gc_free(&gc);
-    }
-}
-
-void
-env_set_remove_from_environment(const struct env_set *es)
-{
-    if (es)
-    {
-        struct gc_arena gc = gc_new();
-        const struct env_item *e;
-
-        e = es->list;
-
-        while (e)
-        {
-            const char *name;
-            const char *value;
-
-            if (deconstruct_name_value(e->string, &name, &value, &gc))
-            {
-                setenv_del(NULL, name);
-            }
-
-            e = e->next;
-        }
-        gc_free(&gc);
-    }
-}
 
 /* add/modify/delete environmental strings */
 
@@ -1438,7 +1387,7 @@ get_user_pass_auto_userid(struct user_pass *up, const char *tag)
     static const uint8_t hashprefix[] = "AUTO_USERID_DIGEST";
 
     const md_kt_t *md5_kt = md_kt_get("MD5");
-    md_ctx_t ctx;
+    md_ctx_t *ctx;
 
     CLEAR(*up);
     buf_set_write(&buf, (uint8_t *)up->username, USER_PASS_LEN);
@@ -1446,11 +1395,13 @@ get_user_pass_auto_userid(struct user_pass *up, const char *tag)
     if (get_default_gateway_mac_addr(macaddr))
     {
         dmsg(D_AUTO_USERID, "GUPAU: macaddr=%s", format_hex_ex(macaddr, sizeof(macaddr), 0, 1, ":", &gc));
-        md_ctx_init(&ctx, md5_kt);
-        md_ctx_update(&ctx, hashprefix, sizeof(hashprefix) - 1);
-        md_ctx_update(&ctx, macaddr, sizeof(macaddr));
-        md_ctx_final(&ctx, digest);
-        md_ctx_cleanup(&ctx)
+        ctx = md_ctx_new();
+        md_ctx_init(ctx, md5_kt);
+        md_ctx_update(ctx, hashprefix, sizeof(hashprefix) - 1);
+        md_ctx_update(ctx, macaddr, sizeof(macaddr));
+        md_ctx_final(ctx, digest);
+        md_ctx_cleanup(ctx);
+        md_ctx_free(ctx);
         buf_printf(&buf, "%s", format_hex_ex(digest, sizeof(digest), 0, 256, " ", &gc));
     }
     else
@@ -1479,7 +1430,11 @@ purge_user_pass(struct user_pass *up, const bool force)
         secure_memzero(up, sizeof(*up));
         up->nocache = nocache;
     }
-    else if (!warn_shown)
+    /*
+     * don't show warning if the pass has been replaced by a token: this is an
+     * artificial "auth-nocache"
+     */
+    else if (!warn_shown && (!up->tokenized))
     {
         msg(M_WARN, "WARNING: this configuration may cache passwords in memory -- use the auth-nocache option to prevent this");
         warn_shown = true;
@@ -1493,6 +1448,7 @@ set_auth_token(struct user_pass *up, const char *token)
     {
         CLEAR(up->password);
         strncpynt(up->password, token, USER_PASS_LEN);
+        up->tokenized = true;
     }
 }
 
@@ -1547,7 +1503,9 @@ make_env_array(const struct env_set *es,
     if (es)
     {
         for (e = es->list; e != NULL; e = e->next)
+        {
             ++n;
+        }
     }
 
     /* alloc return array */
@@ -1609,7 +1567,9 @@ make_inline_array(const char *str, struct gc_arena *gc)
 
     buf_set_read(&buf, (const uint8_t *) str, strlen(str));
     while (buf_parse(&buf, '\n', line, sizeof(line)))
+    {
         ++len;
+    }
 
     /* alloc return array */
     ALLOC_ARRAY_CLEAR_GC(ret, char *, len + 1, gc);
@@ -1639,7 +1599,9 @@ make_arg_copy(char **p, struct gc_arena *gc)
     ALLOC_ARRAY_CLEAR_GC(ret, char *, max_parms, gc);
 
     for (i = 0; i < len; ++i)
+    {
         ret[i] = p[i];
+    }
 
     return (const char **)ret;
 }

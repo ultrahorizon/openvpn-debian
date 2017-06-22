@@ -18,10 +18,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 /**
@@ -269,10 +268,12 @@ static void
 key_ctx_update_implicit_iv(struct key_ctx *ctx, uint8_t *key, size_t key_len);
 
 const tls_cipher_name_pair *
-tls_get_cipher_name_pair(const char *cipher_name, size_t len) {
+tls_get_cipher_name_pair(const char *cipher_name, size_t len)
+{
     const tls_cipher_name_pair *pair = tls_cipher_name_translation_table;
 
-    while (pair->openssl_name != NULL) {
+    while (pair->openssl_name != NULL)
+    {
         if ((strlen(pair->openssl_name) == len && 0 == memcmp(cipher_name, pair->openssl_name, len))
             || (strlen(pair->iana_name) == len && 0 == memcmp(cipher_name, pair->iana_name, len)))
         {
@@ -450,6 +451,8 @@ ssl_set_auth_nocache(void)
 {
     passbuf.nocache = true;
     auth_user_pass.nocache = true;
+    /* wait for push-reply, because auth-token may invert nocache */
+    auth_user_pass.wait_for_push = true;
 }
 
 /*
@@ -458,6 +461,14 @@ ssl_set_auth_nocache(void)
 void
 ssl_set_auth_token(const char *token)
 {
+    if (auth_user_pass.nocache)
+    {
+        msg(M_INFO,
+            "auth-token received, disabling auth-nocache for the "
+            "authentication token");
+        auth_user_pass.nocache = false;
+    }
+
     set_auth_token(&auth_user_pass, token);
 }
 
@@ -569,12 +580,12 @@ tls_ctx_reload_crl(struct tls_root_ctx *ssl_ctx, const char *crl_file,
      * Note: Windows does not support tv_nsec.
      */
     if ((ssl_ctx->crl_last_size == crl_stat.st_size)
-        && (ssl_ctx->crl_last_mtime.tv_sec == crl_stat.st_mtime))
+        && (ssl_ctx->crl_last_mtime == crl_stat.st_mtime))
     {
         return;
     }
 
-    ssl_ctx->crl_last_mtime.tv_sec = crl_stat.st_mtime;
+    ssl_ctx->crl_last_mtime = crl_stat.st_mtime;
     ssl_ctx->crl_last_size = crl_stat.st_size;
     backend_tls_ctx_reload_crl(ssl_ctx, crl_file, crl_file_inline);
 }
@@ -830,14 +841,7 @@ print_key_id(struct tls_multi *multi, struct gc_arena *gc)
     return BSTR(&out);
 }
 
-/*
- * Given a key_method, return true if op
- * represents the required form of hard_reset.
- *
- * If key_method = 0, return true if any
- * form of hard reset is used.
- */
-static bool
+bool
 is_hard_reset(int op, int key_method)
 {
     if (!key_method || key_method == 1)
@@ -1068,7 +1072,9 @@ tls_session_init(struct tls_multi *multi, struct tls_session *session)
 
     /* Randomize session # if it is 0 */
     while (!session_id_defined(&session->session_id))
+    {
         session_id_random(&session->session_id);
+    }
 
     /* Are we a TLS server or client? */
     ASSERT(session->opt->key_method >= 1);
@@ -1130,7 +1136,9 @@ tls_session_free(struct tls_session *session, bool clear)
     free_buf(&session->tls_wrap.work);
 
     for (i = 0; i < KS_SIZE; ++i)
+    {
         key_state_free(&session->key[i], false);
+    }
 
     if (session->common_name)
     {
@@ -1187,7 +1195,8 @@ reset_session(struct tls_multi *multi, struct tls_session *session)
  * called again.
  */
 static inline void
-compute_earliest_wakeup(interval_t *earliest, interval_t seconds_from_now) {
+compute_earliest_wakeup(interval_t *earliest, interval_t seconds_from_now)
+{
     if (seconds_from_now < *earliest)
     {
         *earliest = seconds_from_now;
@@ -1357,7 +1366,9 @@ tls_multi_free(struct tls_multi *multi, bool clear)
     free(multi->remote_ciphername);
 
     for (i = 0; i < TM_SIZE; ++i)
+    {
         tls_session_free(&multi->session[i], false);
+    }
 
     if (clear)
     {
@@ -1605,8 +1616,8 @@ tls1_P_hash(const md_kt_t *md_kt,
 {
     struct gc_arena gc = gc_new();
     int chunk;
-    hmac_ctx_t ctx;
-    hmac_ctx_t ctx_tmp;
+    hmac_ctx_t *ctx;
+    hmac_ctx_t *ctx_tmp;
     uint8_t A1[MAX_HMAC_KEY_LENGTH];
     unsigned int A1_len;
 
@@ -1615,8 +1626,8 @@ tls1_P_hash(const md_kt_t *md_kt,
     const uint8_t *out_orig = out;
 #endif
 
-    CLEAR(ctx);
-    CLEAR(ctx_tmp);
+    ctx = hmac_ctx_new();
+    ctx_tmp = hmac_ctx_new();
 
     dmsg(D_SHOW_KEY_SOURCE, "tls1_P_hash sec: %s", format_hex(sec, sec_len, 0, &gc));
     dmsg(D_SHOW_KEY_SOURCE, "tls1_P_hash seed: %s", format_hex(seed, seed_len, 0, &gc));
@@ -1624,36 +1635,38 @@ tls1_P_hash(const md_kt_t *md_kt,
     chunk = md_kt_size(md_kt);
     A1_len = md_kt_size(md_kt);
 
-    hmac_ctx_init(&ctx, sec, sec_len, md_kt);
-    hmac_ctx_init(&ctx_tmp, sec, sec_len, md_kt);
+    hmac_ctx_init(ctx, sec, sec_len, md_kt);
+    hmac_ctx_init(ctx_tmp, sec, sec_len, md_kt);
 
-    hmac_ctx_update(&ctx,seed,seed_len);
-    hmac_ctx_final(&ctx, A1);
+    hmac_ctx_update(ctx,seed,seed_len);
+    hmac_ctx_final(ctx, A1);
 
     for (;; )
     {
-        hmac_ctx_reset(&ctx);
-        hmac_ctx_reset(&ctx_tmp);
-        hmac_ctx_update(&ctx,A1,A1_len);
-        hmac_ctx_update(&ctx_tmp,A1,A1_len);
-        hmac_ctx_update(&ctx,seed,seed_len);
+        hmac_ctx_reset(ctx);
+        hmac_ctx_reset(ctx_tmp);
+        hmac_ctx_update(ctx,A1,A1_len);
+        hmac_ctx_update(ctx_tmp,A1,A1_len);
+        hmac_ctx_update(ctx,seed,seed_len);
 
         if (olen > chunk)
         {
-            hmac_ctx_final(&ctx, out);
+            hmac_ctx_final(ctx, out);
             out += chunk;
             olen -= chunk;
-            hmac_ctx_final(&ctx_tmp, A1); /* calc the next A1 value */
+            hmac_ctx_final(ctx_tmp, A1); /* calc the next A1 value */
         }
         else    /* last one */
         {
-            hmac_ctx_final(&ctx, A1);
+            hmac_ctx_final(ctx, A1);
             memcpy(out,A1,olen);
             break;
         }
     }
-    hmac_ctx_cleanup(&ctx);
-    hmac_ctx_cleanup(&ctx_tmp);
+    hmac_ctx_cleanup(ctx);
+    hmac_ctx_free(ctx);
+    hmac_ctx_cleanup(ctx_tmp);
+    hmac_ctx_free(ctx_tmp);
     secure_memzero(A1, sizeof(A1));
 
     dmsg(D_SHOW_KEY_SOURCE, "tls1_P_hash out: %s", format_hex(out_orig, olen_orig, 0, &gc));
@@ -1705,7 +1718,9 @@ tls1_PRF(const uint8_t *label,
     tls1_P_hash(sha1,S2,len,label,label_len,out2,olen);
 
     for (i = 0; i<olen; i++)
+    {
         out1[i] ^= out2[i];
+    }
 
     secure_memzero(out2, olen);
 
@@ -1855,7 +1870,8 @@ exit:
 }
 
 static void
-key_ctx_update_implicit_iv(struct key_ctx *ctx, uint8_t *key, size_t key_len) {
+key_ctx_update_implicit_iv(struct key_ctx *ctx, uint8_t *key, size_t key_len)
+{
     const cipher_kt_t *cipher_kt = cipher_ctx_get_cipher_kt(ctx->cipher);
 
     /* Only use implicit IV in AEAD cipher mode, where HMAC key is not used */
@@ -1952,6 +1968,12 @@ tls_session_update_crypto_params(struct tls_session *session,
             options->ciphername, session->opt->config_ciphername,
             options->ncp_ciphers);
         return false;
+    }
+
+    if (strcmp(options->ciphername, session->opt->config_ciphername))
+    {
+        msg(D_HANDSHAKE, "Data Channel: using negotiated cipher '%s'",
+            options->ciphername);
     }
 
     init_key_type(&session->opt->key_type, options->ciphername,
@@ -2371,7 +2393,21 @@ key_method_2_write(struct buffer *buf, struct tls_session *session)
         {
             goto error;
         }
-        purge_user_pass(&auth_user_pass, false);
+        /* if auth-nocache was specified, the auth_user_pass object reaches
+         * a "complete" state only after having received the push-reply
+         * message.
+         * This is the case because auth-token statement in a push-reply would
+         * invert its nocache.
+         *
+         * For this reason, skip the purge operation here if no push-reply
+         * message has been received yet.
+         *
+         * This normally happens upon first negotiation only.
+         */
+        if (!auth_user_pass.wait_for_push)
+        {
+            purge_user_pass(&auth_user_pass, false);
+        }
     }
     else
     {
@@ -2487,7 +2523,7 @@ key_method_2_read(struct buffer *buf, struct tls_multi *multi, struct tls_sessio
 
     struct gc_arena gc = gc_new();
     char *options;
-    struct user_pass *up;
+    struct user_pass *up = NULL;
 
     /* allocate temporary objects */
     ALLOC_ARRAY_CLEAR_GC(options, char, TLS_OPTIONS_LEN, &gc);
@@ -2649,6 +2685,10 @@ key_method_2_read(struct buffer *buf, struct tls_multi *multi, struct tls_sessio
 
 error:
     secure_memzero(ks->key_src, sizeof(*ks->key_src));
+    if (up)
+    {
+        secure_memzero(up, sizeof(*up));
+    }
     buf_clear(buf);
     gc_free(&gc);
     return false;
@@ -2809,6 +2849,9 @@ tls_process(struct tls_multi *multi,
                 tls_ctx_reload_crl(&session->opt->ssl_ctx,
                                    session->opt->crl_file, session->opt->crl_file_inline);
             }
+
+            /* New connection, remove any old X509 env variables */
+            tls_x509_clear_env(session->opt->es);
 
             dmsg(D_TLS_DEBUG_MED, "STATE S_START");
         }
@@ -3708,7 +3751,12 @@ tls_pre_decrypt(struct tls_multi *multi,
                                 /* Save incoming ciphertext packet to reliable buffer */
                                 struct buffer *in = reliable_get_buf(ks->rec_reliable);
                                 ASSERT(in);
-                                ASSERT(buf_copy(in, buf));
+                                if(!buf_copy(in, buf))
+                                {
+                                    msg(D_MULTI_DROPPED,
+                                        "Incoming control channel packet too big, dropping.");
+                                    goto error;
+                                }
                                 reliable_mark_active_incoming(ks->rec_reliable, in, id, op);
                             }
 
@@ -4058,7 +4106,8 @@ tls_peer_info_ncp_ver(const char *peer_info)
 }
 
 bool
-tls_check_ncp_cipher_list(const char *list) {
+tls_check_ncp_cipher_list(const char *list)
+{
     bool unsupported_cipher_found = false;
 
     ASSERT(list);
@@ -4201,8 +4250,16 @@ done:
     return BSTR(&out);
 }
 
+void
+delayed_auth_pass_purge(void)
+{
+    auth_user_pass.wait_for_push = false;
+    purge_user_pass(&auth_user_pass, false);
+}
+
 #else  /* if defined(ENABLE_CRYPTO) */
 static void
-dummy(void) {
+dummy(void)
+{
 }
 #endif /* ENABLE_CRYPTO */

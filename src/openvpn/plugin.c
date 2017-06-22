@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -234,23 +233,31 @@ plugin_init_item(struct plugin *p, const struct plugin_option *o)
 #ifndef _WIN32
 
     p->handle = NULL;
-#if defined(PLUGIN_LIBDIR)
-    if (!absolute_pathname(p->so_pathname))
+
+    /* If the plug-in filename is not an absolute path,
+     * or beginning with '.', it should use the PLUGIN_LIBDIR
+     * as the base directory for loading the plug-in.
+     *
+     * This means the following scenarios are loaded from these places:
+     *    --plugin fancyplug.so              -> $PLUGIN_LIBDIR/fancyplug.so
+     *    --plugin my/fancyplug.so           -> $PLUGIN_LIBDIR/my/fancyplug.so
+     *    --plugin ./fancyplug.so            -> $CWD/fancyplug.so
+     *    --plugin /usr/lib/my/fancyplug.so  -> /usr/lib/my/fancyplug.so
+     *
+     * Please note that $CWD means the directory OpenVPN is either started from
+     * or the directory OpenVPN have changed into using --cd before --plugin
+     * was parsed.
+     *
+     */
+    if (!absolute_pathname(p->so_pathname)
+        && p->so_pathname[0] != '.')
     {
         char full[PATH_MAX];
 
         openvpn_snprintf(full, sizeof(full), "%s/%s", PLUGIN_LIBDIR, p->so_pathname);
         p->handle = dlopen(full, RTLD_NOW);
-#if defined(ENABLE_PLUGIN_SEARCH)
-        if (!p->handle)
-        {
-            rel = true;
-            p->handle = dlopen(p->so_pathname, RTLD_NOW);
-        }
-#endif
     }
     else
-#endif
     {
         rel = !absolute_pathname(p->so_pathname);
         p->handle = dlopen(p->so_pathname, RTLD_NOW);
@@ -402,7 +409,8 @@ plugin_log(openvpn_plugin_log_flags_t flags, const char *name, const char *forma
 
 static struct openvpn_plugin_callbacks callbacks = {
     plugin_log,
-    plugin_vlog
+    plugin_vlog,
+    secure_memzero   /* plugin_secure_memzero */
 };
 
 
@@ -745,7 +753,9 @@ plugin_common_close(struct plugin_common *pc)
         int i;
 
         for (i = 0; i < pc->n; ++i)
+        {
             plugin_close_item(&pc->plugins[i]);
+        }
         free(pc);
     }
 }
@@ -883,7 +893,9 @@ plugin_abort(void)
         int i;
 
         for (i = 0; i < pc->n; ++i)
+        {
             plugin_abort_item(&pc->plugins[i]);
+        }
     }
 }
 
@@ -964,7 +976,9 @@ plugin_return_get_column(const struct plugin_return *src,
 
     dest->n = 0;
     for (i = 0; i < src->n; ++i)
+    {
         dest->list[i] = openvpn_plugin_string_list_find(src->list[i], colname);
+    }
     dest->n = i;
 }
 
@@ -973,7 +987,9 @@ plugin_return_free(struct plugin_return *pr)
 {
     int i;
     for (i = 0; i < pr->n; ++i)
+    {
         openvpn_plugin_string_list_free(pr->list[i]);
+    }
     pr->n = 0;
 }
 
@@ -1003,6 +1019,7 @@ plugin_return_print(const int msglevel, const char *prefix, const struct plugin_
 
 #else  /* ifdef ENABLE_PLUGIN */
 static void
-dummy(void) {
+dummy(void)
+{
 }
 #endif /* ENABLE_PLUGIN */

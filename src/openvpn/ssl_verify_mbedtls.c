@@ -17,10 +17,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 /**
@@ -209,7 +208,7 @@ x509_get_fingerprint(const mbedtls_md_info_t *md_info, mbedtls_x509_crt *cert,
 {
     const size_t md_size = mbedtls_md_get_size(md_info);
     struct buffer fingerprint = alloc_buf_gc(md_size, gc);
-    mbedtls_md(md_info, cert->raw.p, cert->tbs.len, BPTR(&fingerprint));
+    mbedtls_md(md_info, cert->raw.p, cert->raw.len, BPTR(&fingerprint));
     ASSERT(buf_inc_len(&fingerprint, md_size));
     return fingerprint;
 }
@@ -268,11 +267,21 @@ asn1_buf_to_c_string(const mbedtls_asn1_buf *orig, struct gc_arena *gc)
     size_t i;
     char *val;
 
+    if (!(orig->tag == MBEDTLS_ASN1_UTF8_STRING
+          || orig->tag == MBEDTLS_ASN1_PRINTABLE_STRING
+          || orig->tag == MBEDTLS_ASN1_IA5_STRING))
+    {
+        /* Only support C-string compatible types */
+        return string_alloc("ERROR: unsupported ASN.1 string type", gc);
+    }
+
     for (i = 0; i < orig->len; ++i)
+    {
         if (orig->p[i] == '\0')
         {
-            return "ERROR: embedded null value";
+            return string_alloc("ERROR: embedded null value", gc);
         }
+    }
     val = gc_malloc(orig->len+1, false, gc);
     memcpy(val, orig->p, orig->len);
     val[orig->len] = '\0';
@@ -409,7 +418,7 @@ x509_setenv(struct env_set *es, int cert_depth, mbedtls_x509_crt *cert)
 }
 
 result_t
-x509_verify_ns_cert_type(const mbedtls_x509_crt *cert, const int usage)
+x509_verify_ns_cert_type(mbedtls_x509_crt *cert, const int usage)
 {
     if (usage == NS_CERT_CHECK_NONE)
     {
@@ -435,32 +444,42 @@ result_t
 x509_verify_cert_ku(mbedtls_x509_crt *cert, const unsigned *const expected_ku,
                     int expected_len)
 {
-    result_t fFound = FAILURE;
+    msg(D_HANDSHAKE, "Validating certificate key usage");
 
     if (!(cert->ext_types & MBEDTLS_X509_EXT_KEY_USAGE))
     {
-        msg(D_HANDSHAKE, "Certificate does not have key usage extension");
+        msg(D_TLS_ERRORS,
+            "ERROR: Certificate does not have key usage extension");
+        return FAILURE;
     }
-    else
+
+    if (expected_ku[0] == OPENVPN_KU_REQUIRED)
     {
-        int i;
-        unsigned nku = cert->key_usage;
+        /* Extension required, value checked by TLS library */
+        return SUCCESS;
+    }
 
-        msg(D_HANDSHAKE, "Validating certificate key usage");
-        for (i = 0; SUCCESS != fFound && i<expected_len; i++)
+    result_t fFound = FAILURE;
+    for (size_t i = 0; SUCCESS != fFound && i<expected_len; i++)
+    {
+        if (expected_ku[i] != 0
+            && 0 == mbedtls_x509_crt_check_key_usage(cert, expected_ku[i]))
         {
-            if (expected_ku[i] != 0)
-            {
-                msg(D_HANDSHAKE, "++ Certificate has key usage  %04x, expects "
-                    "%04x", nku, expected_ku[i]);
-
-                if (nku == expected_ku[i])
-                {
-                    fFound = SUCCESS;
-                }
-            }
+            fFound = SUCCESS;
         }
     }
+
+    if (fFound != SUCCESS)
+    {
+        msg(D_TLS_ERRORS,
+            "ERROR: Certificate has key usage %04x, expected one of:",
+            cert->key_usage);
+        for (size_t i = 0; i < expected_len && expected_ku[i]; i++)
+        {
+            msg(D_TLS_ERRORS, " * %04x", expected_ku[i]);
+        }
+    }
+
     return fFound;
 }
 

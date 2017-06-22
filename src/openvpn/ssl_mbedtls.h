@@ -17,10 +17,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 /**
@@ -74,7 +73,7 @@ struct tls_root_ctx {
     mbedtls_x509_crt *ca_chain;         /**< CA chain for remote verification */
     mbedtls_pk_context *priv_key;       /**< Local private key */
     mbedtls_x509_crl *crl;              /**< Certificate Revocation List */
-    struct timespec crl_last_mtime;     /**< CRL last modification time */
+    time_t crl_last_mtime;              /**< CRL last modification time */
     off_t crl_last_size;                /**< size of last loaded CRL */
 #if defined(ENABLE_PKCS11)
     mbedtls_pkcs11_context *priv_key_pkcs11;    /**< PKCS11 private key */
