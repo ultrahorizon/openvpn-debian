@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 /*
@@ -95,7 +94,8 @@ get_packet_flood_parms(int level)
  * Return true with probability 1/n
  */
 static bool
-flip(int n) {
+flip(int n)
+{
     return (get_random() % n) == 0;
 }
 
@@ -104,7 +104,8 @@ flip(int n) {
  * low and high.
  */
 static int
-roll(int low, int high) {
+roll(int low, int high)
+{
     int ret;
     ASSERT(low <= high);
     ret = low + (get_random() % (high - low + 1));
@@ -181,7 +182,8 @@ ask_gremlin(int flags)
  * Possibly corrupt a packet.
  */
 void
-corrupt_gremlin(struct buffer *buf, int flags) {
+corrupt_gremlin(struct buffer *buf, int flags)
+{
     const int corrupt_level = GREMLIN_CORRUPT_LEVEL(flags);
     if (corrupt_level)
     {
@@ -194,7 +196,8 @@ corrupt_gremlin(struct buffer *buf, int flags) {
                     uint8_t r = roll(0, 255);
                     int method = roll(0, 5);
 
-                    switch (method) {
+                    switch (method)
+                    {
                         case 0: /* corrupt the first byte */
                             *BPTR(buf) = r;
                             break;
@@ -232,6 +235,7 @@ corrupt_gremlin(struct buffer *buf, int flags) {
 
 #else  /* ifdef ENABLE_DEBUG */
 static void
-dummy(void) {
+dummy(void)
+{
 }
 #endif /* ifdef ENABLE_DEBUG */

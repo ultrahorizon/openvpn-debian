@@ -18,10 +18,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 /**
@@ -185,7 +184,8 @@ tls_ctx_set_options(struct tls_root_ctx *ctx, unsigned int ssl_flags)
 }
 
 static const char *
-tls_translate_cipher_name(const char *cipher_name) {
+tls_translate_cipher_name(const char *cipher_name)
+{
     const tls_cipher_name_pair *pair = tls_get_cipher_name_pair(cipher_name, strlen(cipher_name));
 
     if (NULL == pair)
@@ -222,10 +222,12 @@ tls_ctx_restrict_ciphers(struct tls_root_ctx *ctx, const char *ciphers)
 
     /* Get number of ciphers */
     for (i = 0, cipher_count = 1; i < ciphers_len; i++)
+    {
         if (ciphers[i] == ':')
         {
             cipher_count++;
         }
+    }
 
     /* Allocate an array for them */
     ALLOC_ARRAY_CLEAR(ctx->allowed_ciphers, int, cipher_count+1)
@@ -833,7 +835,8 @@ tls_version_max(void)
  *                      Must be a valid pointer.
  */
 static void
-tls_version_to_major_minor(int tls_ver, int *major, int *minor) {
+tls_version_to_major_minor(int tls_ver, int *major, int *minor)
+{
     ASSERT(major);
     ASSERT(minor);
 

@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef OTIME_H
@@ -289,7 +288,8 @@ tv_within_sigma(const struct timeval *t1, const struct timeval *t2, unsigned int
  * called again.
  */
 static inline void
-interval_earliest_wakeup(interval_t *wakeup, time_t at, time_t current) {
+interval_earliest_wakeup(interval_t *wakeup, time_t at, time_t current)
+{
     if (at > current)
     {
         const interval_t delta = (interval_t) (at - current);

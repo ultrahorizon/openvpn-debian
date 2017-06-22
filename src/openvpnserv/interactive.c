@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 
@@ -93,6 +92,13 @@ typedef enum {
     _undo_type_max
 } undo_type_t;
 typedef list_item_t *undo_lists_t[_undo_type_max];
+
+typedef struct {
+    HANDLE engine;
+    int index;
+    int metric_v4;
+    int metric_v6;
+} block_dns_data_t;
 
 
 static DWORD
@@ -215,7 +221,9 @@ AsyncPipeOp(async_op_t op, HANDLE pipe, LPVOID buffer, DWORD size, DWORD count, 
 
     handles[0] = io_event;
     for (i = 0; i < count; i++)
+    {
         handles[i + 1] = events[i];
+    }
 
     res = WaitForMultipleObjects(count + 1, handles, FALSE,
                                  op == peek ? INFINITE : IO_TIMEOUT);
@@ -883,6 +891,7 @@ static DWORD
 HandleBlockDNSMessage(const block_dns_message_t *msg, undo_lists_t *lists)
 {
     DWORD err = 0;
+    block_dns_data_t *interface_data;
     HANDLE engine = NULL;
     LPCWSTR exe_path;
 
@@ -899,16 +908,57 @@ HandleBlockDNSMessage(const block_dns_message_t *msg, undo_lists_t *lists)
         err = add_block_dns_filters(&engine, msg->iface.index, exe_path, BlockDNSErrHandler);
         if (!err)
         {
-            err = AddListItem(&(*lists)[block_dns], engine);
+            interface_data = malloc(sizeof(block_dns_data_t));
+            if (!interface_data)
+            {
+                return ERROR_OUTOFMEMORY;
+            }
+            interface_data->engine = engine;
+            interface_data->index = msg->iface.index;
+            interface_data->metric_v4 = get_interface_metric(msg->iface.index,
+                                                             AF_INET);
+            if (interface_data->metric_v4 < 0)
+            {
+                interface_data->metric_v4 = -1;
+            }
+            interface_data->metric_v6 = get_interface_metric(msg->iface.index,
+                                                             AF_INET6);
+            if (interface_data->metric_v6 < 0)
+            {
+                interface_data->metric_v6 = -1;
+            }
+            err = AddListItem(&(*lists)[block_dns], interface_data);
+            if (!err)
+            {
+                err = set_interface_metric(msg->iface.index, AF_INET,
+                                           BLOCK_DNS_IFACE_METRIC);
+                if (!err)
+                {
+                    set_interface_metric(msg->iface.index, AF_INET6,
+                                         BLOCK_DNS_IFACE_METRIC);
+                }
+            }
         }
     }
     else
     {
-        engine = RemoveListItem(&(*lists)[block_dns], CmpEngine, NULL);
-        if (engine)
+        interface_data = RemoveListItem(&(*lists)[block_dns], CmpEngine, NULL);
+        if (interface_data)
         {
+            engine = interface_data->engine;
             err = delete_block_dns_filters(engine);
             engine = NULL;
+            if (interface_data->metric_v4 >= 0)
+            {
+                set_interface_metric(msg->iface.index, AF_INET,
+                                     interface_data->metric_v4);
+            }
+            if (interface_data->metric_v6 >= 0)
+            {
+                set_interface_metric(msg->iface.index, AF_INET6,
+                                     interface_data->metric_v6);
+            }
+            free(interface_data);
         }
         else
         {
@@ -1323,6 +1373,7 @@ static VOID
 Undo(undo_lists_t *lists)
 {
     undo_type_t type;
+    block_dns_data_t *interface_data;
     for (type = 0; type < _undo_type_max; type++)
     {
         list_item_t **pnext = &(*lists)[type];
@@ -1348,8 +1399,18 @@ Undo(undo_lists_t *lists)
                     break;
 
                 case block_dns:
-                    delete_block_dns_filters(item->data);
-                    item->data = NULL;
+                    interface_data = (block_dns_data_t*)(item->data);
+                    delete_block_dns_filters(interface_data->engine);
+                    if (interface_data->metric_v4 >= 0)
+                    {
+                        set_interface_metric(interface_data->index, AF_INET,
+                                             interface_data->metric_v4);
+                    }
+                    if (interface_data->metric_v6 >= 0)
+                    {
+                        set_interface_metric(interface_data->index, AF_INET6,
+                                             interface_data->metric_v6);
+                    }
                     break;
             }
 
@@ -1475,7 +1536,7 @@ RunOpenvpn(LPVOID p)
     }
 
     /* Check user is authorized or options are white-listed */
-    if (!IsAuthorizedUser(ovpn_user->User.Sid, &settings)
+    if (!IsAuthorizedUser(ovpn_user->User.Sid, imp_token, settings.ovpn_admin_group)
         && !ValidateOptions(pipe, sud.directory, sud.options))
     {
         goto out;
@@ -1840,7 +1901,8 @@ ServiceStartInteractive(DWORD dwArgc, LPTSTR *lpszArgv)
     PHANDLE handles = NULL;
     DWORD handle_count;
     BOOL
-    CmpHandle(LPVOID item, LPVOID hnd) {
+    CmpHandle(LPVOID item, LPVOID hnd)
+    {
         return item == hnd;
     }
 

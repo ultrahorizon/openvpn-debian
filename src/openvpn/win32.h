@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef _WIN32
@@ -293,7 +292,7 @@ WCHAR *wide_string(const char *utf8, struct gc_arena *gc);
 
 bool win_wfp_block_dns(const NET_IFINDEX index, const HANDLE msg_channel);
 
-bool win_wfp_uninit(const HANDLE msg_channel);
+bool win_wfp_uninit(const NET_IFINDEX index, const HANDLE msg_channel);
 
 #define WIN_XP 0
 #define WIN_VISTA 1

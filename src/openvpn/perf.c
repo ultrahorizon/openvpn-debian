@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -147,12 +146,14 @@ push_perf_index(int pindex)
     {
         int i;
         for (i = 0; i < sindex; ++i)
+        {
             if (perf_set.stack[i] == pindex)
             {
                 perf_print_state(M_INFO);
                 msg(M_FATAL, "PERF: push_perf_index %s failed",
                     metric_names [pindex]);
             }
+        }
 
         perf_set.stack[sindex] = pindex;
         perf_set.stack_len = newlen;
@@ -321,7 +322,8 @@ perf_print_state(int lev)
 #else  /* ifdef ENABLE_PERFORMANCE_METRICS */
 #ifdef _MSC_VER  /* Dummy function needed to avoid empty file compiler warning in Microsoft VC */
 static void
-dummy(void) {
+dummy(void)
+{
 }
 #endif
 #endif /* ifdef ENABLE_PERFORMANCE_METRICS */

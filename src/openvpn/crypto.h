@@ -17,10 +17,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 /**
@@ -132,9 +131,9 @@
 #include "packet_id.h"
 #include "mtu.h"
 
-/** Wrapper struct to pass around MD5 digests */
-struct md5_digest {
-    uint8_t digest[MD5_DIGEST_LENGTH];
+/** Wrapper struct to pass around SHA256 digests */
+struct sha256_digest {
+    uint8_t digest[SHA256_DIGEST_LENGTH];
 };
 
 /*
@@ -496,7 +495,8 @@ void crypto_read_openvpn_key(const struct key_type *key_type,
  * Returns 0 when data is equal, non-zero otherwise.
  */
 static inline int
-memcmp_constant_time(const void *a, const void *b, size_t size) {
+memcmp_constant_time(const void *a, const void *b, size_t size)
+{
     const uint8_t *a1 = a;
     const uint8_t *b1 = b;
     int ret = 0;

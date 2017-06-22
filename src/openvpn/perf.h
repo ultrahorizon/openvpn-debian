@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 /*
@@ -76,13 +75,16 @@ void perf_output_results(void);
 #else  /* ifdef ENABLE_PERFORMANCE_METRICS */
 
 static inline void
-perf_push(int type) {
+perf_push(int type)
+{
 }
 static inline void
-perf_pop(void) {
+perf_pop(void)
+{
 }
 static inline void
-perf_output_results(void) {
+perf_output_results(void)
+{
 }
 
 #endif /* ifdef ENABLE_PERFORMANCE_METRICS */

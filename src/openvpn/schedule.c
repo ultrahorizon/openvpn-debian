@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -377,7 +376,9 @@ schedule_add_modify(struct schedule *s, struct schedule_entry *e)
      * keeps the tree balanced.  Move the node up the tree until
      * its own priority is greater than that of its parent */
     while (e->parent && e->parent->pri > e->pri)
+    {
         schedule_rotate_up(s, e);
+    }
 }
 
 /*
@@ -623,7 +624,9 @@ schedule_print_work(struct schedule_entry *e, int indent)
     struct gc_arena gc = gc_new();
     int i;
     for (i = 0; i < indent; ++i)
+    {
         printf(" ");
+    }
     if (e)
     {
         printf("%s [%u] e=" ptr_format ", p=" ptr_format " lt=" ptr_format " gt=" ptr_format "\n",

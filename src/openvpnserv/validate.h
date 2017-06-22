@@ -17,10 +17,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef VALIDATE_H
@@ -34,7 +33,7 @@
 /* The last one may be reset in registry: HKLM\Software\OpenVPN\ovpn_admin_group */
 
 BOOL
-IsAuthorizedUser(SID *sid, settings_t *s);
+IsAuthorizedUser(PSID sid, const HANDLE token, const WCHAR *ovpn_admin_group);
 
 BOOL
 CheckOption(const WCHAR *workdir, int narg, WCHAR *argv[], const settings_t *s);

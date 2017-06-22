@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -443,7 +442,9 @@ gc_transfer(struct gc_arena *dest, struct gc_arena *src)
         if (e)
         {
             while (e->next != NULL)
+            {
                 e = e->next;
+            }
             e->next = dest->list;
             dest->list = src->list;
             src->list = NULL;
@@ -599,7 +600,8 @@ void
 rm_trailing_chars(char *str, const char *what_to_delete)
 {
     bool modified;
-    do {
+    do
+    {
         const int len = strlen(str);
         modified = false;
         if (len > 0)
@@ -682,7 +684,9 @@ string_array_len(const char **array)
     if (array)
     {
         while (array[i])
+        {
             ++i;
+        }
     }
     return i;
 }
@@ -1320,7 +1324,9 @@ buffer_list_file(const char *fn, int max_line_len)
         {
             bl = buffer_list_new(0);
             while (fgets(line, max_line_len, fp) != NULL)
+            {
                 buffer_list_push(bl, (unsigned char *)line);
+            }
             free(line);
         }
         fclose(fp);

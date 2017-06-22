@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 /*
@@ -59,6 +58,12 @@
  * WFP handle
  */
 static HANDLE m_hEngineHandle = NULL; /* GLOBAL */
+
+/*
+ * TAP adapter original metric value
+ */
+static int tap_metric_v4 = -1; /* GLOBAL */
+static int tap_metric_v6 = -1; /* GLOBAL */
 
 /*
  * Windows internal socket API state (opaque).
@@ -569,7 +574,8 @@ win32_keyboard_get(struct win32_signal *ws)
     if (HANDLE_DEFINED(ws->in.read))
     {
         INPUT_RECORD ir;
-        do {
+        do
+        {
             DWORD n;
             if (!keyboard_input_available(ws))
             {
@@ -681,7 +687,8 @@ win32_pause(struct win32_signal *ws)
     {
         int status;
         msg(M_INFO|M_NOPREFIX, "Press any key to continue...");
-        do {
+        do
+        {
             status = WaitForSingleObject(ws->in.read, INFINITE);
         } while (!win32_keyboard_get(ws));
     }
@@ -984,7 +991,9 @@ env_block(const struct env_set *es)
         bool path_seen = false;
 
         for (e = es->list; e != NULL; e = e->next)
+        {
             nchars += strlen(e->string) + 1;
+        }
 
         nchars += strlen(force_path)+1;
 
@@ -1324,8 +1333,8 @@ win_wfp_block_dns(const NET_IFINDEX index, const HANDLE msg_channel)
         goto out;
     }
 
-    status = GetModuleFileNameW(NULL, openvpnpath, sizeof(openvpnpath));
-    if (status == 0 || status == sizeof(openvpnpath))
+    status = GetModuleFileNameW(NULL, openvpnpath, _countof(openvpnpath));
+    if (status == 0 || status == _countof(openvpnpath))
     {
         msg(M_WARN|M_ERRNO, "block_dns: cannot get executable path");
         goto out;
@@ -1333,6 +1342,27 @@ win_wfp_block_dns(const NET_IFINDEX index, const HANDLE msg_channel)
 
     status = add_block_dns_filters(&m_hEngineHandle, index, openvpnpath,
                                    block_dns_msg_handler);
+    if (status == 0)
+    {
+        tap_metric_v4 = get_interface_metric(index, AF_INET);
+        tap_metric_v6 = get_interface_metric(index, AF_INET6);
+        if (tap_metric_v4 < 0)
+        {
+            /* error, should not restore metric */
+            tap_metric_v4 = -1;
+        }
+        if (tap_metric_v6 < 0)
+        {
+            /* error, should not restore metric */
+            tap_metric_v6 = -1;
+        }
+        status = set_interface_metric(index, AF_INET, BLOCK_DNS_IFACE_METRIC);
+        if (!status)
+        {
+            set_interface_metric(index, AF_INET6, BLOCK_DNS_IFACE_METRIC);
+        }
+    }
+
     ret = (status == 0);
 
 out:
@@ -1341,19 +1371,27 @@ out:
 }
 
 bool
-win_wfp_uninit(const HANDLE msg_channel)
+win_wfp_uninit(const NET_IFINDEX index, const HANDLE msg_channel)
 {
     dmsg(D_LOW, "Uninitializing WFP");
 
     if (msg_channel)
     {
         msg(D_LOW, "Using service to delete block dns filters");
-        win_block_dns_service(false, -1, msg_channel);
+        win_block_dns_service(false, index, msg_channel);
     }
     else
     {
         delete_block_dns_filters(m_hEngineHandle);
         m_hEngineHandle = NULL;
+        if (tap_metric_v4 >= 0)
+        {
+            set_interface_metric(index, AF_INET, tap_metric_v4);
+        }
+        if (tap_metric_v6 >= 0)
+        {
+            set_interface_metric(index, AF_INET6, tap_metric_v6);
+        }
     }
 
     return true;

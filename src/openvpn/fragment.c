@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -44,7 +43,9 @@ fragment_list_buf_init(struct fragment_list *list, const struct frame *frame)
 {
     int i;
     for (i = 0; i < N_FRAG_BUF; ++i)
+    {
         list->fragments[i].buf = alloc_buf(BUF_SIZE(frame));
+    }
 }
 
 static void
@@ -52,7 +53,9 @@ fragment_list_buf_free(struct fragment_list *list)
 {
     int i;
     for (i = 0; i < N_FRAG_BUF; ++i)
+    {
         free_buf(&list->fragments[i].buf);
+    }
 }
 
 /*
@@ -67,7 +70,9 @@ fragment_list_get_buf(struct fragment_list *list, int seq_id)
     {
         int i;
         for (i = 0; i < N_FRAG_BUF; ++i)
+        {
             list->fragments[i].defined = false;
+        }
         list->index = 0;
         list->seq_id = seq_id;
         diff = 0;
@@ -433,6 +438,7 @@ fragment_wakeup(struct fragment_master *f, struct frame *frame)
 
 #else  /* ifdef ENABLE_FRAGMENT */
 static void
-dummy(void) {
+dummy(void)
+{
 }
 #endif /* ifdef ENABLE_FRAGMENT */

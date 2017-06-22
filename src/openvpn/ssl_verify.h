@@ -17,10 +17,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 /**
@@ -218,6 +217,9 @@ struct x509_track
 /** Do not perform Netscape certificate type verification */
 #define NS_CERT_CHECK_CLIENT (1<<1)
 
+/** Require keyUsage to be present in cert (0xFFFF is an invalid KU value) */
+#define OPENVPN_KU_REQUIRED (0xFFFF)
+
 /*
  * TODO: document
  */
@@ -237,6 +239,9 @@ tls_client_reason(struct tls_multi *multi)
     return NULL;
 #endif
 }
+
+/** Remove any X509_ env variables from env_set es */
+void tls_x509_clear_env(struct env_set *es);
 
 #endif /* ENABLE_CRYPTO */
 

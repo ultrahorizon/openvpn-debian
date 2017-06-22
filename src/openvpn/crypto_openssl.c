@@ -17,10 +17,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 /**
@@ -42,6 +41,7 @@
 #include "integer.h"
 #include "crypto.h"
 #include "crypto_backend.h"
+#include "openssl_compat.h"
 
 #include <openssl/des.h>
 #include <openssl/err.h>
@@ -186,14 +186,14 @@ crypto_clear_error(void)
 }
 
 void
-crypto_print_openssl_errors(const unsigned int flags) {
+crypto_print_openssl_errors(const unsigned int flags)
+{
     size_t err = 0;
 
     while ((err = ERR_get_error()))
     {
         /* Be more clear about frequently occurring "no shared cipher" error */
-        if (err == ERR_PACK(ERR_LIB_SSL,SSL_F_SSL3_GET_CLIENT_HELLO,
-                            SSL_R_NO_SHARED_CIPHER))
+        if (ERR_GET_REASON(err) == SSL_R_NO_SHARED_CIPHER)
         {
             msg(D_CRYPT_ERRORS, "TLS error: The server has no TLS ciphersuites "
                 "in common with the client. Your --tls-cipher setting might be "
@@ -286,8 +286,7 @@ show_available_ciphers()
     size_t i;
 
     /* If we ever exceed this, we must be more selective */
-    const size_t cipher_list_len = 1000;
-    const EVP_CIPHER *cipher_list[cipher_list_len];
+    const EVP_CIPHER *cipher_list[1000];
     size_t num_ciphers = 0;
 #ifndef ENABLE_SMALL
     printf("The following ciphers and cipher modes are available for use\n"
@@ -312,7 +311,7 @@ show_available_ciphers()
         {
             cipher_list[num_ciphers++] = cipher;
         }
-        if (num_ciphers == cipher_list_len)
+        if (num_ciphers == (sizeof(cipher_list)/sizeof(*cipher_list)))
         {
             msg(M_WARN, "WARNING: Too many ciphers, not showing all");
             break;
@@ -551,8 +550,10 @@ cipher_kt_iv_size(const EVP_CIPHER *cipher_kt)
 }
 
 int
-cipher_kt_block_size(const EVP_CIPHER *cipher) {
-    /* OpenSSL reports OFB/CFB/GCM cipher block sizes as '1 byte'.  To work
+cipher_kt_block_size(const EVP_CIPHER *cipher)
+{
+    /*
+     * OpenSSL reports OFB/CFB/GCM cipher block sizes as '1 byte'.  To work
      * around that, try to replace the mode with 'CBC' and return the block size
      * reported for that cipher, if possible.  If that doesn't work, just return
      * the value reported by OpenSSL.
@@ -649,14 +650,25 @@ cipher_kt_mode_aead(const cipher_kt_t *cipher)
  *
  */
 
+cipher_ctx_t *
+cipher_ctx_new(void)
+{
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    check_malloc_return(ctx);
+    return ctx;
+}
+
+void
+cipher_ctx_free(EVP_CIPHER_CTX *ctx)
+{
+    EVP_CIPHER_CTX_free(ctx);
+}
 
 void
 cipher_ctx_init(EVP_CIPHER_CTX *ctx, uint8_t *key, int key_len,
                 const EVP_CIPHER *kt, int enc)
 {
     ASSERT(NULL != kt && NULL != ctx);
-
-    CLEAR(*ctx);
 
     EVP_CIPHER_CTX_init(ctx);
     if (!EVP_CipherInit(ctx, kt, NULL, NULL, enc))
@@ -669,7 +681,7 @@ cipher_ctx_init(EVP_CIPHER_CTX *ctx, uint8_t *key, int key_len,
         crypto_msg(M_FATAL, "EVP set key size");
     }
 #endif
-    if (!EVP_CipherInit(ctx, NULL, key, NULL, enc))
+    if (!EVP_CipherInit_ex(ctx, NULL, NULL, key, NULL, enc))
     {
         crypto_msg(M_FATAL, "EVP cipher init #2");
     }
@@ -722,7 +734,7 @@ cipher_ctx_get_cipher_kt(const cipher_ctx_t *ctx)
 int
 cipher_ctx_reset(EVP_CIPHER_CTX *ctx, uint8_t *iv_buf)
 {
-    return EVP_CipherInit(ctx, NULL, NULL, iv_buf, -1);
+    return EVP_CipherInit_ex(ctx, NULL, NULL, NULL, iv_buf, -1);
 }
 
 int
@@ -843,12 +855,23 @@ md_full(const EVP_MD *kt, const uint8_t *src, int src_len, uint8_t *dst)
     return EVP_Digest(src, src_len, dst, &in_md_len, kt, NULL);
 }
 
+EVP_MD_CTX *
+md_ctx_new(void)
+{
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    check_malloc_return(ctx);
+    return ctx;
+}
+
+void md_ctx_free(EVP_MD_CTX *ctx)
+{
+    EVP_MD_CTX_free(ctx);
+}
+
 void
 md_ctx_init(EVP_MD_CTX *ctx, const EVP_MD *kt)
 {
     ASSERT(NULL != ctx && NULL != kt);
-
-    CLEAR(*ctx);
 
     EVP_MD_CTX_init(ctx);
     EVP_DigestInit(ctx, kt);
@@ -857,7 +880,7 @@ md_ctx_init(EVP_MD_CTX *ctx, const EVP_MD *kt)
 void
 md_ctx_cleanup(EVP_MD_CTX *ctx)
 {
-    EVP_MD_CTX_cleanup(ctx);
+    EVP_MD_CTX_reset(ctx);
 }
 
 int
@@ -887,14 +910,25 @@ md_ctx_final(EVP_MD_CTX *ctx, uint8_t *dst)
  *
  */
 
+HMAC_CTX *
+hmac_ctx_new(void)
+{
+    HMAC_CTX *ctx = HMAC_CTX_new();
+    check_malloc_return(ctx);
+    return ctx;
+}
+
+void
+hmac_ctx_free(HMAC_CTX *ctx)
+{
+    HMAC_CTX_free(ctx);
+}
 
 void
 hmac_ctx_init(HMAC_CTX *ctx, const uint8_t *key, int key_len,
               const EVP_MD *kt)
 {
     ASSERT(NULL != kt && NULL != ctx);
-
-    CLEAR(*ctx);
 
     HMAC_CTX_init(ctx);
     HMAC_Init_ex(ctx, key, key_len, kt, NULL);
@@ -906,7 +940,7 @@ hmac_ctx_init(HMAC_CTX *ctx, const uint8_t *key, int key_len,
 void
 hmac_ctx_cleanup(HMAC_CTX *ctx)
 {
-    HMAC_CTX_cleanup(ctx);
+    HMAC_CTX_reset(ctx);
 }
 
 int

@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -252,31 +251,42 @@ ce_management_query_remote(struct context *c)
 {
     struct gc_arena gc = gc_new();
     volatile struct connection_entry *ce = &c->options.ce;
-    int ret = true;
+    int ce_changed = true; /* presume the connection entry will be changed */
+
     update_time();
     if (management)
     {
         struct buffer out = alloc_buf_gc(256, &gc);
-        buf_printf(&out, ">REMOTE:%s,%s,%s", np(ce->remote), ce->remote_port, proto2ascii(ce->proto, ce->af, false));
+
+        buf_printf(&out, ">REMOTE:%s,%s,%s", np(ce->remote), ce->remote_port,
+                   proto2ascii(ce->proto, ce->af, false));
         management_notify_generic(management, BSTR(&out));
-        ce->flags &= ~(CE_MAN_QUERY_REMOTE_MASK<<CE_MAN_QUERY_REMOTE_SHIFT);
-        ce->flags |= (CE_MAN_QUERY_REMOTE_QUERY<<CE_MAN_QUERY_REMOTE_SHIFT);
-        while (((ce->flags>>CE_MAN_QUERY_REMOTE_SHIFT) & CE_MAN_QUERY_REMOTE_MASK) == CE_MAN_QUERY_REMOTE_QUERY)
+
+        ce->flags &= ~(CE_MAN_QUERY_REMOTE_MASK << CE_MAN_QUERY_REMOTE_SHIFT);
+        ce->flags |= (CE_MAN_QUERY_REMOTE_QUERY << CE_MAN_QUERY_REMOTE_SHIFT);
+        while (((ce->flags >> CE_MAN_QUERY_REMOTE_SHIFT)
+                & CE_MAN_QUERY_REMOTE_MASK) == CE_MAN_QUERY_REMOTE_QUERY)
         {
             management_event_loop_n_seconds(management, 1);
             if (IS_SIG(c))
             {
-                ret = false;
+                ce_changed = false; /* connection entry have not been set */
                 break;
             }
         }
     }
-    {
-        const int flags = ((ce->flags>>CE_MAN_QUERY_REMOTE_SHIFT) & CE_MAN_QUERY_REMOTE_MASK);
-        ret = (flags != CE_MAN_QUERY_REMOTE_SKIP);
-    }
     gc_free(&gc);
-    return ret;
+
+    if (ce_changed)
+    {
+        /* If it is likely a connection entry was modified,
+         * check what changed in the flags and that it was not skipped
+         */
+        const int flags = ((ce->flags >> CE_MAN_QUERY_REMOTE_SHIFT)
+                           & CE_MAN_QUERY_REMOTE_MASK);
+        ce_changed = (flags != CE_MAN_QUERY_REMOTE_SKIP);
+    }
+    return ce_changed;
 }
 #endif /* ENABLE_MANAGEMENT */
 
@@ -331,7 +341,8 @@ next_connection_entry(struct context *c)
     struct connection_entry *ce;
     int n_cycles = 0;
 
-    do {
+    do
+    {
         ce_defined = true;
         if (c->options.no_advance && l->current >= 0)
         {
@@ -403,11 +414,7 @@ next_connection_entry(struct context *c)
                 break;
             }
         }
-        else
-#endif
-
-#ifdef ENABLE_MANAGEMENT
-        if (ce_defined && management && management_query_proxy_enabled(management))
+        else if (ce_defined && management && management_query_proxy_enabled(management))
         {
             ce_defined = ce_management_query_proxy(c);
             if (IS_SIG(c))
@@ -533,8 +540,10 @@ context_init_1(struct context *c)
         int i;
         pkcs11_initialize(true, c->options.pkcs11_pin_cache_period);
         for (i = 0; i<MAX_PARMS && c->options.pkcs11_providers[i] != NULL; i++)
+        {
             pkcs11_addProvider(c->options.pkcs11_providers[i], c->options.pkcs11_protected_authentication[i],
                                c->options.pkcs11_private_mode[i], c->options.pkcs11_cert_private[i]);
+        }
     }
 #endif
 
@@ -550,6 +559,15 @@ context_init_1(struct context *c)
         msg(M_INFO, "RET:%s", up.password); /* will return the third argument to management interface
                                              * 'needok' command, usually 'ok' or 'cancel'. */
     }
+#endif
+
+#ifdef ENABLE_SYSTEMD
+    /* We can report the PID via getpid() to systemd here as OpenVPN will not
+     * do any fork due to daemon() a future call.
+     * See possibly_become_daemon() [init.c] for more details.
+     */
+    sd_notifyf(0, "READY=1\nSTATUS=Pre-connection initialization successful\nMAINPID=%lu",
+               (unsigned long) getpid());
 #endif
 
 }
@@ -614,7 +632,9 @@ init_static(void)
     {
         int i;
         for (i = 0; i < argc; ++i)
+        {
             msg(M_INFO, "argv[%d] = '%s'", i, argv[i]);
+        }
     }
 #endif
 
@@ -760,7 +780,9 @@ init_static(void)
                 {
                     int i;
                     for (i = 0; i < SIZE(text); ++i)
+                    {
                         buffer_list_push(bl, (unsigned char *)text[i]);
+                    }
                 }
                 printf("[cap=%d i=%d] *************************\n", listcap, iter);
                 if (!(iter & 8))
@@ -783,7 +805,9 @@ init_static(void)
                         int c;
                         printf("'");
                         while ((c = buf_read_u8(buf)) >= 0)
+                        {
                             putchar(c);
+                        }
                         printf("'\n");
                         buffer_list_advance(bl, 0);
                     }
@@ -1026,24 +1050,6 @@ do_uid_gid_chroot(struct context *c, bool no_delay)
         {
             if (no_delay)
             {
-#ifdef ENABLE_SYSTEMD
-                /* If OpenVPN is started by systemd, the OpenVPN process needs
-                 * to provide a preliminary status report to systemd.  This is
-                 * needed as $NOTIFY_SOCKET will not be available inside the
-                 * chroot, which sd_notify()/sd_notifyf() depends on.
-                 *
-                 * This approach is the simplest and the most non-intrusive
-                 * solution right before the 2.4_rc2 release.
-                 *
-                 * TODO: Consider altnernative solutions - bind mount?
-                 * systemd does not grok OpenVPN configuration files, thus cannot
-                 * have a sane way to know if OpenVPN will chroot or not and to
-                 * which subdirectory it will chroot into.
-                 */
-                sd_notifyf(0, "READY=1\n"
-                           "STATUS=Entering chroot, most of the init completed successfully\n"
-                           "MAINPID=%lu", (unsigned long) getpid());
-#endif
                 platform_chroot(c->options.chroot_dir);
             }
             else if (c->first_time)
@@ -1376,6 +1382,21 @@ initialization_sequence_completed(struct context *c, const unsigned int flags)
     /* If we delayed UID/GID downgrade or chroot, do it now */
     do_uid_gid_chroot(c, true);
 
+
+#ifdef ENABLE_CRYPTO
+    /*
+     * In some cases (i.e. when receiving auth-token via
+     * push-reply) the auth-nocache option configured on the
+     * client is overridden; for this reason we have to wait
+     * for the push-reply message before attempting to wipe
+     * the user/pass entered by the user
+     */
+    if (c->options.mode == MODE_POINT_TO_POINT)
+    {
+        delayed_auth_pass_purge();
+    }
+#endif /* ENABLE_CRYPTO */
+
     /* Test if errors */
     if (flags & ISC_ERRORS)
     {
@@ -1393,7 +1414,7 @@ initialization_sequence_completed(struct context *c, const unsigned int flags)
     else
     {
 #ifdef ENABLE_SYSTEMD
-        sd_notifyf(0, "READY=1\nSTATUS=%s\nMAINPID=%lu", message, (unsigned long) getpid());
+        sd_notifyf(0, "STATUS=%s", message);
 #endif
         msg(M_INFO, "%s", message);
     }
@@ -1830,7 +1851,7 @@ do_close_tun(struct context *c, bool force)
 #if defined(_WIN32)
             if (c->options.block_outside_dns)
             {
-                if (!win_wfp_uninit(c->options.msg_channel))
+                if (!win_wfp_uninit(adapter_index, c->options.msg_channel))
                 {
                     msg(M_FATAL, "Uninitialising WFP failed!");
                 }
@@ -1870,7 +1891,7 @@ do_close_tun(struct context *c, bool force)
 #if defined(_WIN32)
             if (c->options.block_outside_dns)
             {
-                if (!win_wfp_uninit(c->options.msg_channel))
+                if (!win_wfp_uninit(adapter_index, c->options.msg_channel))
                 {
                     msg(M_FATAL, "Uninitialising WFP failed!");
                 }
@@ -1903,12 +1924,12 @@ tun_abort()
  * equal, or either one is all-zeroes.
  */
 static bool
-options_hash_changed_or_zero(const struct md5_digest *a,
-                             const struct md5_digest *b)
+options_hash_changed_or_zero(const struct sha256_digest *a,
+                             const struct sha256_digest *b)
 {
-    const struct md5_digest zero = {{0}};
-    return memcmp(a, b, sizeof(struct md5_digest))
-           || !memcmp(a, &zero, sizeof(struct md5_digest));
+    const struct sha256_digest zero = {{0}};
+    return memcmp(a, b, sizeof(struct sha256_digest))
+           || !memcmp(a, &zero, sizeof(struct sha256_digest));
 }
 #endif /* P2MP */
 
@@ -1919,7 +1940,7 @@ do_up(struct context *c, bool pulled_options, unsigned int option_types_found)
     {
         reset_coarse_timers(c);
 
-        if (pulled_options && option_types_found)
+        if (pulled_options)
         {
             if (!do_deferred_options(c, option_types_found))
             {
@@ -2625,6 +2646,7 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
     memmove(to.remote_cert_ku, options->remote_cert_ku, sizeof(to.remote_cert_ku));
     to.remote_cert_eku = options->remote_cert_eku;
     to.verify_hash = options->verify_hash;
+    to.verify_hash_algo = options->verify_hash_algo;
 #ifdef ENABLE_X509ALTUSERNAME
     to.x509_username_field = (char *) options->x509_username_field;
 #else
@@ -2752,7 +2774,10 @@ do_init_crypto_none(const struct context *c)
 {
     ASSERT(!c->options.test_crypto);
     msg(M_WARN,
-        "******* WARNING *******: all encryption and authentication features disabled -- all data will be tunnelled as cleartext");
+        "******* WARNING *******: All encryption and authentication features "
+        "disabled -- All data will be tunnelled as clear text and will not be "
+        "protected against man-in-the-middle changes. "
+        "PLEASE DO RECONSIDER THIS CONFIGURATION!");
 }
 #endif /* ifdef ENABLE_CRYPTO */
 
@@ -2996,6 +3021,10 @@ do_option_warnings(struct context *c)
         && !o->remote_cert_eku)
     {
         msg(M_WARN, "WARNING: No server certificate verification method has been enabled.  See http://openvpn.net/howto.html#mitm for more info.");
+    }
+    if (o->ns_cert_type)
+    {
+        msg(M_WARN, "WARNING: --ns-cert-type is DEPRECATED.  Use --remote-cert-tls instead.");
     }
 #endif /* ifdef ENABLE_CRYPTO */
 
@@ -4054,6 +4083,8 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
     {
         c->c2.did_open_tun = do_open_tun(c);
     }
+
+    c->c2.frame_initial = c->c2.frame;
 
     /* print MTU info */
     do_print_data_channel_mtu_parms(c);

@@ -16,10 +16,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program (see the file COPYING included with this
- *  distribution); if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  *  A printf-like function (that only recognizes a subset of standard printf
@@ -60,7 +59,9 @@ argv_reset(struct argv *a)
 {
     size_t i;
     for (i = 0; i < a->argc; ++i)
+    {
         free(a->argv[i]);
+    }
     free(a->argv);
     argv_init(a);
 }
@@ -74,7 +75,9 @@ argv_extend(struct argv *a, const size_t newcap)
         size_t i;
         ALLOC_ARRAY_CLEAR(newargv, char *, newcap);
         for (i = 0; i < a->argc; ++i)
+        {
             newargv[i] = a->argv[i];
+        }
         free(a->argv);
         a->argv = newargv;
         a->capacity = newcap;
@@ -104,11 +107,15 @@ argv_clone(const struct argv *a, const size_t headroom)
 
     argv_init(&r);
     for (i = 0; i < headroom; ++i)
+    {
         argv_append(&r, NULL);
+    }
     if (a)
     {
         for (i = 0; i < a->argc; ++i)
+        {
             argv_append(&r, string_alloc(a->argv[i], NULL));
+        }
     }
     return r;
 }
@@ -332,7 +339,9 @@ argv_parse_cmd(struct argv *a, const char *s)
     {
         int i;
         for (i = 0; i < nparms; ++i)
+        {
             argv_append(a, string_alloc(parms[i], NULL));
+        }
     }
     else
     {
