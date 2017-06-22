@@ -1,3 +1,14 @@
+openvpn (2.4.3-1) unstable; urgency=high
+
+  * The "Bye bye OpenVPN" release.
+  * New upstream release fixing: (Closes: #865480)
+    - CVE-2017-7508
+    - CVE-2017-7520
+    - CVE-2017-7521
+    - CVE-2017-7522
+
+ -- Alberto Gonzalez Iniesta <agi@inittab.org>  Thu, 22 Jun 2017 13:25:45 +0200
+
 openvpn (2.4.0-6) unstable; urgency=medium
 
   * Apply upstream patch to fix shrinking MTU sizes on reconnects causing not
