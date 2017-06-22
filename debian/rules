@@ -5,7 +5,7 @@ ifeq ($(DEB_HOST_ARCH_OS), kfreebsd)
 ENV_VARS	:= IFCONFIG=/sbin/ifconfig ROUTE=/lib/freebsd/route
 EXTRA_ARGS	:= 
 else
-ENV_VARS	:= SYSTEMD_ASK_PASSWORD=/bin/systemd-ask-password IFCONFIG=/sbin/ifconfig ROUTE=/sbin/route IPROUTE=/sbin/ip
+ENV_VARS	:= SYSTEMD_ASK_PASSWORD=/bin/systemd-ask-password IFCONFIG=/sbin/ifconfig ROUTE=/sbin/route IPROUTE=/sbin/ip SYSTEMD_UNIT_DIR=/lib/systemd/system TMPFILES_DIR=/etc/tmpfiles.d
 EXTRA_ARGS	:= --enable-systemd --enable-iproute2
 endif
 
@@ -17,7 +17,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 override_dh_auto_configure:
 	-test -f tests/t_client.sh.not || mv tests/t_client.sh tests/t_client.sh.not
-	$(ENV_VARS) dh_auto_configure -- $(shell dpkg-buildflags --export=configure) --enable-password-save --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --with-plugindir=\$${prefix}/lib/openvpn --includedir=\$${prefix}/include/openvpn --enable-pkcs11 --enable-x509-alt-username $(EXTRA_ARGS)
+	$(ENV_VARS) dh_auto_configure -- $(shell dpkg-buildflags --export=configure) --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --includedir=\$${prefix}/include/openvpn --enable-pkcs11 --enable-x509-alt-username $(EXTRA_ARGS)
 
 
 override_dh_auto_build:
@@ -52,7 +52,7 @@ override_dh_auto_install:
 	install -m 755 debian/openvpn.if-up.d $(CURDIR)/debian/openvpn/etc/network/if-up.d/openvpn
 	install -m 755 debian/openvpn.if-down.d $(CURDIR)/debian/openvpn/etc/network/if-down.d/openvpn
 	# remove unwanted plugin files
-	rm -f $(CURDIR)/debian/openvpn/usr/lib/openvpn/*.la
+	rm -f $(CURDIR)/debian/openvpn/usr/lib/$(DEB_HOST_GNU_TYPE)/openvpn/plugins/*.la
 	# resolvconf script
 	install -m 755 debian/update-resolv-conf $(CURDIR)/debian/openvpn/etc/openvpn/update-resolv-conf
 	# bash completion
@@ -65,14 +65,9 @@ override_dh_installexamples:
 	rm -rf $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/sample
 	# remove gitignore file from samples
 	rm -f $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/sample-keys/.gitignore
-	# clean permissions to make lintian happy
-	# chmod a-x $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/easy-rsa/2.0/vars
-	# chmod a-x $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/easy-rsa/2.0/openssl-*.cnf
 
 override_dh_installinit:
 	dh_installinit --no-start -- defaults 16 80
-	install -m 644 distro/systemd/openvpn-server@.service $(CURDIR)/debian/openvpn/lib/systemd/system
-	install -m 644 distro/systemd/openvpn-client@.service $(CURDIR)/debian/openvpn/lib/systemd/system
 
 override_dh_compress:
 	dh_compress --exclude=.cnf --exclude=pkitool

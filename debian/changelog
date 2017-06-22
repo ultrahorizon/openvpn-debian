@@ -6,6 +6,11 @@ openvpn (2.4.3-1) unstable; urgency=high
     - CVE-2017-7520
     - CVE-2017-7521
     - CVE-2017-7522
+  * Plugin libs have been moved to /usr/lib/ARCH/openvpn/plugins
+  * debian/rules: 
+    - Remove obsolete options to configure script (enable-password-save,
+      with-plugindir (now in ENV_VARS))
+    - No need to install upstream's systemd unit files from debian/rules
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Thu, 22 Jun 2017 13:25:45 +0200
 
