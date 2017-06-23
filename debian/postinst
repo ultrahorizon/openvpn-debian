@@ -30,6 +30,14 @@ case "$1" in
       echo "$b" | grep -q '\*' && continue
       ln -sf "/run/openvpn/$b" "/run/sendsigs.omit.d/openvpn.$b"
     done
+    # Fix for #865589, this should be removed before Buster is released
+    # Only affected sid users
+    if [ -n "$2" ] && [ "$2" = "2.4.3-1" ] && [ -f /etc/tmpfiles.d/openvpn.conf ] ; then
+      if [  "$( md5sum /etc/tmpfiles.d/openvpn.conf | cut -d' ' -f1)" = "af1d2934dd0025c441d93f6de4540443" ] ; then
+	      # remove wrongly placed file by 2.4.3-1
+        rm -f /etc/tmpfiles.d/openvpn.conf
+      fi
+    fi
   ;;
 esac
 
