@@ -5,9 +5,11 @@ openvpn (2.4.3-3) UNRELEASED; urgency=medium
     - Set Bernhard Schmidt <berni@debian.org> as maintainer and myself as
       Uploader.
     - Many thanks to Alberto Gonzalez Iniesta.
+    - Change Vcs-Browser to cgit.
   * Migrate to debhelper 10:
     - Change debian/compat to 10.
     - Bump minimum debhelper version in debian/control to >= 10.
+  * Declare compliance with Debian Policy 4.0.0. (No changes needed).
 
  -- Jörg Frings-Fürst <debian@jff-webhosting.net>  Tue, 27 Jun 2017 11:18:13 +0200
 

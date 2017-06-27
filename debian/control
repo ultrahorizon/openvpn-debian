@@ -17,15 +17,23 @@ Build-Depends:
  net-tools [!linux-any],
  pkg-config,
  systemd [linux-any]
-Standards-Version: 3.9.8
+Standards-Version: 4.0.0
 Homepage: http://www.openvpn.net/
 Vcs-Git: git://anonscm.debian.org/collab-maint/openvpn.git
-Vcs-Browser: https://anonscm.debian.org/gitweb/?p=collab-maint/openvpn.git
+Vcs-Browser: https://anonscm.debian.org/cgit/collab-maint/openvpn.git
 
 Package: openvpn
 Architecture: any
-Depends: debconf | debconf-2.0, ${shlibs:Depends}, ${misc:Depends}, iproute2 [linux-any], net-tools [!linux-any], lsb-base (>= 3.0-6)
-Suggests: openssl, resolvconf
+Depends: 
+ debconf | debconf-2.0,
+ ${shlibs:Depends},
+ ${misc:Depends},
+ iproute2 [linux-any],
+ net-tools [!linux-any],
+ lsb-base (>= 3.0-6)
+Suggests:
+ openssl,
+ resolvconf
 Recommends: easy-rsa
 Description: virtual private network daemon
  OpenVPN is an application to securely tunnel IP networks over a
