@@ -11,6 +11,10 @@ openvpn (2.4.3-3) UNRELEASED; urgency=medium
     - Bump minimum debhelper version in debian/control to >= 10.
   * Declare compliance with Debian Policy 4.0.0. (No changes needed).
 
+  [ Bernhard Schmidt ]
+  * properly remove obsolete /etc/tmpfiles.d/openvpn.conf using
+    dpkg-maintscript-helper (Closes: #865717)
+
  -- Jörg Frings-Fürst <debian@jff-webhosting.net>  Tue, 27 Jun 2017 11:18:13 +0200
 
 openvpn (2.4.3-2) unstable; urgency=medium
