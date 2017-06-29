@@ -3,7 +3,7 @@ openvpn (2.4.3-3) UNRELEASED; urgency=medium
   [ Jörg Frings-Fürst ]
   * debian/control:
     - Set Bernhard Schmidt <berni@debian.org> as maintainer and myself as
-      Uploader.
+      Uploader (Closes: #865555)
     - Many thanks to Alberto Gonzalez Iniesta.
     - Change Vcs-Browser to cgit.
   * Migrate to debhelper 10:
