@@ -57,8 +57,10 @@ override_dh_auto_install:
 	install -m 755 debian/update-resolv-conf $(CURDIR)/debian/openvpn/etc/openvpn/update-resolv-conf
 	# bash completion
 	install -m 644 debian/openvpn.bash_completion $(CURDIR)/debian/openvpn/usr/share/bash-completion/completions/openvpn
-	# append Debian's tmpfiles conf to upstream's
+	# append Debian's tmpfiles conf to upstream's on Linux (systemd)
+ifeq ($(DEB_HOST_ARCH_OS), linux)
 	cat debian/openvpn.conf >> $(CURDIR)/debian/openvpn/usr/lib/tmpfiles.d/openvpn.conf
+endif
 
 override_dh_installexamples:
 	dh_installexamples
