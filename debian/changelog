@@ -1,4 +1,4 @@
-openvpn (2.4.3-3) UNRELEASED; urgency=medium
+openvpn (2.4.3-3) unstable; urgency=medium
 
   [ Jörg Frings-Fürst ]
   * debian/control:
@@ -14,8 +14,9 @@ openvpn (2.4.3-3) UNRELEASED; urgency=medium
   [ Bernhard Schmidt ]
   * properly remove obsolete /etc/tmpfiles.d/openvpn.conf using
     dpkg-maintscript-helper (Closes: #865717)
+  * Change Vcs-Git and Homepage to https
 
- -- Jörg Frings-Fürst <debian@jff-webhosting.net>  Tue, 27 Jun 2017 11:18:13 +0200
+ -- Bernhard Schmidt <berni@debian.org>  Thu, 29 Jun 2017 12:41:31 +0200
 
 openvpn (2.4.3-2) unstable; urgency=medium
 
