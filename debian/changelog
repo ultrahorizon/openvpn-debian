@@ -1,3 +1,16 @@
+openvpn (2.4.3-4) unstable; urgency=medium
+
+  * fix FTBFS on kfreebsd
+  * Adjust debian openvpn@.service to be closer to the upstream
+    ones (Closes: #858558, #864031):
+    - adjust Documentation URL to OpenVPN 2.4
+    - use systemd READY signalling (Type=notify)
+    - add ProtectHome=true
+    - add After/Wants network-online.target
+    - adjust CapabililtyBoundingSet
+
+ -- Bernhard Schmidt <berni@debian.org>  Fri, 30 Jun 2017 15:39:56 +0200
+
 openvpn (2.4.3-3) unstable; urgency=medium
 
   [ Jörg Frings-Fürst ]
