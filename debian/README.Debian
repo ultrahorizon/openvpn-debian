@@ -186,11 +186,13 @@ from now on.
 plugin support
 --------------
 
-Plugins are now included in the package. They get installed in /usr/lib/openvpn.
+Plugins are now included in the package. They get installed in
+/usr/lib/<DEB_HOST_MULTIARCH>/openvpn/plugins.
 Info on what they are and what they do in README.auth-pam and README.down-root.
-Append /usr/lib/openvpn/ to the plugin name in the plugin option. 
-i.e. 
-	plugin /usr/lib/openvpn/openvpn-auth-pam.so [service-type]
+Append /usr/lib/<DEB_HOST_MULTIARCH>/openvpn/plugins to the plugin name in
+the plugin option.
+i.e.
+	plugin /usr/lib/x86_64-linux-gnu/openvpn/plugins/openvpn-plugin-auth-pam.so [service-type]
 
 Using resolvconf
 ----------------

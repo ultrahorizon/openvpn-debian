@@ -1,0 +1,17 @@
+#!/bin/sh
+set -e
+
+
+if [ "$1" = purge ] ; then
+
+# remove obsolete directory
+    if [ -d /usr/lib/openvpn ]; then
+	rmdir --ignore-fail-on-non-empty /usr/lib/openvpn
+    fi
+
+fi
+
+#DEBHELPER#
+
+exit 0
+
