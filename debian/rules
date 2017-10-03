@@ -13,7 +13,7 @@ endif
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 %:
-	dh $@ --with systemd
+	dh $@
 
 override_dh_auto_configure:
 	-test -f tests/t_client.sh.not || mv tests/t_client.sh tests/t_client.sh.not

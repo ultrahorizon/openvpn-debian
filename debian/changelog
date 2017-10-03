@@ -2,6 +2,8 @@ openvpn (2.4.4-1) UNRELEASED; urgency=medium
 
   * New Upstream release.
   * Declare compliance with Debian Policy 4.1.1. (No changes needed).
+  * Drop dh-systemd from both Build-Depends and dh command line as
+    it is enabled by default for dh compat level 10.
 
  -- Jörg Frings-Fürst <debian@jff-webhosting.net>  Mon, 02 Oct 2017 06:57:42 +0200
 
