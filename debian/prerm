@@ -7,14 +7,34 @@
 set -e
 test $DEBIAN_SCRIPT_DEBUG && set -v -x
 
+#
+# POSIX-compliant shell function
+# to check for the existence of a command
+# Return 0 if found
+#
+pathfind() {
+    OLDIFS="$IFS"
+    IFS=:
+    for p in $PATH; do
+        if [ -x "$p/$*" ]; then
+            IFS="$OLDIFS"
+            return 0
+        fi
+    done
+    IFS="$OLDIFS"
+    return 1
+}
+
+
 stop_vpn () {
-  if [ -x "/etc/init.d/openvpn" ]; then
-          if [ -x /usr/sbin/invoke-rc.d ] ; then
-                  invoke-rc.d openvpn stop
-          else
-                  /etc/init.d/openvpn stop
-          fi
-  fi
+    if [ -x "/etc/init.d/openvpn" ]; then
+	pathfind invoke-rc.d
+	if [ $? = 0 ]; then
+	    invoke-rc.d openvpn stop
+	else
+	    /etc/init.d/openvpn stop
+	fi
+    fi
 }
 
 

@@ -11,6 +11,8 @@ openvpn (2.4.4-1) UNRELEASED; urgency=medium
     - Remove /usr/lib/openvpn from debian/dirs.
     - Add debian/postrm to remove /usr/lib/openvpn on purge and remove.
     - Rewrite plugin section at README.Debian
+  * Use pathfind() instead hard coded path for invoke-rc.d at debian/prerm
+    and debian/postinst.
 
  -- Jörg Frings-Fürst <debian@jff-webhosting.net>  Mon, 02 Oct 2017 06:57:42 +0200
 

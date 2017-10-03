@@ -9,6 +9,25 @@ test $DEBIAN_SCRIPT_DEBUG && set -v -x
 # use debconf
 . /usr/share/debconf/confmodule
 
+#
+# POSIX-compliant shell function
+# to check for the existence of a command
+# Return 0 if found
+#
+pathfind() {
+    OLDIFS="$IFS"
+    IFS=:
+    for p in $PATH; do
+        if [ -x "$p/$*" ]; then
+            IFS="$OLDIFS"
+            return 0
+        fi
+    done
+    IFS="$OLDIFS"
+    return 1
+}
+
+
 case "$1" in
   configure)
     db_get openvpn/create_tun || RET="false"
@@ -34,7 +53,8 @@ case "$1" in
 esac
 
 if [ -x "/etc/init.d/openvpn" ]; then
-	if [ -x /usr/sbin/invoke-rc.d ]; then
+	pathfind invoke-rc.d
+	if [ $? = 0 ]; then
 	   invoke-rc.d openvpn cond-restart || invoke-rc.d openvpn restart
 	else
 	   /etc/init.d/openvpn cond-restart || /etc/init.d/openvpn restart
