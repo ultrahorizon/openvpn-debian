@@ -2,14 +2,20 @@
 set -e
 
 
-if [ "$1" = purge ] ; then
 
+case "$1" in
+    purge|remove)
+
+#
 # remove obsolete directory
-    if [ -d /usr/lib/openvpn ]; then
-	rmdir --ignore-fail-on-non-empty /usr/lib/openvpn
-    fi
+# new at release 2.4.4-1
+#
+	if [ -d /usr/lib/openvpn ]; then
+	    rmdir --ignore-fail-on-non-empty /usr/lib/openvpn
+	fi
+    ;;
 
-fi
+esac
 
 #DEBHELPER#
 
