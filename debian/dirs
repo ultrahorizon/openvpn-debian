@@ -9,3 +9,4 @@ usr/share/man/man8
 usr/share/doc/openvpn
 usr/share/openvpn
 usr/include/openvpn
+var/log/openvpn
