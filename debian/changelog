@@ -16,6 +16,8 @@ openvpn (2.4.4-1) UNRELEASED; urgency=medium
     and debian/postinst.
   * Remove outdated debian/README.source.
   * Remove obsolete syslog.target from debian/openvpn@.service.
+  * Update Catalan translation (Closes: #870351).
+    - Thanks to Alytidae <alytidae@riseup.net>.
 
  -- Jörg Frings-Fürst <debian@jff-webhosting.net>  Mon, 02 Oct 2017 06:57:42 +0200
 

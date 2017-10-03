@@ -1,15 +1,15 @@
-# openvpn (debconf) translation to Catalan.
+# OpenVPN (debconf) translation to Catalan.
 # Copyright (C) 2004 Free Software Foundation, Inc.
 # Aleix Badia i Bosch <abadia@ica.es>, 2004
 # Josep Lladonosa i Capell <jep@veinat.net>, 2004
-#
+# Alytidae <alytidae@riseup.net>, 2017
 msgid ""
 msgstr ""
-"Project-Id-Version: openvpn_1.5.0-2_templates\n"
+"Project-Id-Version: openvpn_2.4.3-4\n"
 "Report-Msgid-Bugs-To: openvpn@packages.debian.org\n"
 "POT-Creation-Date: 2011-05-10 17:48+0200\n"
-"PO-Revision-Date: 2004-04-08 20:24+0200\n"
-"Last-Translator: Aleix Badia i Bosch <abadia@ica.es>\n"
+"PO-Revision-Date: 2017-07-23 16:53+0200\n"
+"Last-Translator: Alytidae <alytidae@riseup.net>\n"
 "Language-Team: Catalan <debian-l10n-catalan@lists.debian.org>\n"
 "Language: ca\n"
 "MIME-Version: 1.0\n"
@@ -20,7 +20,7 @@ msgstr ""
 #. Description
 #: ../templates:2001
 msgid "Create the TUN/TAP device?"
-msgstr ""
+msgstr "Crear un dispositiu TUN/TAP?"
 
 #. Type: boolean
 #. Description
@@ -28,13 +28,14 @@ msgstr ""
 msgid ""
 "If you choose this option, the /dev/net/tun device needed by OpenVPN will be "
 "created."
-msgstr ""
+msgstr "Si tries aquesta opció es crearà el dispositiu /dev/net/tun, que és "
+"necessari per a OpenVPN."
 
 #. Type: boolean
 #. Description
 #: ../templates:2001
 msgid "You should not choose this option if you're using devfs."
-msgstr ""
+msgstr "No hauries de triar aquesta opció si estàs utilitzant devfs."
 
 #~ msgid "Would you like to start openvpn sooner?"
 #~ msgstr "Voldríeu iniciar l'openvpn abans?"
