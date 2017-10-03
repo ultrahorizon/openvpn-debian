@@ -1,6 +1,7 @@
 openvpn (2.4.4-1) UNRELEASED; urgency=medium
 
-  * New Upstream release.
+  * New Upstream release:
+    - Fix bounds check in read_key() (CVE-2017-12166) (Closes: #877089).
   * Declare compliance with Debian Policy 4.1.1. (No changes needed).
   * Drop dh-systemd from both Build-Depends and dh command line as
     it is enabled by default for dh compat level 10.
