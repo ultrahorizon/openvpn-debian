@@ -1,5 +1,6 @@
 openvpn (2.4.4-1) UNRELEASED; urgency=medium
 
+  [ Jörg Frings-Fürst ]
   * New Upstream release:
     - Fix bounds check in read_key() (CVE-2017-12166) (Closes: #877089).
   * Declare compliance with Debian Policy 4.1.1. (No changes needed).
@@ -23,6 +24,11 @@ openvpn (2.4.4-1) UNRELEASED; urgency=medium
     - Add var/log/openvpn into debian/dirs.
     - New debian/patches/move_log_dir.patch to change the conf files
       to the new log directory.
+
+  [ Bernhard Schmidt ]
+  * Further changes to debian/openvpn@.service copied from upstream
+    - Enable Restart=on-failure
+    - Use KillMode=process
 
  -- Jörg Frings-Fürst <debian@jff-webhosting.net>  Mon, 02 Oct 2017 06:57:42 +0200
 
