@@ -22,6 +22,8 @@ DeviceAllow=/dev/null rw
 DeviceAllow=/dev/net/tun rw
 ProtectSystem=true
 ProtectHome=true
+RestartSec=5s
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
