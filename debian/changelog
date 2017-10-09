@@ -8,7 +8,7 @@ openvpn (2.4.4-1) UNRELEASED; urgency=medium
     it is enabled by default for dh compat level 10.
   * New debian/openvpn.lintian-overrides:
     - Override duplicate upstream changelog warning.
-  * Remote obsolete directory /usr/lib/openvpn (The plugins direcotoy are now
+  * Remote obsolete directory /usr/lib/openvpn (The plugins directory are now
       /usr/lib/*/openvpn/plugins):
     - Remove /usr/lib/openvpn from debian/dirs.
     - Add debian/postrm to remove /usr/lib/openvpn on purge and remove.
