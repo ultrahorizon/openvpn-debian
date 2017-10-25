@@ -1,4 +1,4 @@
-openvpn (2.4.4-1) UNRELEASED; urgency=medium
+openvpn (2.4.4-1) unstable; urgency=medium
 
   [ Jörg Frings-Fürst ]
   * New Upstream release:
@@ -30,7 +30,7 @@ openvpn (2.4.4-1) UNRELEASED; urgency=medium
     - Enable Restart=on-failure
     - Use KillMode=process
 
- -- Jörg Frings-Fürst <debian@jff-webhosting.net>  Mon, 02 Oct 2017 06:57:42 +0200
+ -- Bernhard Schmidt <berni@debian.org>  Wed, 25 Oct 2017 08:14:12 +0200
 
 openvpn (2.4.3-4) unstable; urgency=medium
 
