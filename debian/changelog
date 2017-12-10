@@ -1,3 +1,10 @@
+openvpn (2.4.4-2) unstable; urgency=medium
+
+  * Build against OpenSSL 1.1.0 (Closes: #828447)
+  * Bump Standards-Version to 4.1.2, no changes necessary
+
+ -- Bernhard Schmidt <berni@debian.org>  Mon, 11 Dec 2017 00:22:11 +0100
+
 openvpn (2.4.4-1) unstable; urgency=medium
 
   [ Jörg Frings-Fürst ]
