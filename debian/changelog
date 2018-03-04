@@ -1,3 +1,11 @@
+openvpn (2.4.5-1) unstable; urgency=medium
+
+  * New upstream version 2.4.5 (Closes: #873302)
+  * Fix wrong Bug# in previous changelog
+  * Change Vcs-* to salsa (gitlab)
+
+ -- Bernhard Schmidt <berni@debian.org>  Sun, 04 Mar 2018 22:23:47 +0100
+
 openvpn (2.4.4-2) unstable; urgency=medium
 
   * Build against OpenSSL 1.1.0 (Closes: #828477)
