@@ -12,6 +12,7 @@ openvpn (2.4.6-1) UNRELEASED; urgency=medium
     - Remove trailing whitespaces.
   * debian/rules:
     - Remove trailing whitespaces.
+    - Replace outdated dh_installsystemd with dh_systemd_start.
 
  -- Jörg Frings-Fürst <debian@jff.email>  Sun, 29 Jul 2018 13:59:15 +0200
 
