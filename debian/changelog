@@ -1,6 +1,9 @@
 openvpn (2.4.6-1) UNRELEASED; urgency=medium
 
   * New upstream release.
+  * Migrate to debhelper 11:
+    - Change debian/compat to 11.
+    - Bump minimum debhelper version in debian/control to >= 11.
   * debian/control:
     - Change to my new email address.
 
