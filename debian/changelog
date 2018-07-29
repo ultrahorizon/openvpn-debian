@@ -1,3 +1,11 @@
+openvpn (2.4.6-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+  * debian/control:
+    - Change to my new email address.
+
+ -- Jörg Frings-Fürst <debian@jff.email>  Sun, 29 Jul 2018 13:59:15 +0200
+
 openvpn (2.4.5-1) unstable; urgency=medium
 
   * New upstream version 2.4.5 (Closes: #873302)
