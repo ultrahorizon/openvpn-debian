@@ -15,6 +15,8 @@ openvpn (2.4.6-1) UNRELEASED; urgency=medium
   * debian/rules:
     - Remove trailing whitespaces.
     - Replace outdated dh_installsystemd with dh_systemd_start.
+  * debian/watch:
+    - Use secure URI.
 
  -- Jörg Frings-Fürst <debian@jff.email>  Sun, 29 Jul 2018 13:59:15 +0200
 
