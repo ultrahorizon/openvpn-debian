@@ -17,6 +17,7 @@ openvpn (2.4.6-1) UNRELEASED; urgency=medium
     - Remove trailing whitespaces.
     - Replace outdated dh_installsystemd with dh_systemd_start.
     - Remove usr/share/doc/openvpn/COPYING.
+    - Replace rm -f with $(RM).
   * debian/watch:
     - Use secure URI.
 

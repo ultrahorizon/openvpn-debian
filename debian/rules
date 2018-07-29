@@ -52,7 +52,7 @@ override_dh_auto_install:
 	install -m 755 debian/openvpn.if-up.d $(CURDIR)/debian/openvpn/etc/network/if-up.d/openvpn
 	install -m 755 debian/openvpn.if-down.d $(CURDIR)/debian/openvpn/etc/network/if-down.d/openvpn
 	# remove unwanted plugin files
-	rm -f $(CURDIR)/debian/openvpn/usr/lib/$(DEB_HOST_GNU_TYPE)/openvpn/plugins/*.la
+	$(RM) $(CURDIR)/debian/openvpn/usr/lib/$(DEB_HOST_GNU_TYPE)/openvpn/plugins/*.la
 	# resolvconf script
 	install -m 755 debian/update-resolv-conf $(CURDIR)/debian/openvpn/etc/openvpn/update-resolv-conf
 	# bash completion
@@ -66,10 +66,10 @@ endif
 override_dh_installexamples:
 	dh_installexamples
 	## remove windoze stuff
-	rm -rf $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/easy-rsa/Windows
-	rm -rf $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/sample
+	$(RM) -r $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/easy-rsa/Windows
+	$(RM) -r $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/sample
 	# remove gitignore file from samples
-	rm -f $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/sample-keys/.gitignore
+	$(RM) $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/examples/sample-keys/.gitignore
 
 override_dh_installinit:
 	dh_installinit --no-start -- defaults 16 80
