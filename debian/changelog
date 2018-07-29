@@ -7,6 +7,7 @@ openvpn (2.4.6-1) UNRELEASED; urgency=medium
     - Bump minimum debhelper version in debian/control to >= 11.
   * Declare compliance with Debian Policy 4.1.5 (No changes needed).
   * New debian/patches/spelling_errors.patch to correct spelling errors.
+  * New debian/patches/systemd.patch to remove obsolete syslog.target.
   * debian/changelog:
     - Rewrite to DEP5 copyright format.
   * debian/control:
