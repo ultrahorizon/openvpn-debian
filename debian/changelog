@@ -1470,4 +1470,3 @@ openvpn (1.2.0-1) unstable; urgency=low
   * Initial Release. (Closes: #140463)
 
  -- Alberto Gonzalez Iniesta <agi@agi.as>  Thu, 23 May 2002 11:00:37 +0200
-
