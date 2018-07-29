@@ -5,8 +5,13 @@ openvpn (2.4.6-1) UNRELEASED; urgency=medium
     - Change debian/compat to 11.
     - Bump minimum debhelper version in debian/control to >= 11.
   * Declare compliance with Debian Policy 4.1.5 (No changes needed).
+  * debian/changelog:
+    - Remove trailing whitespaces.
   * debian/control:
     - Change to my new email address.
+    - Remove trailing whitespaces.
+  * debian/rules:
+    - Remove trailing whitespaces.
 
  -- Jörg Frings-Fürst <debian@jff.email>  Sun, 29 Jul 2018 13:59:15 +0200
 
@@ -109,7 +114,7 @@ openvpn (2.4.3-1) unstable; urgency=high
     - CVE-2017-7521
     - CVE-2017-7522
   * Plugin libs have been moved to /usr/lib/ARCH/openvpn/plugins
-  * debian/rules: 
+  * debian/rules:
     - Remove obsolete options to configure script (enable-password-save,
       with-plugindir (now in ENV_VARS))
     - No need to install upstream's systemd unit files from debian/rules
@@ -282,7 +287,7 @@ openvpn (2.3.7-1) unstable; urgency=medium
 openvpn (2.3.5-1) unstable; urgency=medium
 
   * New upstream release. Removed patches applied upstream:
-    client_connect_tmp_files.patch 
+    client_connect_tmp_files.patch
     better_systemd_detection.patch
   * Add Build-Depends on libsystemd-daemon-dev.
 
@@ -531,7 +536,7 @@ openvpn (2.2.0-2) unstable; urgency=low
 openvpn (2.2.0-1) experimental; urgency=low
 
   * New upstream release (Closes: #625281)
-  * Removed Depends on open(ssl|vpn)-blacklist, since 
+  * Removed Depends on open(ssl|vpn)-blacklist, since
     debian_openssl_vulnkeys.patch is no longer used.
     Removed templates referring it too.
   * Removed manpage_dash_escaping.patch, applied upstream
@@ -824,7 +829,7 @@ openvpn (2.1~rc7-2) unstable; urgency=high
   * init.c: Warn of use of known vulnerable weak SSL/TLS
     and shared secret keys caused by Debian openssl bug.
     Patch taken from Ubuntu. CVE-2008-0166
-  * debian/(templates|postinst): Add warning on vulnerable 
+  * debian/(templates|postinst): Add warning on vulnerable
     secrect/key files.
   * debian/control: Add dependencies on openssl-blacklist and
     openvpn-blacklist. Bumped dependency on libssl version.
@@ -914,7 +919,7 @@ openvpn (2.0.9-6) unstable; urgency=low
     /etc/network/interfaces integration. (Closes: #413732)
   * Also included joeyh's suggestion on the previous subject.
     (Closes: 419797)
-  * Avoid restarting a vpn instead of reloading it due to wrong 
+  * Avoid restarting a vpn instead of reloading it due to wrong
     detection of 'user' option in init.d script. Thanks Josip Rodin.
     (Closes: 403503)
   * Added Russian debconf translation. (Closes: #414088)
@@ -992,7 +997,7 @@ openvpn (2.0.6-2) unstable; urgency=low
     a fresh install or stop2upgrade=true. (Closes: #366085, #338956)
   * Updated Czech debconf translation (Closes: #333989)
     Thanks Miroslav Kure.
-  * Bumped Standards-Version to 3.7.2.0, no change. 
+  * Bumped Standards-Version to 3.7.2.0, no change.
   * debian/rules: Avoid compressing 'pkitool' (Closes: #354478)
   * debian/templates: Corrected typo on init scripts order change.
     (Closes: #351664)
@@ -1036,9 +1041,9 @@ openvpn (2.0.2-1) unstable; urgency=low
   * The [VAC] upload. Thanks Vorbis Gdynia for the free internet access :)
   * New upstream release (Closes: #323594)
   * Fixed use of backslash in username authentication. (Closes: #309787)
-  * Fixes several DoS vulnerabilities: CAN-2005-2531 CAN-2005-2532 
+  * Fixes several DoS vulnerabilities: CAN-2005-2531 CAN-2005-2532
     CAN-2005-2533 CAN-2005-2534. (Closes: #324167)
-  * Changed group option from 'nobody' to 'nogroup' in all the 
+  * Changed group option from 'nobody' to 'nogroup' in all the
     *example* files... (Closes: #317987)
   * Included openvpn-plugin.h to allow building third party plugins.
     (Closes: #316139)
@@ -1091,7 +1096,7 @@ openvpn (2.0-1) unstable; urgency=low
     Thanks Thomas Hood for the patch.
   * debian/control. Rewrote Description: field.
     Now it's more useful and complete. (Closes: #304895)
-  * init.d script: 
+  * init.d script:
      - Fixed restarting of multiple VPNs
      - Fixed TAB converted to spaces.
      - Remove status file on VPN stop
@@ -1134,7 +1139,7 @@ openvpn (1.99+2.rc12-1) unstable; urgency=low
 
 openvpn (1.99+2.rc11-2) unstable; urgency=low
 
-  * Added --enable-password-save to configure call to allow 
+  * Added --enable-password-save to configure call to allow
     --askpass and --auth-user-pass passwords to be read from a file.
 
  -- Alberto Gonzalez Iniesta <agi@inittab.org>  Thu,  3 Feb 2005 18:19:28 +0100
@@ -1204,7 +1209,7 @@ openvpn (1.99+2.beta17-1) unstable; urgency=low
 
 openvpn (1.99+2.beta16-2) unstable; urgency=low
 
-  * Patched ssl.c to fix bug in --key-method 1, that prevented 
+  * Patched ssl.c to fix bug in --key-method 1, that prevented
     OpenVPN 2.x from working with 1.x using that method.
     Thanks James for the prompt answer & patch.
     Thanks weasel for finding it out.
@@ -1254,7 +1259,7 @@ openvpn (1.99+2.beta15-1) unstable; urgency=low
     and not tell the maintainer directly.
   * Added Brazilian Portuguese debconf templates. (Closes: #279351)
   * Modified init.d script so that specifying a daemon option in a
-    VPN configuration won't make it fail. 
+    VPN configuration won't make it fail.
     Thanks Christoph Biedl for the patch. (Closes: #278302)
   * Added scripts to allow specifying 'openvpn name' in
     /etc/network/interfaces to have the tunnel created and destroyed with
@@ -1368,7 +1373,7 @@ openvpn (1.4.3-2) unstable; urgency=low
   * Moved initscripts sequence number to S16 from S20. This will make
     openvpn start earlier and be ready for other services. (Closes: #209225)
   * Added Depends: on debconf, it's used in the maintainer's scripts now.
-  * Added debconf template to ask for the creation of the TUN/TAP device 
+  * Added debconf template to ask for the creation of the TUN/TAP device
     node. (Closes: #211198)
 
  -- Alberto Gonzalez Iniesta <agi@agi.as>  Thu,  2 Oct 2003 21:39:46 +0200
@@ -1376,7 +1381,7 @@ openvpn (1.4.3-2) unstable; urgency=low
 openvpn (1.4.3-1) unstable; urgency=low
 
   * New upstream release
-  * Bumped Standards-Version to 3.6.1.0, no change. 
+  * Bumped Standards-Version to 3.6.1.0, no change.
   * Patched init.d script to support single vpn stop/start/restart.
     Thanks to Richard Mueller and Norbert Tretkowski (Closes: #204100)
 
@@ -1407,7 +1412,7 @@ openvpn (1.4.0-2) unstable; urgency=low
 openvpn (1.4.0-1) unstable; urgency=low
 
   * New upstream release (Closes: #179551)
-  * Re-enabled liblzo support. LZO's author made an exception in LZO's 
+  * Re-enabled liblzo support. LZO's author made an exception in LZO's
     license that permits OpenVPN to use LZO and OpenSSL. See copyright
     file.
 
@@ -1422,9 +1427,9 @@ openvpn (1.3.2-3) unstable; urgency=low
 
 openvpn (1.3.2-2) unstable; urgency=low
 
-  * Disabled liblzo1 support to fix license issues with Openssl. 
+  * Disabled liblzo1 support to fix license issues with Openssl.
     (Closes: #177497)
-  * Bumped Standards-Version to 3.5.8, no change. 
+  * Bumped Standards-Version to 3.5.8, no change.
 
  -- Alberto Gonzalez Iniesta <agi@agi.as>  Mon, 20 Jan 2003 16:09:16 +0100
 

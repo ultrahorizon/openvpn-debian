@@ -23,7 +23,7 @@ Vcs-Browser: https://salsa.debian.org/debian/openvpn
 
 Package: openvpn
 Architecture: any
-Depends: 
+Depends:
  debconf | debconf-2.0,
  ${shlibs:Depends},
  ${misc:Depends},
