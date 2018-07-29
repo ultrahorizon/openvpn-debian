@@ -1,11 +1,11 @@
 Description: Warn users about deprecated pkcs11 options
 Author: Florian Kulzer <florian.kulzer+debian@icfo.es>
 Bug-Debian: http://bugs.debian.org/475353
-Index: openvpn/src/openvpn/options.c
+Index: trunk/src/openvpn/options.c
 ===================================================================
---- openvpn.orig/src/openvpn/options.c	2017-06-22 13:16:58.862582114 +0200
-+++ openvpn/src/openvpn/options.c	2017-06-22 13:16:58.862582114 +0200
-@@ -6818,6 +6818,20 @@
+--- trunk.orig/src/openvpn/options.c
++++ trunk/src/openvpn/options.c
+@@ -6861,6 +6861,20 @@ add_option(struct options *options,
          options->port_share_port = p[2];
          options->port_share_journal_dir = p[3];
      }

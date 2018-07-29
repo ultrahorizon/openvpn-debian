@@ -4,3 +4,4 @@ debian_nogroup_for_sample_files.patch
 openvpn-pkcs11warn.patch
 kfreebsd_support.patch
 match-manpage-and-command-help.patch
+spelling_errors.patch

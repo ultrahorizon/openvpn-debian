@@ -1,11 +1,11 @@
 Description: Fix libpam.so filename to /lib/libpam.so.0 in pam plugin
 Author: Alberto Gonzalez Iniesta <agi@inittab.org>
 Bug-Debian: http://bugs.debian.org/306335
-Index: openvpn/src/plugins/auth-pam/auth-pam.c
+Index: trunk/src/plugins/auth-pam/auth-pam.c
 ===================================================================
---- openvpn.orig/src/plugins/auth-pam/auth-pam.c	2016-12-27 18:45:37.638198402 +0100
-+++ openvpn/src/plugins/auth-pam/auth-pam.c	2016-12-27 18:45:37.638198402 +0100
-@@ -698,7 +698,7 @@
+--- trunk.orig/src/plugins/auth-pam/auth-pam.c
++++ trunk/src/plugins/auth-pam/auth-pam.c
+@@ -716,7 +716,7 @@ pam_server(int fd, const char *service,
      struct user_pass up;
      int command;
  #ifdef USE_PAM_DLOPEN

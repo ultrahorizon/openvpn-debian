@@ -1,11 +1,11 @@
 Description: Improve kFreeBSD support
 Author: Gonéri Le Bouder <goneri@rulezlan.org>
 Bug-Debian: http://bugs.debian.org/626062
-Index: openvpn/src/openvpn/route.c
+Index: trunk/src/openvpn/route.c
 ===================================================================
---- openvpn.orig/src/openvpn/route.c	2017-06-22 13:17:05.754630908 +0200
-+++ openvpn/src/openvpn/route.c	2017-06-22 13:17:05.750630880 +0200
-@@ -1689,7 +1689,7 @@
+--- trunk.orig/src/openvpn/route.c
++++ trunk/src/openvpn/route.c
+@@ -1693,7 +1693,7 @@ add_route(struct route_ipv4 *r,
      argv_msg(D_ROUTE, &argv);
      status = openvpn_execve_check(&argv, es, 0, "ERROR: Solaris route add command failed");
  
@@ -14,7 +14,7 @@ Index: openvpn/src/openvpn/route.c
  
      argv_printf(&argv, "%s add",
                  ROUTE_PATH);
-@@ -1875,7 +1875,7 @@
+@@ -1879,7 +1879,7 @@ add_route_ipv6(struct route_ipv6 *r6, co
      network = print_in6_addr( r6->network, 0, &gc);
      gateway = print_in6_addr( r6->gateway, 0, &gc);
  
@@ -23,7 +23,7 @@ Index: openvpn/src/openvpn/route.c
      || defined(TARGET_FREEBSD) || defined(TARGET_DRAGONFLY)    \
      || defined(TARGET_OPENBSD) || defined(TARGET_NETBSD)
  
-@@ -2043,7 +2043,7 @@
+@@ -2047,7 +2047,7 @@ add_route_ipv6(struct route_ipv6 *r6, co
      argv_msg(D_ROUTE, &argv);
      status = openvpn_execve_check(&argv, es, 0, "ERROR: Solaris route add -inet6 command failed");
  
@@ -32,7 +32,7 @@ Index: openvpn/src/openvpn/route.c
  
      argv_printf(&argv, "%s add -inet6 %s/%d",
                  ROUTE_PATH,
-@@ -2227,7 +2227,7 @@
+@@ -2239,7 +2239,7 @@ delete_route(struct route_ipv4 *r,
      argv_msg(D_ROUTE, &argv);
      openvpn_execve_check(&argv, es, 0, "ERROR: Solaris route delete command failed");
  
@@ -41,7 +41,7 @@ Index: openvpn/src/openvpn/route.c
  
      argv_printf(&argv, "%s delete -net %s %s %s",
                  ROUTE_PATH,
-@@ -2334,7 +2334,7 @@
+@@ -2346,7 +2346,7 @@ delete_route_ipv6(const struct route_ipv
      network = print_in6_addr( r6->network, 0, &gc);
      gateway = print_in6_addr( r6->gateway, 0, &gc);
  
@@ -50,7 +50,7 @@ Index: openvpn/src/openvpn/route.c
      || defined(TARGET_FREEBSD) || defined(TARGET_DRAGONFLY)    \
      || defined(TARGET_OPENBSD) || defined(TARGET_NETBSD)
  
-@@ -2469,7 +2469,7 @@
+@@ -2481,7 +2481,7 @@ delete_route_ipv6(const struct route_ipv
      argv_msg(D_ROUTE, &argv);
      openvpn_execve_check(&argv, es, 0, "ERROR: Solaris route delete -inet6 command failed");
  
@@ -59,7 +59,7 @@ Index: openvpn/src/openvpn/route.c
  
      argv_printf(&argv, "%s delete -inet6 %s/%d",
                  ROUTE_PATH,
-@@ -3514,7 +3514,8 @@
+@@ -3532,7 +3532,8 @@ done:
  
  #elif defined(TARGET_DARWIN) || defined(TARGET_SOLARIS)    \
      || defined(TARGET_FREEBSD) || defined(TARGET_DRAGONFLY)    \
@@ -69,11 +69,11 @@ Index: openvpn/src/openvpn/route.c
  
  #include <sys/types.h>
  #include <sys/socket.h>
-Index: openvpn/src/openvpn/tun.c
+Index: trunk/src/openvpn/tun.c
 ===================================================================
---- openvpn.orig/src/openvpn/tun.c	2017-06-22 13:17:05.754630908 +0200
-+++ openvpn/src/openvpn/tun.c	2017-06-22 13:17:05.750630880 +0200
-@@ -843,7 +843,7 @@
+--- trunk.orig/src/openvpn/tun.c
++++ trunk/src/openvpn/tun.c
+@@ -845,7 +845,7 @@ delete_route_connected_v6_net(struct tun
  #endif /* if defined(_WIN32) || defined(TARGET_DARWIN) || defined(TARGET_NETBSD) || defined(TARGET_OPENBSD) */
  
  #if defined(TARGET_FREEBSD) || defined(TARGET_DRAGONFLY)  \
@@ -82,7 +82,7 @@ Index: openvpn/src/openvpn/tun.c
  /* we can't use true subnet mode on tun on all platforms, as that
   * conflicts with IPv6 (wants to use ND then, which we don't do),
   * but the OSes want "a remote address that is different from ours"
-@@ -1412,7 +1412,7 @@
+@@ -1414,7 +1414,7 @@ do_ifconfig(struct tuntap *tt,
              add_route_connected_v6_net(tt, es);
          }
  
@@ -91,7 +91,7 @@ Index: openvpn/src/openvpn/tun.c
  
          in_addr_t remote_end;           /* for "virtual" subnet topology */
  
-@@ -2770,7 +2770,7 @@
+@@ -2770,7 +2770,7 @@ read_tun(struct tuntap *tt, uint8_t *buf
      }
  }
  
@@ -100,11 +100,11 @@ Index: openvpn/src/openvpn/tun.c
  
  static inline int
  freebsd_modify_read_write_return(int len)
-Index: openvpn/src/openvpn/lladdr.c
+Index: trunk/src/openvpn/lladdr.c
 ===================================================================
---- openvpn.orig/src/openvpn/lladdr.c	2017-06-22 13:17:05.754630908 +0200
-+++ openvpn/src/openvpn/lladdr.c	2017-06-22 13:17:05.750630880 +0200
-@@ -50,7 +50,7 @@
+--- trunk.orig/src/openvpn/lladdr.c
++++ trunk/src/openvpn/lladdr.c
+@@ -50,7 +50,7 @@ set_lladdr(const char *ifname, const cha
                  "%s %s lladdr %s",
                  IFCONFIG_PATH,
                  ifname, lladdr);
@@ -113,10 +113,10 @@ Index: openvpn/src/openvpn/lladdr.c
      argv_printf(&argv,
                  "%s %s ether %s",
                  IFCONFIG_PATH,
-Index: openvpn/src/openvpn/syshead.h
+Index: trunk/src/openvpn/syshead.h
 ===================================================================
---- openvpn.orig/src/openvpn/syshead.h	2017-06-22 13:17:05.754630908 +0200
-+++ openvpn/src/openvpn/syshead.h	2017-06-22 13:17:05.750630880 +0200
+--- trunk.orig/src/openvpn/syshead.h
++++ trunk/src/openvpn/syshead.h
 @@ -297,7 +297,7 @@
  
  #endif /* TARGET_OPENBSD */
@@ -126,11 +126,11 @@ Index: openvpn/src/openvpn/syshead.h
  
  #ifdef HAVE_SYS_UIO_H
  #include <sys/uio.h>
-Index: openvpn/src/openvpn/ssl.c
+Index: trunk/src/openvpn/ssl.c
 ===================================================================
---- openvpn.orig/src/openvpn/ssl.c	2017-06-22 13:17:05.754630908 +0200
-+++ openvpn/src/openvpn/ssl.c	2017-06-22 13:17:05.750630880 +0200
-@@ -2269,7 +2269,7 @@
+--- trunk.orig/src/openvpn/ssl.c
++++ trunk/src/openvpn/ssl.c
+@@ -2265,7 +2265,7 @@ push_peer_info(struct buffer *buf, struc
          buf_printf(&out, "IV_PLAT=mac\n");
  #elif defined(TARGET_NETBSD)
          buf_printf(&out, "IV_PLAT=netbsd\n");

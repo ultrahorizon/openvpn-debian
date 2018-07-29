@@ -1,10 +1,12 @@
 openvpn (2.4.6-1) UNRELEASED; urgency=medium
 
   * New upstream release.
+    - Refresh patches.
   * Migrate to debhelper 11:
     - Change debian/compat to 11.
     - Bump minimum debhelper version in debian/control to >= 11.
   * Declare compliance with Debian Policy 4.1.5 (No changes needed).
+  * New debian/patches/spelling_errors.patch to correct spelling errors.
   * debian/changelog:
     - Remove trailing whitespaces.
   * debian/control:
