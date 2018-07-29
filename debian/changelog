@@ -8,7 +8,7 @@ openvpn (2.4.6-1) UNRELEASED; urgency=medium
   * Declare compliance with Debian Policy 4.1.5 (No changes needed).
   * New debian/patches/spelling_errors.patch to correct spelling errors.
   * debian/changelog:
-    - Remove trailing whitespaces.
+    - Rewrite to DEP5 copyright format.
   * debian/control:
     - Change to my new email address.
     - Remove trailing whitespaces.
