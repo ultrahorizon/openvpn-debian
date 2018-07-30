@@ -1,5 +1,6 @@
-openvpn (2.4.6-1) UNRELEASED; urgency=medium
+openvpn (2.4.6-1) unstable; urgency=medium
 
+  [ Jörg Frings-Fürst ]
   * New upstream release.
     - Refresh patches.
     - Fix "does not start if link-mtu is too low" (Closes: #867113).
@@ -30,7 +31,7 @@ openvpn (2.4.6-1) UNRELEASED; urgency=medium
   * Remove obsolete debian/openvpn.lintian-overrides.
   * New README.source to explain the branching model used.
 
- -- Jörg Frings-Fürst <debian@jff.email>  Sun, 29 Jul 2018 13:59:15 +0200
+ -- Jörg Frings-Fürst <debian@jff.email>  Mon, 30 Jul 2018 14:08:13 +0200
 
 openvpn (2.4.5-1) unstable; urgency=medium
 
