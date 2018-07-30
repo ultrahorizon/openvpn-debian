@@ -23,6 +23,8 @@ openvpn (2.4.6-1) UNRELEASED; urgency=medium
   * debian/watch:
     - Use secure URI.
   * Remove obsolete debian/openvpn.lintian-overrides.
+  * Fix "preserve order of pushed parameters in update-resolv-conf"
+    (Closes: #807808). Thanks to Thibaut Chèze.
 
  -- Jörg Frings-Fürst <debian@jff.email>  Sun, 29 Jul 2018 13:59:15 +0200
 
