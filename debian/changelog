@@ -2,6 +2,8 @@ openvpn (2.4.6-1) UNRELEASED; urgency=medium
 
   * New upstream release.
     - Refresh patches.
+    - Fix "does not start if link-mtu is too low" (Closes: #867113).
+    - Fix "auth-tokens are purged if auth-nocache is set" (Closes: #883601).
   * Migrate to debhelper 11:
     - Change debian/compat to 11.
     - Bump minimum debhelper version in debian/control to >= 11.
