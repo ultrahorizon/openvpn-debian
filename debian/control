@@ -32,8 +32,7 @@ Depends:
  lsb-base (>= 3.0-6)
 Suggests:
  openssl,
- resolvconf,
- coreutils
+ resolvconf
 Recommends: easy-rsa
 Description: virtual private network daemon
  OpenVPN is an application to securely tunnel IP networks over a
