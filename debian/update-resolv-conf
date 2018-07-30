@@ -15,7 +15,11 @@
 #     foreign_option_3='dhcp-option DOMAIN be.bnc.ch'
 #
 
-[ -x /sbin/resolvconf ] || exit 0
+if [ ! -x /sbin/resolvconf ] ; then
+    logger "[OpenVPN:update-resolve-conf] missing binary /sbin/resolvconf";
+    exit 0;
+fi
+
 [ "$script_type" ] || exit 0
 [ "$dev" ] || exit 0
 

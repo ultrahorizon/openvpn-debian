@@ -20,11 +20,14 @@ openvpn (2.4.6-1) UNRELEASED; urgency=medium
     - Replace outdated dh_installsystemd with dh_systemd_start.
     - Remove usr/share/doc/openvpn/COPYING.
     - Replace rm -f with $(RM).
+  * debian/update-resolv-conf:
+    - Fix "preserve order of pushed parameters" (Closes: #807808).
+      Thanks to Thibaut Chèze.
+    - Add syslog message if used without binary resolvconf (Closes: #895135).
+      Thanks to Roger Price <debian@rogerprice.org>.
   * debian/watch:
     - Use secure URI.
   * Remove obsolete debian/openvpn.lintian-overrides.
-  * Fix "preserve order of pushed parameters in update-resolv-conf"
-    (Closes: #807808). Thanks to Thibaut Chèze.
   * New README.source to explain the branching model used.
 
  -- Jörg Frings-Fürst <debian@jff.email>  Sun, 29 Jul 2018 13:59:15 +0200
