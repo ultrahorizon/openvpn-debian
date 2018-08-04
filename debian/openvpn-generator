@@ -4,26 +4,15 @@
 # tunnels listed in /etc/default/openvpn's AUTOSTART be started/stopped/reloaded
 # when openvpn.service is started/stopped/reloaded.
 
-#
-# Changelog:
-#
-# 2018-08-04 jff use service file from /etc/systemd/system if exists.
-#
-
 set -eu
 
 GENDIR="$1"
 WANTDIR="$1/openvpn.service.wants"
 SERVICEFILE="/lib/systemd/system/openvpn@.service"
-SERVICEFILEMAN="/etc/systemd/system/openvpn@.service"
 AUTOSTART="all"
 CONFIG_DIR=/etc/openvpn
 
 mkdir -p "$WANTDIR"
-
-if test -e ${SERVICEFILEMAN} ; then
-    SERVICEFILE=${SERVICEFILEMAN}
-fi
 
 if test -e /etc/default/openvpn ; then
 	. /etc/default/openvpn
