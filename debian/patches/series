@@ -6,3 +6,4 @@ kfreebsd_support.patch
 match-manpage-and-command-help.patch
 spelling_errors.patch
 systemd.patch
+fix-pkcs11-helper-hang.patch
