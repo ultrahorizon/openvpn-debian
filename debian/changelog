@@ -1,3 +1,22 @@
+openvpn (2.4.7-1) unstable; urgency=medium
+
+  [ Bernhard Schmidt ]
+  * New upstream version 2.4.7
+    - improvements regarding TLSv1.3
+    - Add CAP_AUDIT_WRITE for auth_pam for upstream units (Closes: #868806)
+  * adjust kfreebsd_support.patch for new upstream version
+  * Also Add CAP_AUDIT_WRITE for auth_pam for openvpn@.service (Closes: #868806)
+  * openvpn@.service: Bump LimitNPROC to 100, see #861923
+
+  [ Simon Deziel ]
+  * d/control: suggests openvpn-systemd-resolved (Closes: #913265)
+
+  [ Hilko Bengen ]
+  * Avoid hangs when spawning child processes by not setting pkcs11-helper
+    "safe fork mode" (Closes: #772812, #900805, #907452)
+
+ -- Bernhard Schmidt <berni@debian.org>  Wed, 20 Feb 2019 14:50:03 +0100
+
 openvpn (2.4.6-1) unstable; urgency=medium
 
   [ Jörg Frings-Fürst ]
