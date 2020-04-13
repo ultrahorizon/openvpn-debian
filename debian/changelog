@@ -1,9 +1,11 @@
 openvpn (2.4.8-1) UNRELEASED; urgency=medium
 
+  [ Jörg Frings-Fürst ]
   * New upstream release (Closes: #950610).
   * Refresh debian/patches/openvpn-pkcs11warn.patch.
   * Remove upstream applied fix-pkcs11-helper-hang.patch. 
   * Add libp11-kit-dev to Build - Depends (Closes: #940727).
+  * Declare compliance with Debian Policy 4.5.0 (No changes needed).
 
  -- Jörg Frings-Fürst <debian@jff.email>  Fri, 10 Apr 2020 23:10:22 +0200
 
