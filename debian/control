@@ -18,6 +18,7 @@ Build-Depends:
  pkg-config,
  systemd [linux-any]
 Standards-Version: 4.5.0
+Rules-Requires-Root: no
 Homepage: https://openvpn.net/
 Vcs-Git: https://salsa.debian.org/debian/openvpn.git
 Vcs-Browser: https://salsa.debian.org/debian/openvpn
