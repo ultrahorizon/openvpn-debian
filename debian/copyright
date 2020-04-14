@@ -4,7 +4,7 @@ Upstream-Contact: OpenVPN Solutions LLC <info@openvpn.net>
 Source: https://openvpn.net/
 
 Files: *
-Copyright: 2002-2018 OpenVPN Inc <sales@openvpn.net>
+Copyright: 2002-2019 OpenVPN Inc <sales@openvpn.net>
 License: GPL-2 with OpenSSL exception
 
 Files: aclocal.m4
@@ -147,7 +147,7 @@ License: GPL-2+
 Files: debian/*
 Copyright: 2002-2017 Alberto Gonzalez Iniesta <agi@inittab.org>
            2017-2018 Bernhard Schmidt <berni@debian.org>
-           2017-2018 Jörg Frings-Fürst <debian@jff.email>
+           2017-2020 Jörg Frings-Fürst <debian@jff.email>
 License: GPL-3+
 
 License: BSD-2

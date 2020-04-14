@@ -10,3 +10,4 @@ usr/share/doc/openvpn
 usr/share/openvpn
 usr/include/openvpn
 var/log/openvpn
+usr/lib/openvpn/
