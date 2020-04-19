@@ -227,7 +227,7 @@ init.d script). ie:
 ..... (around line 58 of the init.d script)....
 LD_PRELOAD=/lib/security/pam_ldap.so start-stop-daemon --start --quiet --oknodo 
 
-Thanks Andreas Metzler, Lars Ellenberg, Simon Josefsson & chantra for folling
+Thanks Andreas Metzler, Lars Ellenberg, Simon Josefsson & chantra for debugging
 this issue.
 
 
