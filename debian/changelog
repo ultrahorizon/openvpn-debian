@@ -1,4 +1,4 @@
-openvpn (2.4.8-1) UNRELEASED; urgency=medium
+openvpn (2.4.9-1) unstable; urgency=medium
 
   [ Jörg Frings-Fürst ]
   * New upstream release (Closes: #950610).
@@ -16,7 +16,12 @@ openvpn (2.4.8-1) UNRELEASED; urgency=medium
   * debian/control:
     - Add Rules-Requires-Root: No.
 
- -- Jörg Frings-Fürst <debian@jff.email>  Fri, 10 Apr 2020 23:10:22 +0200
+  [ Bernhard Schmidt ]
+  * New upstream version 2.4.9
+    - CVE-2020-11810
+      illegal client float can break VPN session for other users
+
+ -- Bernhard Schmidt <berni@debian.org>  Sun, 19 Apr 2020 15:52:57 +0200
 
 openvpn (2.4.7-1) unstable; urgency=medium
 
