@@ -1,3 +1,12 @@
+openvpn (2.4.9-2) unstable; urgency=medium
+
+  * Cherry-Pick upstream patch to fix ssl_do_config error with
+    invalid OpenSSL system configuration (Closes: #958296)
+  * Use DEB_HOST_MULTIARCH for libraries (Closes: #958315)
+  * Enable Salsa CI
+
+ -- Bernhard Schmidt <berni@debian.org>  Tue, 21 Apr 2020 21:58:53 +0200
+
 openvpn (2.4.9-1) unstable; urgency=medium
 
   [ Jörg Frings-Fürst ]
