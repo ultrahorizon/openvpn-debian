@@ -64,8 +64,8 @@ endif
 	$(RM) $(CURDIR)/debian/openvpn/usr/share/doc/openvpn/COPYING
 
 override_dh_link:
-	dh_link usr/lib/$(DEB_HOST_GNU_TYPE)/openvpn/plugins/openvpn-plugin-auth-pam.so  usr/lib/openvpn/openvpn-plugin-auth-pam.so
-	dh_link usr/lib/$(DEB_HOST_GNU_TYPE)/openvpn/plugins/openvpn-plugin-down-root.so usr/lib/openvpn/openvpn-plugin-down-root.so
+	dh_link usr/lib/$(DEB_HOST_MULTIARCH)/openvpn/plugins/openvpn-plugin-auth-pam.so  usr/lib/openvpn/openvpn-plugin-auth-pam.so
+	dh_link usr/lib/$(DEB_HOST_MULTIARCH)/openvpn/plugins/openvpn-plugin-down-root.so usr/lib/openvpn/openvpn-plugin-down-root.so
 	dh_link
 
 override_dh_installexamples:
