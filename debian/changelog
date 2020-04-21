@@ -2,6 +2,7 @@ openvpn (2.4.9-2) unstable; urgency=medium
 
   * Cherry-Pick upstream patch to fix ssl_do_config error with
     invalid OpenSSL system configuration (Closes: #958296)
+    Thanks to Jonas Andradas for reporting and Arne Schwabe for debugging.
   * Use DEB_HOST_MULTIARCH for libraries (Closes: #958315)
   * Enable Salsa CI
 
