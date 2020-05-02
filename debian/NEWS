@@ -1,3 +1,12 @@
+openvpn (2.4.9-3) unstable; urgency=medium
+
+    To ensure the functionality of OpenVPN connections during an update,
+    OpenVPN is not restarted after the update since this version.
+
+    Please restart OpenVPN or reboot the computer manually after the update.
+
+ -- Jörg Frings-Fürst <debian@jff.email>  Sat, 02 May 2020 12:11:51 +0200
+
 openvpn (2.4.0-4) unstable; urgency=medium
 
     If you're upgrading a previous OpenVPN installation, you should check your

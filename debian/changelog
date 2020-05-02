@@ -1,14 +1,16 @@
 openvpn (2.4.9-3) UNRELEASED; urgency=medium
 
   [ Jörg Frings-Fürst ]
-  * Fix the bug that occurs during the update:
+  * Fix the bug that occurs during the update (Closes: #959464):
     "ERROR: Cannot ioctl TUNSETIFF tunX: Device or resource busy (errno=16)"
     - debian/rules: Change dh_installsystemd from "--restart-after-upgrade" to
       "--no-restart-after-upgrade -r".
     - Remove restart from debian/postinst.
+    - Add hint to reboot if openvpn is running.
+    - Add new chapter into debian/NEWS.
   * Migrate to debhelper 13.
   * debian/postinst:
-    - Remove now useless code for version less than lt 2.3.2-6.
+    - Remove now useless code for version less than 2.3.2-6.
 
  -- Jörg Frings-Fürst <debian@jff.email>  Sat, 02 May 2020 12:11:51 +0200
 
