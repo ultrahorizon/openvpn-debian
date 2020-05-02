@@ -5,7 +5,7 @@ openvpn (2.4.9-3) unstable; urgency=medium
 
     Please restart OpenVPN or reboot the computer manually after the update.
 
- -- Jörg Frings-Fürst <debian@jff.email>  Sat, 02 May 2020 12:11:51 +0200
+ -- Jörg Frings-Fürst <debian@jff.email>  Sat, 02 May 2020 18:14:36 +0200
 
 openvpn (2.4.0-4) unstable; urgency=medium
 

@@ -1,4 +1,4 @@
-openvpn (2.4.9-3) UNRELEASED; urgency=medium
+openvpn (2.4.9-3) unstable; urgency=medium
 
   [ Jörg Frings-Fürst ]
   * Fix the bug that occurs during the update (Closes: #959464):
@@ -14,7 +14,7 @@ openvpn (2.4.9-3) UNRELEASED; urgency=medium
   * debina/copyright:
     - Add year 2020 to Bernhard Schmidt.
 
- -- Jörg Frings-Fürst <debian@jff.email>  Sat, 02 May 2020 12:11:51 +0200
+ -- Jörg Frings-Fürst <debian@jff.email>  Sat, 02 May 2020 18:14:36 +0200
 
 openvpn (2.4.9-2) unstable; urgency=medium
 
