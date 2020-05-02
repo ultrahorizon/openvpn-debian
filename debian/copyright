@@ -146,7 +146,7 @@ License: GPL-2+
 
 Files: debian/*
 Copyright: 2002-2017 Alberto Gonzalez Iniesta <agi@inittab.org>
-           2017-2018 Bernhard Schmidt <berni@debian.org>
+           2017-2020 Bernhard Schmidt <berni@debian.org>
            2017-2020 Jörg Frings-Fürst <debian@jff.email>
 License: GPL-3+
 
