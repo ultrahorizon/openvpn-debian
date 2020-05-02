@@ -6,7 +6,9 @@ openvpn (2.4.9-3) UNRELEASED; urgency=medium
     - debian/rules: Change dh_installsystemd from "--restart-after-upgrade" to
       "--no-restart-after-upgrade -r".
     - Remove restart from debian/postinst.
-  * Migrate to debhelper 13:
+  * Migrate to debhelper 13.
+  * debian/postinst:
+    - Remove now useless code for version less than lt 2.3.2-6.
 
  -- Jörg Frings-Fürst <debian@jff.email>  Sat, 02 May 2020 12:11:51 +0200
 
