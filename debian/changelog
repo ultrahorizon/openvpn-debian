@@ -5,6 +5,8 @@ openvpn (2.4.9-3) UNRELEASED; urgency=medium
     "ERROR: Cannot ioctl TUNSETIFF tunX: Device or resource busy (errno=16)"
     - debian/rules: Change dh_installsystemd from "--restart-after-upgrade" to
       "--no-restart-after-upgrade -r".
+    - Remove restart from debian/postinst.
+  * Migrate to debhelper 13:
 
  -- Jörg Frings-Fürst <debian@jff.email>  Sat, 02 May 2020 12:11:51 +0200
 

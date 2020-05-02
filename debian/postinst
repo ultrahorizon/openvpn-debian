@@ -52,15 +52,6 @@ case "$1" in
   ;;
 esac
 
-if [ -x "/etc/init.d/openvpn" ]; then
-	pathfind invoke-rc.d
-	if [ $? = 0 ]; then
-	   invoke-rc.d openvpn cond-restart || invoke-rc.d openvpn restart
-	else
-	   /etc/init.d/openvpn cond-restart || /etc/init.d/openvpn restart
-	fi
-fi
-
 db_stop
 
 #DEBHELPER#
