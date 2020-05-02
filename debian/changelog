@@ -1,3 +1,13 @@
+openvpn (2.4.9-3) UNRELEASED; urgency=medium
+
+  [ Jörg Frings-Fürst ]
+  * Fix the bug that occurs during the update:
+    "ERROR: Cannot ioctl TUNSETIFF tunX: Device or resource busy (errno=16)"
+    - debian/rules: Change dh_installsystemd from "--restart-after-upgrade" to
+      "--no-restart-after-upgrade -r".
+
+ -- Jörg Frings-Fürst <debian@jff.email>  Sat, 02 May 2020 12:11:51 +0200
+
 openvpn (2.4.9-2) unstable; urgency=medium
 
   * Cherry-Pick upstream patch to fix ssl_do_config error with
