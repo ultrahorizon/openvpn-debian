@@ -9,7 +9,6 @@ After=network.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/bin/true
-ExecReload=/bin/true
 WorkingDirectory=/etc/openvpn
 
 [Install]
