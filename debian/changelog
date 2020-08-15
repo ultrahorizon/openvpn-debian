@@ -1,3 +1,12 @@
+openvpn (2.5~beta1-1) experimental; urgency=medium
+
+  * d/gbp.conf for experimental 2.5 branch
+  * New upstream version 2.5~beta1
+  * Adjust patches for new major upstream version
+  * Add python3-docutils to build-depends for manpage generation
+
+ -- Bernhard Schmidt <berni@debian.org>  Sat, 15 Aug 2020 21:32:49 +0200
+
 openvpn (2.4.9-3) unstable; urgency=medium
 
   [ Jörg Frings-Fürst ]
