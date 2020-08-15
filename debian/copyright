@@ -56,7 +56,6 @@ Files: sample/sample-plugins/log/log_v3.c
        src/openvpn/console.h
        src/openvpn/console_builtin.c
        src/openvpn/console_systemd.c
-       src/openvpn/console_systemd.c
        src/openvpn/misc.c
        src/openvpn/options.c
        src/openvpn/ssl.c
