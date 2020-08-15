@@ -16,6 +16,7 @@ Build-Depends:
  libsystemd-dev [linux-any],
  net-tools [!linux-any],
  pkg-config,
+ python3-docutils,
  systemd [linux-any]
 Standards-Version: 4.5.0
 Rules-Requires-Root: no
