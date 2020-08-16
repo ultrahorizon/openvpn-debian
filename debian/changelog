@@ -1,3 +1,10 @@
+openvpn (2.5~beta1-3) experimental; urgency=medium
+
+  * Disable iproute2 support in favour of the new netlink based default.
+    Thanks to Fabio Pedretti
+
+ -- Bernhard Schmidt <berni@debian.org>  Sun, 16 Aug 2020 14:04:11 +0200
+
 openvpn (2.5~beta1-2) experimental; urgency=medium
 
   * Set Build-Conflicts: systemctl, see Bug#959828
