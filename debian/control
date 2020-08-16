@@ -19,6 +19,7 @@ Build-Depends:
  python3-docutils,
  systemd [linux-any]
 # systemctl from src:docker-systemctl-replacement declaring Provides: systemd
+# only necessary for experimental with the apscud resolver
 # See Bug#959828
 Build-Conflicts: systemctl
 Standards-Version: 4.5.0

@@ -1,3 +1,9 @@
+openvpn (2.5~beta1-2) experimental; urgency=medium
+
+  * Set Build-Conflicts: systemctl, see Bug#959828
+
+ -- Bernhard Schmidt <berni@debian.org>  Sun, 16 Aug 2020 10:33:47 +0200
+
 openvpn (2.5~beta1-1) experimental; urgency=medium
 
   * d/gbp.conf for experimental 2.5 branch
