@@ -18,6 +18,9 @@ Build-Depends:
  pkg-config,
  python3-docutils,
  systemd [linux-any]
+# systemctl from src:docker-systemctl-replacement declaring Provides: systemd
+# See Bug#959828
+Build-Conflicts: systemctl
 Standards-Version: 4.5.0
 Rules-Requires-Root: no
 Homepage: https://openvpn.net/
