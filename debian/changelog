@@ -1,3 +1,25 @@
+openvpn (2.5~beta1-3) experimental; urgency=medium
+
+  * Disable iproute2 support in favour of the new netlink based default.
+    Thanks to Fabio Pedretti
+
+ -- Bernhard Schmidt <berni@debian.org>  Sun, 16 Aug 2020 14:04:11 +0200
+
+openvpn (2.5~beta1-2) experimental; urgency=medium
+
+  * Set Build-Conflicts: systemctl, see Bug#959828
+
+ -- Bernhard Schmidt <berni@debian.org>  Sun, 16 Aug 2020 10:33:47 +0200
+
+openvpn (2.5~beta1-1) experimental; urgency=medium
+
+  * d/gbp.conf for experimental 2.5 branch
+  * New upstream version 2.5~beta1
+  * Adjust patches for new major upstream version
+  * Add python3-docutils to build-depends for manpage generation
+
+ -- Bernhard Schmidt <berni@debian.org>  Sat, 15 Aug 2020 21:32:49 +0200
+
 openvpn (2.4.9-3) unstable; urgency=medium
 
   [ Jörg Frings-Fürst ]

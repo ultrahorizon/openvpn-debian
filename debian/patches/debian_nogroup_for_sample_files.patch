@@ -27,32 +27,6 @@ Index: openvpn/sample/sample-config-files/tls-home.conf
  
  # If you built OpenVPN with
  # LZO compression, uncomment
-Index: openvpn/sample/sample-config-files/static-home.conf
-===================================================================
---- openvpn.orig/sample/sample-config-files/static-home.conf	2016-11-21 09:53:43.608863207 +0100
-+++ openvpn/sample/sample-config-files/static-home.conf	2016-11-21 09:53:43.608863207 +0100
-@@ -43,7 +43,7 @@
- # "nobody" after initialization
- # for extra security.
- ; user nobody
--; group nobody
-+; group nogroup
- 
- # If you built OpenVPN with
- # LZO compression, uncomment
-Index: openvpn/sample/sample-config-files/static-office.conf
-===================================================================
---- openvpn.orig/sample/sample-config-files/static-office.conf	2016-11-21 09:53:43.608863207 +0100
-+++ openvpn/sample/sample-config-files/static-office.conf	2016-11-21 09:53:43.608863207 +0100
-@@ -40,7 +40,7 @@
- # "nobody" after initialization
- # for extra security.
- ; user nobody
--; group nobody
-+; group nogroup
- 
- # If you built OpenVPN with
- # LZO compression, uncomment
 Index: openvpn/sample/sample-config-files/client.conf
 ===================================================================
 --- openvpn.orig/sample/sample-config-files/client.conf	2016-11-21 09:53:43.608863207 +0100

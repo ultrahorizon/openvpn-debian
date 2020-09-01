@@ -6,7 +6,7 @@ Uploaders: Jörg Frings-Fürst <debian@jff.email>
 Build-Depends:
  debhelper-compat (= 13),
  dpkg-dev (>= 1.16.1),
- iproute2 [linux-any],
+# iproute2 [linux-any],
  liblz4-dev,
  liblzo2-dev,
  libp11-kit-dev,
@@ -16,7 +16,12 @@ Build-Depends:
  libsystemd-dev [linux-any],
  net-tools [!linux-any],
  pkg-config,
+ python3-docutils,
  systemd [linux-any]
+# systemctl from src:docker-systemctl-replacement declaring Provides: systemd
+# only necessary for experimental with the apscud resolver
+# See Bug#959828
+Build-Conflicts: systemctl
 Standards-Version: 4.5.0
 Rules-Requires-Root: no
 Homepage: https://openvpn.net/
