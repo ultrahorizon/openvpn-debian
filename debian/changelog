@@ -1,3 +1,19 @@
+openvpn (2.5~beta3-1) unstable; urgency=medium
+
+  * Release to unstable.
+
+  [ Lucas Kanashiro ]
+  * Add two DEP-8 test cases for the server side
+  * Drop reload support from systemd unit files (LP: #1868127)
+  * Add two DEP-8 test cases for the server side
+  * Drop reload support from systemd unit files (LP: #1868127)
+
+  [ Bernhard Schmidt ]
+  * Revert "d/gbp.conf for experimental 2.5 branch"
+  * New upstream version 2.5~beta3
+
+ -- Bernhard Schmidt <berni@debian.org>  Tue, 01 Sep 2020 16:53:43 +0200
+
 openvpn (2.5~beta1-3) experimental; urgency=medium
 
   * Disable iproute2 support in favour of the new netlink based default.
