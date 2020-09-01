@@ -269,14 +269,11 @@ static bool
 tls_poor_mans_ncp(struct options *o, const char *remote_ciphername)
 {
     if (remote_ciphername
-        && 0 != strcmp(o->ciphername, remote_ciphername))
+        && tls_item_in_cipher_list(remote_ciphername, o->ncp_ciphers))
     {
-        if (tls_item_in_cipher_list(remote_ciphername, o->ncp_ciphers))
-        {
-            o->ciphername = string_alloc(remote_ciphername, &o->gc);
-            msg(D_TLS_DEBUG_LOW, "Using peer cipher '%s'", o->ciphername);
-            return true;
-        }
+        o->ciphername = string_alloc(remote_ciphername, &o->gc);
+        msg(D_TLS_DEBUG_LOW, "Using peer cipher '%s'", o->ciphername);
+        return true;
     }
     return false;
 }
@@ -296,13 +293,14 @@ check_pull_client_ncp(struct context *c, const int found)
     }
     /* If the server did not push a --cipher, we will switch to the
      * remote cipher if it is in our ncp-ciphers list */
-    bool useremotecipher = tls_poor_mans_ncp(&c->options,
-                                             c->c2.tls_multi->remote_ciphername);
-
+    if(tls_poor_mans_ncp(&c->options, c->c2.tls_multi->remote_ciphername))
+    {
+        return true;
+    }
 
     /* We could not figure out the peer's cipher but we have fallback
      * enabled */
-    if (!useremotecipher && c->options.enable_ncp_fallback)
+    if (!c->c2.tls_multi->remote_ciphername && c->options.enable_ncp_fallback)
     {
         return true;
     }
