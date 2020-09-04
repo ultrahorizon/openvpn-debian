@@ -3,6 +3,7 @@
 - This is a fork of [OpenVPN (Debian)](https://salsa.debian.org/debian/openvpn) - a secure tunneling daemon.
 - This fork contains modifications to OpenVPN that assist with evading detection in DPI censored networks.
 - This repository is a direct representation of the openvpn package available from the [Ultra Horizon PPA](https://launchpad.net/~ultrahorizon/+archive/ubuntu/ppa).
+- This version of OpenVPN is used within UH VPN Server, available from [UH VPN](https://uh-vpn.com).
 
 ### Install via apt
 
