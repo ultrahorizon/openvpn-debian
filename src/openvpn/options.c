@@ -176,6 +176,8 @@ static const char usage_message[] =
     "                  /dev/net/tun, /dev/tun, /dev/tap, etc.\n"
     "--lladdr hw     : Set the link layer address of the tap device.\n"
     "--topology t    : Set --dev tun topology: 'net30', 'p2p', or 'subnet'.\n"
+    "--uh-xor k      : XOR OpenVPN Application Data with key k to obfuscate\n"
+    "                  VPN connection from DPI engines.\n"
 #ifdef ENABLE_IPROUTE
     "--iproute cmd   : Use this command instead of default " IPROUTE_PATH ".\n"
 #endif
@@ -821,6 +823,8 @@ init_options(struct options *o, const bool init_gc)
     o->resolve_retry_seconds = RESOLV_RETRY_INFINITE;
     o->resolve_in_advance = false;
     o->proto_force = -1;
+    o->ce.xor_mask = "\0";
+    o->ce.xor_mask_length = 0;
     o->occ = true;
 #ifdef ENABLE_MANAGEMENT
     o->management_log_history_cache = 250;
@@ -1452,6 +1456,7 @@ show_connection_entry(const struct connection_entry *o)
     SHOW_BOOL(bind_ipv6_only);
     SHOW_INT(connect_retry_seconds);
     SHOW_INT(connect_timeout);
+    SHOW_INT(xor_mask_length);
 
     if (o->http_proxy_options)
     {
@@ -4350,7 +4355,7 @@ usage_version(void)
 #ifdef _WIN32
     show_windows_version( M_INFO|M_NOPREFIX );
 #endif
-    msg(M_INFO|M_NOPREFIX, "Originally developed by James Yonan");
+    msg(M_INFO|M_NOPREFIX, "Originally developed by James Yonan, modified by Ultra Horizon");
     msg(M_INFO|M_NOPREFIX, "Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>");
 #ifndef ENABLE_SMALL
 #ifdef CONFIGURE_DEFINES
@@ -6228,6 +6233,34 @@ add_option(struct options *options,
             goto err;
         }
         options->proto_force = proto_force;
+    }
+    else if (streq(p[0], "uh-xor"))
+    {
+        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_CONNECTION);
+        if (p[1])
+        {
+            size_t raw_mask_len = strlen(p[1]);
+            if (raw_mask_len % 2 != 0)
+            {
+                msg(msglevel, "uh-xor: XOR hex mask specified is not of even length");
+                goto err;
+            }
+            int mask_len = raw_mask_len / 2;
+            uint8_t *mask = (uint8_t*) malloc(mask_len + 1);
+            for (size_t i=0, j=0; j<mask_len; i+=2, j++)
+            {
+                mask[j] = (p[1][i] % 32 + 9) % 25 * 16 + (p[1][i+1] % 32 + 9) % 25;
+            }
+            mask[mask_len] = '\0';
+
+            options->ce.xor_mask = mask;
+            options->ce.xor_mask_length = mask_len;
+        }
+        else
+        {
+            msg(msglevel, "uh-xor: No XOR mask specified for obfuscation");
+            goto err;
+        }
     }
     else if (streq(p[0], "http-proxy") && p[1] && !p[5])
     {
