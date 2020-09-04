@@ -1,4 +1,4 @@
-# UH VPN Server Core
+# OpenVPN (Debian) with DPI Evasion
 
 - This is a fork of [OpenVPN (Debian)](https://salsa.debian.org/debian/openvpn) - a secure tunneling daemon.
 - This fork contains modifications to OpenVPN that assist with evading detection in DPI censored networks.
