@@ -6,9 +6,11 @@
 
 ### Install via apt
 
+```bash
 sudo add-apt-repository ppa:ultrahorizon/ppa
 sudo apt-get update
 sudo apt-get install openvpn
+```
 
 ### Build & Install Locally
 
