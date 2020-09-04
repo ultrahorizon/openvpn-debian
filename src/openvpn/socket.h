@@ -249,6 +249,10 @@ struct link_socket
 #endif
 };
 
+
+/* Define the XOR obfuscation function */
+int xor_buffer(struct buffer *buf, const uint8_t *xor_mask, int xor_mask_length);
+
 /*
  * Some Posix/Win32 differences.
  */
@@ -1049,30 +1053,36 @@ int link_socket_read_udp_posix(struct link_socket *sock,
 static inline int
 link_socket_read(struct link_socket *sock,
                  struct buffer *buf,
-                 struct link_socket_actual *from)
+                 struct link_socket_actual *from,
+                 const uint8_t *xor_mask,
+                 int xor_mask_length)
 {
+    int res;
     if (proto_is_udp(sock->info.proto)) /* unified UDPv4 and UDPv6 */
     {
-        int res;
 
 #ifdef _WIN32
         res = link_socket_read_udp_win32(sock, buf, from);
 #else
         res = link_socket_read_udp_posix(sock, buf, from);
 #endif
-        return res;
     }
     else if (proto_is_tcp(sock->info.proto)) /* unified TCPv4 and TCPv6 */
     {
         /* from address was returned by accept */
         addr_copy_sa(&from->dest, &sock->info.lsa->actual.dest);
-        return link_socket_read_tcp(sock, buf);
+        res = link_socket_read_tcp(sock, buf);
     }
     else
     {
         ASSERT(0);
         return -1; /* NOTREACHED */
     }
+
+    /* Undo XOR obfuscation */
+    xor_buffer(buf, xor_mask, xor_mask_length);
+
+    return res;
 }
 
 /*
@@ -1163,8 +1173,14 @@ link_socket_write_udp(struct link_socket *sock,
 static inline int
 link_socket_write(struct link_socket *sock,
                   struct buffer *buf,
-                  struct link_socket_actual *to)
+                  struct link_socket_actual *to,
+                  const uint8_t *xor_mask,
+                  int xor_mask_length)
 {
+
+    /* Perform XOR obfuscation */
+    xor_buffer(buf, xor_mask, xor_mask_length);
+
     if (proto_is_udp(sock->info.proto)) /* unified UDPv4 and UDPv6 */
     {
         return link_socket_write_udp(sock, buf, to);
