@@ -1,14 +1,25 @@
-# UH VPN Server Core
+# OpenVPN (Debian) with DPI Evasion
 
 - This is a fork of [OpenVPN (Debian)](https://salsa.debian.org/debian/openvpn) - a secure tunneling daemon.
 - This fork contains modifications to OpenVPN that assist with evading detection in DPI censored networks.
 - This repository is a direct representation of the openvpn package available from the [Ultra Horizon PPA](https://launchpad.net/~ultrahorizon/+archive/ubuntu/ppa).
+- This version of OpenVPN is used within UH VPN Server, available from [UH VPN](https://uh-vpn.com).
 
 ### Install via apt
 
+```bash
 sudo add-apt-repository ppa:ultrahorizon/ppa
 sudo apt-get update
 sudo apt-get install openvpn
+```
+
+### Enabling DPI Evasion
+
+- Include the directive `uh-xor k` within your OpenVPN config file, where `k` is an even length hex string that will be used as an obfuscation key. 
+- This directive must be present on the client and server. 
+- The directive will obfuscate the OpenVPN connection allowing for VPN connectivity in censored networks. 
+- There is no upper or lower bound set for the length of the XOR key. However, it is advised that one chooses an appropriate length that will provide sufficient entropy for XOR'ing a buffer e.g. 256 bits (64 hex characters) is adequate for obfuscation purposes.
+- When the key is shorter than the buffer in length, the XOR operation will applied along the entire buffer modulo the key length to ensure complete coverage.
 
 ### Build & Install Locally
 
