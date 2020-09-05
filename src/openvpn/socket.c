@@ -55,6 +55,20 @@ const int proto_overhead[] = { /* indexed by PROTO_x */
 };
 
 /*
+ * XOR buffer (OpenVPN Application Data) with predefined mask for obfuscation.
+ */
+int xor_buffer (struct buffer *buf, const uint8_t *mask, int mask_length) {
+	int i;
+	uint8_t *b; // Buffer pointer
+	if (  mask_length > 0  ) {
+		for (i = 0, b = BPTR (buf); i < BLEN(buf); i++, b++) {
+			*b = *b ^ mask[i % mask_length];
+		}
+	}
+	return BLEN (buf);
+}
+
+/*
  * Convert sockflags/getaddr_flags into getaddr_flags
  */
 static unsigned int
