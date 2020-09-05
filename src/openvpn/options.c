@@ -6251,7 +6251,7 @@ add_option(struct options *options,
             {
                 mask[j] = (p[1][i] % 32 + 9) % 25 * 16 + (p[1][i+1] % 32 + 9) % 25;
             }
-            mask[mask_len] = '\0';
+            mask[mask_len] = 0;
 
             options->ce.xor_mask = mask;
             options->ce.xor_mask_length = mask_len;
