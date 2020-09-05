@@ -1,4 +1,4 @@
-openvpn (2.4.9-ubuntu~focal) focal; urgency=medium
+openvpn (2.4.9-1) focal; urgency=medium
 
   * OpenVPN 2.4.9 stable with DPI Evasion.
 
