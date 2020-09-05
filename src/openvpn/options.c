@@ -823,7 +823,7 @@ init_options(struct options *o, const bool init_gc)
     o->resolve_retry_seconds = RESOLV_RETRY_INFINITE;
     o->resolve_in_advance = false;
     o->proto_force = -1;
-    o->ce.xor_mask = "\0";
+    o->ce.xor_mask = 0;
     o->ce.xor_mask_length = 0;
     o->occ = true;
 #ifdef ENABLE_MANAGEMENT

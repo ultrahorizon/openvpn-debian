@@ -58,7 +58,7 @@ const int proto_overhead[] = { /* indexed by PROTO_x */
 /*
  * XOR buffer (OpenVPN Application Data) with predefined mask for obfuscation.
  */
-int xor_buffer (struct buffer *buf, const char *mask, int mask_length) {
+int xor_buffer (struct buffer *buf, const uint8_t *mask, int mask_length) {
 	int i;
 	uint8_t *b; // Buffer pointer
 	if (  mask_length > 0  ) {
