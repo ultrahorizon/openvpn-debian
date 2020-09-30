@@ -21,10 +21,13 @@
 #             packet encryption, packet authentication, and
 #             packet compression.
 #
-#  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
-#  Copyright (C) 2006-2012 Alon Bar-Lev <alon.barlev@gmail.com>
+#  Copyright (C) 2002-2020 OpenVPN Inc <sales@openvpn.net>
 #
 
+#  SPDX-License-Identifier: GPL-2.0-only
+#
+#  Copyright (C) 2020 OpenVPN Inc <sales@openvpn.net>
+#
 VPATH = @srcdir@
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -99,7 +102,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = sample
+subdir = sample/sample-plugins
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_emptyarray.m4 \
 	$(top_srcdir)/m4/ax_socklen_t.m4 \
@@ -135,37 +138,9 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
-am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
-am__vpath_adj = case $$p in \
-    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
-    *) f=$$p;; \
-  esac;
-am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
-am__install_max = 40
-am__nobase_strip_setup = \
-  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
-am__nobase_strip = \
-  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
-am__nobase_list = $(am__nobase_strip_setup); \
-  for p in $$list; do echo "$$p $$p"; done | \
-  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
-  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
-    if (++n[$$2] == $(am__install_max)) \
-      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
-    END { for (dir in files) print dir, files[dir] }'
-am__base_list = \
-  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
-  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
-am__uninstall_files_from_dir = { \
-  test -z "$$files" \
-    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
-    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
-         $(am__cd) "$$dir" && rm -f $$files; }; \
-  }
-am__installdirs = "$(DESTDIR)$(sampledir)"
-DATA = $(sample_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
-am__DIST_COMMON = $(srcdir)/Makefile.in
+am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.plugins \
+	README
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
@@ -351,25 +326,26 @@ top_srcdir = @top_srcdir@
 MAINTAINERCLEANFILES = \
 	$(srcdir)/Makefile.in
 
-DISTCLEANFILES = \
-       $(builddir)/sample-plugins/Makefile
+AM_CPPFLAGS = -I$(top_srcdir) -I$(top_builddir) \
+	-I$(top_srcdir)/include -I$(top_builddir)/include
 
-EXTRA_DIST = \
-	sample-plugins \
-	sample-config-files \
-	sample-windows \
-	sample-keys \
-	sample-scripts
 
-@WIN32_TRUE@sample_DATA = \
-@WIN32_TRUE@	client.ovpn \
-@WIN32_TRUE@	server.ovpn \
-@WIN32_TRUE@	sample-windows/sample.ovpn
+#
+# Plug-ins to build - listed entries should not carry any extensions
+#
+PLUGINS = \
+	defer/simple \
+	keying-material-exporter-demo/keyingmaterialexporter \
+	log/log log/log_v3 \
+	simple/base64 \
+	simple/simple \
+	client-connect/sample-client-connect
 
 all: all-am
 
 .SUFFIXES:
-$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
+.SUFFIXES: .c .o
+$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am $(srcdir)/Makefile.plugins $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -378,9 +354,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign sample/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign sample/sample-plugins/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign sample/Makefile
+	  $(AUTOMAKE) --foreign sample/sample-plugins/Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
 	  *config.status*) \
@@ -389,6 +365,7 @@ Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	    echo ' cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@ $(am__maybe_remake_depfiles)'; \
 	    cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@ $(am__maybe_remake_depfiles);; \
 	esac;
+$(srcdir)/Makefile.plugins $(am__empty):
 
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
@@ -404,27 +381,6 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
-install-sampleDATA: $(sample_DATA)
-	@$(NORMAL_INSTALL)
-	@list='$(sample_DATA)'; test -n "$(sampledir)" || list=; \
-	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(sampledir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(sampledir)" || exit 1; \
-	fi; \
-	for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  echo "$$d$$p"; \
-	done | $(am__base_list) | \
-	while read files; do \
-	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(sampledir)'"; \
-	  $(INSTALL_DATA) $$files "$(DESTDIR)$(sampledir)" || exit $$?; \
-	done
-
-uninstall-sampleDATA:
-	@$(NORMAL_UNINSTALL)
-	@list='$(sample_DATA)'; test -n "$(sampledir)" || list=; \
-	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	dir='$(DESTDIR)$(sampledir)'; $(am__uninstall_files_from_dir)
 tags TAGS:
 
 ctags CTAGS:
@@ -465,13 +421,13 @@ distdir-am: $(DISTFILES)
 	    || exit 1; \
 	  fi; \
 	done
+	$(MAKE) $(AM_MAKEFLAGS) \
+	  top_distdir="$(top_distdir)" distdir="$(distdir)" \
+	  dist-hook
 check-am: all-am
 check: check-am
-all-am: Makefile $(DATA)
+all-am: Makefile
 installdirs:
-	for dir in "$(DESTDIR)$(sampledir)"; do \
-	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
-	done
 install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
@@ -498,14 +454,11 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
-	-test -z "$(DISTCLEANFILES)" || rm -f $(DISTCLEANFILES)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
 	-test -z "$(MAINTAINERCLEANFILES)" || rm -f $(MAINTAINERCLEANFILES)
-clean: clean-am
-
 clean-am: clean-generic clean-libtool mostlyclean-am
 
 distclean: distclean-am
@@ -524,7 +477,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-sampleDATA
+install-data-am:
 
 install-dvi: install-dvi-am
 
@@ -568,31 +521,63 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-sampleDATA
+uninstall-am:
 
 .MAKE: install-am install-strip
 
 .PHONY: all all-am check check-am clean clean-generic clean-libtool \
-	cscopelist-am ctags-am distclean distclean-generic \
+	cscopelist-am ctags-am dist-hook distclean distclean-generic \
 	distclean-libtool distdir dvi dvi-am html html-am info info-am \
 	install install-am install-data install-data-am install-dvi \
 	install-dvi-am install-exec install-exec-am install-html \
 	install-html-am install-info install-info-am install-man \
 	install-pdf install-pdf-am install-ps install-ps-am \
-	install-sampleDATA install-strip installcheck installcheck-am \
-	installdirs maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
-	ps ps-am tags-am uninstall uninstall-am uninstall-sampleDATA
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags-am uninstall uninstall-am
 
 .PRECIOUS: Makefile
 
 
-@WIN32_TRUE@client.ovpn: sample-config-files/client.conf
-@WIN32_TRUE@	-rm -f client.ovpn
-@WIN32_TRUE@	cp "$(srcdir)/sample-config-files/client.conf" client.ovpn
-@WIN32_TRUE@server.ovpn: sample-config-files/server.conf
-@WIN32_TRUE@	-rm -f server.ovpn
-@WIN32_TRUE@	cp "$(srcdir)/sample-config-files/server.conf" server.ovpn
+# All the plugins to build - rewritten with .so extension
+all : $(foreach var, $(PLUGINS), $(var).so)
+
+# Do not automatically remove object files
+# This is a special Make setting, to avoid adding an implicit
+# 'rm' command on object files - due to the .c.o/%.so rules below
+.PRECIOUS: %.o
+
+# Compile step
+.c.o :
+	test -d `dirname $@` || $(MKDIR_P) `dirname $@`; \
+	$(CC) -c -o $@ $(CFLAGS) $(AM_CPPFLAGS) -fPIC $<
+
+# Link step
+%.so : %.o
+	$(CC) $(LDFLAGS) -shared -fPIC -o $@ $<
+
+# Clean up all build object and shared object files
+clean :
+	rm -f $(foreach var, $(PLUGINS), $(var).o) \
+	$(foreach var, $(PLUGINS), $(var).so)
+
+# We don't want automake to pull in libtool for building these
+# sample-plugins.  Even though this breaks the conceptual ideas
+# around autoconf/automake/libtools ... these sample plug-ins
+# are just sample code, not to be installed or distributed outside
+# of the source tarball.  Not even built by default, by design.
+#
+# We only add this as a simple and convenient way to build all
+# these plug-ins with the same build parameters as the rest
+# of the OpenVPN code.
+#
+# All the plugins which will be built are processed in this
+# separate Makefile, which disconnects everything just enough
+# to achieve our goal.
+
+dist-hook :
+	make -f Makefile.plugins clean
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

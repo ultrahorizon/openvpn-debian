@@ -2181,10 +2181,11 @@ options_postprocess_verify_ce(const struct options *options, const struct connec
     }
 
     if (options->tuntap_options.dhcp_options
+        && options->windows_driver != WINDOWS_DRIVER_WINTUN
         && options->tuntap_options.ip_win32_type != IPW32_SET_DHCP_MASQ
         && options->tuntap_options.ip_win32_type != IPW32_SET_ADAPTIVE)
     {
-        msg(M_USAGE, "--dhcp-options requires --ip-win32 dynamic or adaptive");
+        msg(M_USAGE, "--dhcp-option requires --ip-win32 dynamic or adaptive");
     }
 
     if (options->windows_driver == WINDOWS_DRIVER_WINTUN && dev != DEV_TYPE_TUN)
@@ -7439,7 +7440,8 @@ add_option(struct options *options,
         VERIFY_PERMISSION(OPT_P_IPWIN32);
         bool ipv6dns = false;
 
-        if (streq(p[1], "DOMAIN") && p[2])
+        if ((streq(p[1], "DOMAIN") || streq(p[1], "ADAPTER_DOMAIN_SUFFIX"))
+            && p[2])
         {
             o->domain = p[2];
         }
