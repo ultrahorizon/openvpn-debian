@@ -1,10 +1,15 @@
+openvpn (2.5~rc2-1) unstable; urgency=medium
+
+  * Downgrade debhelper-compat to 12 for easier backports
+  * New upstream version 2.5~rc2
+
+ -- Bernhard Schmidt <berni@debian.org>  Wed, 30 Sep 2020 21:12:11 +0200
+
 openvpn (2.5~beta3-1) unstable; urgency=medium
 
   * Release to unstable.
 
   [ Lucas Kanashiro ]
-  * Add two DEP-8 test cases for the server side
-  * Drop reload support from systemd unit files (LP: #1868127)
   * Add two DEP-8 test cases for the server side
   * Drop reload support from systemd unit files (LP: #1868127)
 
