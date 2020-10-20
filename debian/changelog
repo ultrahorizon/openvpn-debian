@@ -1,3 +1,9 @@
+openvpn (2.5~rc3-1) unstable; urgency=medium
+
+  * New upstream version 2.5~rc3
+
+ -- Bernhard Schmidt <berni@debian.org>  Tue, 20 Oct 2020 19:17:43 +0200
+
 openvpn (2.5~rc2-1) unstable; urgency=medium
 
   * Downgrade debhelper-compat to 12 for easier backports
