@@ -1,3 +1,9 @@
+openvpn (2.5.1-1) unstable; urgency=medium
+
+  * New upstream version 2.5.1 (bugfix release)
+
+ -- Bernhard Schmidt <berni@debian.org>  Wed, 24 Feb 2021 19:54:34 +0100
+
 openvpn (2.5.0-1) unstable; urgency=medium
 
   * New upstream version 2.5.0 - final release
