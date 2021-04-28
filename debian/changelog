@@ -1,3 +1,11 @@
+openvpn (2.5.1-2) unstable; urgency=high
+
+  * Cherry-Pick 3 (+ 1 predependency) patches from upstream to fix
+    authentication bypass with deferred authentication
+    (CVE-2020-15078) (Closes: #987380)
+
+ -- Bernhard Schmidt <berni@debian.org>  Wed, 28 Apr 2021 14:41:58 +0200
+
 openvpn (2.5.1-1) unstable; urgency=medium
 
   * New upstream version 2.5.1 (bugfix release)
