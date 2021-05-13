@@ -75,10 +75,10 @@ info "Check if Diffie-Hellman was initialized"
 cat $LOG_FILE | grep 'Diffie-Hellman initialized'
 
 info "Check if the $DEVICE is linked"
-cat $LOG_FILE | grep "/sbin/ip link set dev $DEVICE up"
+cat $LOG_FILE | grep "net_iface_up: set $DEVICE up"
 
 info "Check if the network route was correctly configured"
-cat $LOG_FILE | grep "/sbin/ip route add $IP_NETWORK/24"
+cat $LOG_FILE | grep "net_route_v4_add: $IP_NETWORK/24 via"
 
 info "Check if the Initialization Sequence completed"
 cat $LOG_FILE | grep 'Initialization Sequence Completed'

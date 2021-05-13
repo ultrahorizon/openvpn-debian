@@ -50,10 +50,10 @@ info "Check if the $STATIC_KEY is used by OpenVPN"
 cat $LOG_FILE | grep "shared_secret_file = '$CONFIG_DIR/$STATIC_KEY'"
 
 info "Check if the $DEVICE is linked"
-cat $LOG_FILE | grep "/sbin/ip link set dev $DEVICE up"
+cat $LOG_FILE | grep "net_iface_up: set $DEVICE up"
 
 info "Check if the specified IP addresses were configured"
-cat $LOG_FILE | grep "/sbin/ip addr add dev tun0 local $IP_SERVER peer $IP_CLIENT"
+cat $LOG_FILE | grep "net_addr_ptp_v4_add: $IP_SERVER peer $IP_CLIENT dev tun0"
 
 # Clean up: kill tha OpenVPN process, remove the $DEVICE created and $STATIC_KEY
 cleanup() {
