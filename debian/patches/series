@@ -9,3 +9,4 @@ CVE-2020-15078-0.patch
 CVE-2020-15078-1.patch
 CVE-2020-15078-2.patch
 CVE-2020-15078-3.patch
+Fix-condition-to-generate-session-keys.patch
