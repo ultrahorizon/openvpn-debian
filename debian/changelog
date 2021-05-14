@@ -1,3 +1,12 @@
+openvpn (2.5.1-3) unstable; urgency=medium
+
+  * Fix autopkgtest (Closes: #983662)
+    - adapt autopkgtest output to 2.5 (from Ubuntu)
+    - Fix easyrsa batch mode invocation
+  * Cherry-Pick "Fix condition to generate session keys" (Closes: #988478)
+
+ -- Bernhard Schmidt <berni@debian.org>  Fri, 14 May 2021 09:40:04 +0200
+
 openvpn (2.5.1-2) unstable; urgency=high
 
   * Cherry-Pick 3 (+ 1 predependency) patches from upstream to fix
