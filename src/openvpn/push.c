@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2021 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -732,14 +732,17 @@ int
 process_incoming_push_request(struct context *c)
 {
     int ret = PUSH_MSG_ERROR;
+    struct key_state *ks = &c->c2.tls_multi->session[TM_ACTIVE].key[KS_PRIMARY];
 
-    if (tls_authentication_status(c->c2.tls_multi, 0) == TLS_AUTHENTICATION_FAILED || c->c2.context_auth == CAS_FAILED)
+    if (tls_authentication_status(c->c2.tls_multi, 0) == TLS_AUTHENTICATION_FAILED
+        || c->c2.tls_multi->multi_state == CAS_FAILED)
     {
         const char *client_reason = tls_client_reason(c->c2.tls_multi);
         send_auth_failed(c, client_reason);
         ret = PUSH_MSG_AUTH_FAILURE;
     }
-    else if (c->c2.context_auth == CAS_SUCCEEDED)
+    else if (c->c2.tls_multi->multi_state == CAS_SUCCEEDED
+             && ks->authenticated == KS_AUTH_TRUE)
     {
         time_t now;
 

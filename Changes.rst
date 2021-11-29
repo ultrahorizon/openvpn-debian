@@ -1,3 +1,119 @@
+Overview of changes in 2.5.4
+============================
+Bugfixes
+--------
+- fix prompting for password on windows console if stderr redirection
+  is in use - this breaks 2.5.x on Win11/ARM, and might also break
+  on Win11/adm64 when released.
+
+- fix setting MAC address on TAP adapters (--lladdr) to use sitnl
+  (was overlooked, and still used "ifconfig" calls)
+
+- various improvements for man page building (rst2man/rst2html etc)
+
+- minor bugfix with IN6_IS_ADDR_UNSPECIFIED() use (breaks build on
+  at least one platform strictly checking this)
+
+- fix minor memory leak under certain conditions in add_route() and
+  add_route_ipv6()
+
+User-visible Changes
+--------------------
+- documentation improvements
+
+- copyright updates where needed
+
+- better error reporting when win32 console access fails
+
+New features
+------------
+- also build man page on Windows builds
+
+
+Overview of changes in 2.5.3
+============================
+Bugfixes
+--------
+- CVE-2121-3606
+  see https://community.openvpn.net/openvpn/wiki/SecurityAnnouncements
+
+  OpenVPN windows builds could possibly load OpenSSL Config files from
+  world writeable locations, thus posing a security risk to OpenVPN.
+
+  As a fix, disable OpenSSL config loading completely on Windows.
+
+- disable connect-retry backoff for p2p (--secret) instances
+  (Trac #1010, #1384)
+
+- fix build with mbedtls w/o SSL renegotiation support
+
+- Fix SIGSEGV (NULL deref) receiving push "echo" (Trac #1409)
+
+- MSI installers: properly schedule reboot in the end of installation
+
+- fix small memory leak in free_key_ctx for auth_token
+
+
+User-visible Changes
+--------------------
+- update copyright messages in files and --version output
+
+New features
+------------
+- add --auth-token-user option (for --auth-token deployments without
+  --auth-user-pass in client config)
+
+- improve MSVC building for Windows
+
+- official MSI installers will now contain arm64 drivers and binaries
+  (x86, amd64, arm64)
+
+
+Overview of changes in 2.5.2
+============================
+
+Bugfixes
+--------
+- CVE-2020-15078
+  see https://community.openvpn.net/openvpn/wiki/SecurityAnnouncements
+
+  This bug allows - under very specific circumstances - to trick a
+  server using delayed authentication (plugin or management) into
+  returning a PUSH_REPLY before the AUTH_FAILED message, which can
+  possibly be used to gather information about a VPN setup.
+
+  In combination with "--auth-gen-token" or an user-specific token auth
+  solution it can be possible to get access to a VPN with an
+  otherwise-invalid account.
+
+- restore pushed "ping" settings correctly on a SIGUSR1 restart
+
+- avoid generating unecessary mbed debug messages - this is actually
+  a workaround for an mbedTLS 2.25 bug when using Curve25519 and Curve448
+  ED curves - mbedTLS crashes on preparing debug infos that we do not
+  actually need unless running with "--verb 8"
+
+- do not print inlined (<dh>...</dh>) Diffie Hellman parameters to log file
+
+- fix Linux/SITNL default route lookup in case of multiple routing tables
+  with more than one default route present (always use "main table" for now)
+
+- Fix CRL file handling in combination with chroot
+
+User-visible Changes
+--------------------
+
+- OpenVPN will now refuse to start if CRL file is not present at startup
+  time.  At "reload time" absense of the CRL file is still OK (and the
+  in memory copy is used) but at startup it is now considered an error.
+
+
+New features
+------------
+- printing of the TLS ciphers negotiated has been extended, especially
+  displaying TLS 1.3 and EC certificates more correctly.
+
+
 Overview of changes in 2.5.1
 ============================
 

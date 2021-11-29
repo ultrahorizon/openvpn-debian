@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2021 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -210,17 +210,6 @@ struct context_1
 #endif
 };
 
-
-/* client authentication state, CAS_SUCCEEDED must be 0 since
- * non multi code path still checks this variable but does not initialise it
- * so the code depends on zero initialisation */
-enum client_connect_status {
-    CAS_SUCCEEDED=0,
-    CAS_PENDING,
-    CAS_PENDING_DEFERRED,
-    CAS_PENDING_DEFERRED_PARTIAL,   /**< at least handler succeeded, no result yet*/
-    CAS_FAILED,
-};
 
 static inline bool
 is_cas_pending(enum client_connect_status cas)
@@ -457,9 +446,6 @@ struct context_2
     struct in6_addr push_ifconfig_ipv6_local;
     int push_ifconfig_ipv6_netbits;
     struct in6_addr push_ifconfig_ipv6_remote;
-
-
-    enum client_connect_status context_auth;
 
     struct event_timeout push_request_interval;
     int n_sent_push_requests;

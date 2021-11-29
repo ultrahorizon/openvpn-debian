@@ -1,5 +1,99 @@
 OpenVPN Change Log
-Copyright (C) 2002-2020 OpenVPN Inc <sales@openvpn.net>
+Copyright (C) 2002-2021 OpenVPN Inc <sales@openvpn.net>
+
+2021.10.04 -- Version 2.5.4
+
+Antonio Quartulli (3):
+      route.c: pass the right parameter to IN6_IS_ADDR_UNSPECIFIED
+      configure: search also for rst2{man, html}.py
+      networking: add networking API net_addr_ll_set() and use it on Linux
+
+Arne Schwabe (1):
+      Move examples into openvpn-examples(5) man page
+
+David Korczynski (1):
+      Fix argv leaks in add_route() and add_route_ipv6()
+
+David Sommerseth (2):
+      doc: Use generic rules for man/html generation
+      man: Clarify IV_HWADDR
+
+Gert Doering (1):
+      Add error reporting to get_console_input_win32().
+
+Lev Stipakov (3):
+      Fix console prompts with redirected log
+      Add building man page on Windows
+      GitHub Actions: remove Ubuntu 16.04 environment
+
+Max Fillinger (1):
+      Update Fox e-mail address in copyright notices
+
+Selva Nair (1):
+      Minor doc correction: tls-crypt-v2 key generation
+
+
+2021.06.17 -- Version 2.5.3
+
+Arne Schwabe (3):
+      Add missing free_key_ctx for auth_token
+      Add github actions
+      Implement auth-token-user
+
+David Sommerseth (1):
+      Update copyrights
+
+Lev Stipakov (8):
+      openvpnmsica: properly schedule reboot in the end of installation
+      msvc: add ARM64 configuration
+      msvc: standalone building
+      contrib/vcpkg-ports: add pkcs11-helper port
+      vcpkg-ports: restore trailing whitespaces in .patch files
+      GitHub actions: add MSVC build
+      crypto_openssl.c: disable explicit initialization on Windows (CVE-2121-3606)
+      contrib/vcpkg-ports: add openssl port with --no-autoload-config option set (CVE-2121-3606)
+
+Matthias Andree (1):
+      Fix SIGSEGV (NULL deref) receiving push "echo"
+
+Max Fillinger (1):
+      Fix build with mbedtls w/o SSL renegotiation support
+
+Selva Nair (2):
+      Improve documentation of AUTH_PENDING related directives
+      Apply the connect-retry backoff to only one side of a connection
+
+
+2021.04.20 -- Version 2.5.2
+
+Arne Schwabe (10):
+      Avoid generating unecessary mbed debug messages
+      Restore also ping related options on a reconnect
+      Cleanup print_details and add signature/ED certificate print
+      Always disable TLS renegotiations
+      Also restore/save route-gateway options on SIGUSR1 reconnects
+      Move context_auth from context_2 to tls_multi and name it multi_state
+      Fix condition to generate session keys
+      Move auth_token_state from multi to key_state
+      Ensure auth-token is only sent on a fully authenticated session
+      Ensure key state is authenticated before sending push reply
+
+Gert Doering (2):
+      Fix potential NULL ptr crash if compiled with DMALLOC
+
+Max Fillinger (2):
+      In init_ssl, open the correct CRL path pre-chroot
+      Abort if CRL file can't be stat-ed in ssl_init
+
+Richard Bonhomme (1):
+      Do not print Diffie Hellman parameters file to log file
+
+Simon Rozman (1):
+      openvpnserv: Cache last error before it is overridden
+
+Vladislav Grishenko (1):
+      Fix IPv4 default gateway with multiple route tables
+
 
 2021.02.24 -- Version 2.5.1
 
