@@ -74,7 +74,14 @@ openvpn (2.5~beta1-1) experimental; urgency=medium
   * Adjust patches for new major upstream version
   * Add python3-docutils to build-depends for manpage generation
 
+<<<<<<< HEAD
  -- Bernhard Schmidt <berni@debian.org>  Sat, 15 Aug 2020 21:32:49 +0200
+=======
+  [ Jörg Frings-Fürst ]
+  * Declare compliance with Debian Policy 4.6.0.1 (No changes needed).
+
+ -- Jörg Frings-Fürst <debian@jff.email>  Mon, 24 May 2021 11:00:49 +0200
+>>>>>>> e3b67d7 (Declare compliance with Debian Policy 4.6.0.1)
 
 openvpn (2.4.9-3) unstable; urgency=medium
 
