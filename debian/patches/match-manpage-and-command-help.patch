@@ -7,11 +7,11 @@ Subject: [PATCH] Change command help to match man page and implementation
  src/openvpn/options.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-Index: openvpn/src/openvpn/options.c
+Index: trunk/src/openvpn/options.c
 ===================================================================
---- openvpn.orig/src/openvpn/options.c	2017-06-22 13:17:12.806680520 +0200
-+++ openvpn/src/openvpn/options.c	2017-06-22 13:17:12.802680492 +0200
-@@ -197,7 +197,7 @@
+--- trunk.orig/src/openvpn/options.c
++++ trunk/src/openvpn/options.c
+@@ -196,7 +196,7 @@ static const char usage_message[] =
      "                  is established.  Multiple routes can be specified.\n"
      "                  netmask default: 255.255.255.255\n"
      "                  gateway default: taken from --route-gateway or --ifconfig\n"

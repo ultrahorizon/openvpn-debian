@@ -5,7 +5,7 @@ Index: trunk/src/openvpn/options.c
 ===================================================================
 --- trunk.orig/src/openvpn/options.c
 +++ trunk/src/openvpn/options.c
-@@ -6824,6 +6824,20 @@ add_option(struct options *options,
+@@ -7180,6 +7180,20 @@ add_option(struct options *options,
          options->port_share_port = p[2];
          options->port_share_journal_dir = p[3];
      }
