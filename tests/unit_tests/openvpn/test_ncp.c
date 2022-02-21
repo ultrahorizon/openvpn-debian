@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2019 Arne Schwabe <arne@rfc2549.org>
+ *  Copyright (C) 2019-2021 Arne Schwabe <arne@rfc2549.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -49,6 +49,7 @@ test_check_ncp_ciphers_list(void **state)
 {
     struct gc_arena gc = gc_new();
     bool have_chacha = cipher_kt_get("CHACHA20-POLY1305");
+    bool have_blowfish = cipher_kt_get("BF-CBC");
 
     assert_string_equal(mutate_ncp_cipher_list("none", &gc), "none");
     assert_string_equal(mutate_ncp_cipher_list("AES-256-GCM:none", &gc),
@@ -56,7 +57,7 @@ test_check_ncp_ciphers_list(void **state)
 
     assert_string_equal(mutate_ncp_cipher_list(aes_ciphers, &gc), aes_ciphers);
 
-    if (have_chacha)
+    if (have_chacha && have_blowfish)
     {
         assert_string_equal(mutate_ncp_cipher_list(bf_chacha, &gc), bf_chacha);
         assert_string_equal(mutate_ncp_cipher_list("BF-CBC:CHACHA20-POLY1305", &gc),
@@ -89,8 +90,11 @@ test_check_ncp_ciphers_list(void **state)
     assert_string_equal(mutate_ncp_cipher_list("id-aes128-GCM:id-aes256-GCM",
                                                &gc), "AES-128-GCM:AES-256-GCM");
 #else
-    assert_string_equal(mutate_ncp_cipher_list("BLOWFISH-CBC",
-                                               &gc), "BF-CBC");
+    if (have_blowfish)
+    {
+        assert_string_equal(mutate_ncp_cipher_list("BLOWFISH-CBC",
+                                                   &gc), "BF-CBC");
+    }
 #endif
     gc_free(&gc);
 }

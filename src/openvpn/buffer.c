@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2021 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -309,29 +309,6 @@ openvpn_snprintf(char *str, size_t size, const char *format, ...)
     }
     return (len >= 0 && len < size);
 }
-
-/*
- * openvpn_swprintf() is currently only used by Windows code paths
- * and when enabled for all platforms it will currently break older
- * OpenBSD versions lacking vswprintf(3) support in their libc.
- */
-
-#ifdef _WIN32
-bool
-openvpn_swprintf(wchar_t *const str, const size_t size, const wchar_t *const format, ...)
-{
-    va_list arglist;
-    int len = -1;
-    if (size > 0)
-    {
-        va_start(arglist, format);
-        len = vswprintf(str, size, format, arglist);
-        va_end(arglist);
-        str[size - 1] = L'\0';
-    }
-    return (len >= 0 && len < size);
-}
-#endif
 
 /*
  * write a string to the end of a buffer that was
@@ -709,7 +686,6 @@ string_alloc(const char *str, struct gc_arena *gc)
              */
 #ifdef DMALLOC
             ret = openvpn_dmalloc(file, line, n);
-            memset(ret, 0, n);
 #else
             ret = calloc(1, n);
 #endif

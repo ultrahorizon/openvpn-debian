@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2021 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -1202,7 +1202,7 @@ do_persist_tuntap(const struct options *options, openvpn_net_ctx_t *ctx)
                ctx);
         if (options->persist_mode && options->lladdr)
         {
-            set_lladdr(options->dev, options->lladdr, NULL);
+            set_lladdr(ctx, options->dev, options->lladdr, NULL);
         }
         return true;
 #else  /* ifdef ENABLE_FEATURE_TUN_PERSIST */
@@ -1874,7 +1874,8 @@ do_open_tun(struct context *c)
     /* set the hardware address */
     if (c->options.lladdr)
     {
-        set_lladdr(c->c1.tuntap->actual_name, c->options.lladdr, c->c2.es);
+        set_lladdr(&c->net_ctx, c->c1.tuntap->actual_name, c->options.lladdr,
+                   c->c2.es);
     }
 
     /* do ifconfig */
@@ -2455,8 +2456,9 @@ socket_restart_pause(struct context *c)
     }
 #endif
 
-    /* Slow down reconnection after 5 retries per remote -- for tcp only in client mode */
-    if (c->options.ce.proto != PROTO_TCP_SERVER)
+    /* Slow down reconnection after 5 retries per remote -- for TCP client or UDP tls-client only */
+    if (c->options.ce.proto == PROTO_TCP_CLIENT
+        || (c->options.ce.proto == PROTO_UDP && c->options.tls_client))
     {
         backoff = (c->options.unsuccessful_attempts / c->options.connection_list->len) - 4;
         if (backoff > 0)
@@ -2552,6 +2554,7 @@ key_schedule_free(struct key_schedule *ks, bool free_ssl_ctx)
     if (tls_ctx_initialised(&ks->ssl_ctx) && free_ssl_ctx)
     {
         tls_ctx_free(&ks->ssl_ctx);
+        free_key_ctx(&ks->auth_token_key);
     }
     CLEAR(*ks);
 }
@@ -2734,7 +2737,7 @@ do_init_crypto_tls_c1(struct context *c)
          * Initialize the OpenSSL library's global
          * SSL context.
          */
-        init_ssl(options, &(c->c1.ks.ssl_ctx));
+        init_ssl(options, &(c->c1.ks.ssl_ctx), c->c0 && c->c0->uid_gid_chroot_set);
         if (!tls_ctx_initialised(&c->c1.ks.ssl_ctx))
         {
 #if P2MP

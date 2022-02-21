@@ -5,8 +5,8 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
- *  Copyright (C) 2010-2018 Fox Crypto B.V. <openvpn@fox-it.com>
+ *  Copyright (C) 2002-2021 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2010-2021 Fox Crypto B.V. <openvpn@foxcrypto.com>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -50,6 +50,10 @@
 #include <openssl/objects.h>
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
+
+#if defined(_WIN32) && defined(OPENSSL_NO_EC)
+#error Windows build with OPENSSL_NO_EC: disabling EC key is not supported.
+#endif
 
 /*
  * Check for key size creepage.

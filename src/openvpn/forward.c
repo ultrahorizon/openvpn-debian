@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2021 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -526,9 +526,10 @@ encrypt_sign(struct context *c, bool comp_frag)
 
     /*
      * Drop non-TLS outgoing packet if client-connect script/plugin
-     * has not yet succeeded.
+     * has not yet succeeded. In non-TLS mode tls_multi is not defined
+     * and we always pass packets.
      */
-    if (c->c2.context_auth != CAS_SUCCEEDED)
+    if (c->c2.tls_multi && c->c2.tls_multi->multi_state != CAS_SUCCEEDED)
     {
         c->c2.buf.len = 0;
     }
@@ -973,9 +974,10 @@ process_incoming_link_part1(struct context *c, struct link_socket_info *lsi, boo
 
         /*
          * Drop non-TLS packet if client-connect script/plugin and cipher selection
-         * has not yet succeeded.
+         * has not yet succeeded. In non-TLS mode tls_multi is not defined
+         * and we always pass packets.
          */
-        if (c->c2.context_auth != CAS_SUCCEEDED)
+        if (c->c2.tls_multi && c->c2.tls_multi->multi_state != CAS_SUCCEEDED)
         {
             c->c2.buf.len = 0;
         }

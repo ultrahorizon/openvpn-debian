@@ -5,8 +5,8 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
- *  Copyright (C) 2008-2013 David Sommerseth <dazo@users.sourceforge.net>
+ *  Copyright (C) 2002-2021 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2008-2021 David Sommerseth <dazo@eurephia.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -418,6 +418,8 @@ static const char usage_message[] =
     "                  execution.  Peer must specify --pull in its config file.\n"
     "--push-reset    : Don't inherit global push list for specific\n"
     "                  client instance.\n"
+    "--push-remove opt : Remove options matching 'opt' from the push list for\n"
+    "                  a specific client instance.\n"
     "--ifconfig-pool start-IP end-IP [netmask] : Set aside a pool of subnets\n"
     "                  to be dynamically allocated to connecting clients.\n"
     "--ifconfig-pool-persist file [seconds] : Persist/unpersist ifconfig-pool\n"
@@ -625,7 +627,7 @@ static const char usage_message[] =
     "                  see --secret option for more info.\n"
     "--tls-crypt-v2 key : For clients: use key as a client-specific tls-crypt key.\n"
     "                  For servers: use key to decrypt client-specific keys.  For\n"
-    "                  key generation (--tls-crypt-v2-genkey): use key to\n"
+    "                  key generation (--genkey tls-crypt-v2-client): use key to\n"
     "                  encrypt generated client-specific key.  (See --tls-crypt.)\n"
     "--genkey tls-crypt-v2-client [keyfile] [base64 metadata]: Generate a\n"
     "                  fresh tls-crypt-v2 client key, and store to\n"
@@ -1700,7 +1702,7 @@ show_settings(const struct options *o)
     SHOW_BOOL(tls_client);
     SHOW_STR_INLINE(ca_file);
     SHOW_STR(ca_path);
-    SHOW_STR(dh_file);
+    SHOW_STR_INLINE(dh_file);
 #ifdef ENABLE_MANAGEMENT
     if ((o->management_flags & MF_EXTERNAL_CERT))
     {
@@ -3328,14 +3330,8 @@ check_file_access_chroot(const char *chroot, const int type, const char *file, c
     {
         struct gc_arena gc = gc_new();
         struct buffer chroot_file;
-        int len = 0;
 
-        /* Build up a new full path including chroot directory */
-        len = strlen(chroot) + strlen(PATH_SEPARATOR_STR) + strlen(file) + 1;
-        chroot_file = alloc_buf_gc(len, &gc);
-        buf_printf(&chroot_file, "%s%s%s", chroot, PATH_SEPARATOR_STR, file);
-        ASSERT(chroot_file.len > 0);
-
+        chroot_file = prepend_dir(chroot, file, &gc);
         ret = check_file_access(type, BSTR(&chroot_file), mode, opt);
         gc_free(&gc);
     }
@@ -3597,6 +3593,14 @@ pre_pull_save(struct options *o)
             o->pre_pull->client_nat = clone_client_nat_option_list(o->client_nat, &o->gc);
             o->pre_pull->client_nat_defined = true;
         }
+
+        o->pre_pull->route_default_gateway = o->route_default_gateway;
+        o->pre_pull->route_ipv6_default_gateway = o->route_ipv6_default_gateway;
+
+        /* Ping related options should be reset to the config values on reconnect */
+        o->pre_pull->ping_rec_timeout = o->ping_rec_timeout;
+        o->pre_pull->ping_rec_timeout_action = o->ping_rec_timeout_action;
+        o->pre_pull->ping_send_timeout = o->ping_send_timeout;
     }
 }
 
@@ -3632,6 +3636,9 @@ pre_pull_restore(struct options *o, struct gc_arena *gc)
             o->routes_ipv6 = NULL;
         }
 
+        o->route_default_gateway = pp->route_default_gateway;
+        o->route_ipv6_default_gateway = pp->route_ipv6_default_gateway;
+
         if (pp->client_nat_defined)
         {
             cnol_check_alloc(o);
@@ -3643,6 +3650,10 @@ pre_pull_restore(struct options *o, struct gc_arena *gc)
         }
 
         o->foreign_option_index = pp->foreign_option_index;
+
+        o->ping_rec_timeout = pp->ping_rec_timeout;
+        o->ping_rec_timeout_action = pp->ping_rec_timeout_action;
+        o->ping_send_timeout = pp->ping_send_timeout;
     }
 
     o->push_continuation = 0;
@@ -4377,7 +4388,7 @@ usage_version(void)
     show_windows_version( M_INFO|M_NOPREFIX );
 #endif
     msg(M_INFO|M_NOPREFIX, "Originally developed by James Yonan");
-    msg(M_INFO|M_NOPREFIX, "Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>");
+    msg(M_INFO|M_NOPREFIX, "Copyright (C) 2002-2021 OpenVPN Inc <sales@openvpn.net>");
 #ifndef ENABLE_SMALL
 #ifdef CONFIGURE_DEFINES
     msg(M_INFO|M_NOPREFIX, "Compile time defines: %s", CONFIGURE_DEFINES);
@@ -5310,7 +5321,7 @@ add_option(struct options *options,
         {
             /* only message-related ECHO are logged, since other ECHOs
              * can potentially include security-sensitive strings */
-            if (strncmp(p[1], "msg", 3) == 0)
+            if (p[1] && strncmp(p[1], "msg", 3) == 0)
             {
                 msg(M_INFO, "%s:%s",
                     pull_mode ? "ECHO-PULL" : "ECHO",
@@ -6008,6 +6019,12 @@ add_option(struct options *options,
     {
         VERIFY_PERMISSION(OPT_P_MESSAGES);
         options->verbosity = positive_atoi(p[1]);
+        if (options->verbosity >= (D_TLS_DEBUG_MED & M_DEBUG_LEVEL))
+        {
+            /* We pass this flag to the SSL library to avoid
+             * mbed TLS always generating debug level logging */
+            options->ssl_flags |= SSLF_TLS_DEBUG_ENABLED;
+        }
 #if !defined(ENABLE_DEBUG) && !defined(ENABLE_SMALL)
         /* Warn when a debug verbosity is supplied when built without debug support */
         if (options->verbosity >= 7)
@@ -8262,6 +8279,11 @@ add_option(struct options *options,
             management_auth_token(management, p[1]);
         }
 #endif
+    }
+    else if (streq(p[0], "auth-token-user") && p[1] && !p[2])
+    {
+        VERIFY_PERMISSION(OPT_P_ECHO);
+        ssl_set_auth_token_user(p[1]);
     }
     else if (streq(p[0], "single-session") && !p[1])
     {
