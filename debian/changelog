@@ -1,3 +1,11 @@
+openvpn (2.5.6-1) unstable; urgency=high
+
+  * New upstream version 2.5.6
+    CVE-2022-0547 - Potential authentication by-pass with multiple deferred
+    authentication plug-ins plug-ins (Closes: #1008015)
+
+ -- Bernhard Schmidt <berni@debian.org>  Sun, 20 Mar 2022 21:42:05 +0100
+
 openvpn (2.5.5-1) unstable; urgency=medium
 
   [ Jörg Frings-Fürst ]
