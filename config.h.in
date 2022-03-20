@@ -340,6 +340,9 @@
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
 
+/* Define to 1 if you have the <linux/errqueue.h> header file. */
+#undef HAVE_LINUX_ERRQUEUE_H
+
 /* Define to 1 if you have the <linux/if_tun.h> header file. */
 #undef HAVE_LINUX_IF_TUN_H
 
@@ -534,9 +537,6 @@
 
 /* Define to 1 if you have the `socket' function. */
 #undef HAVE_SOCKET
-
-/* struct sock_extended_err needed for extended socket error support */
-#undef HAVE_SOCK_EXTENDED_ERR
 
 /* Define to 1 if you have the `SSL_CTX_get_default_passwd_cb' function. */
 #undef HAVE_SSL_CTX_GET_DEFAULT_PASSWD_CB
