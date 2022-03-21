@@ -1,3 +1,10 @@
+openvpn (2.6.0~git20220317+dco-1) experimental; urgency=medium
+
+  * New upstream version 2.6.0~git20220317+dco
+    This is a snapshot of the upstream dco branch (data-channel offloading)
+
+ -- Bernhard Schmidt <berni@debian.org>  Mon, 21 Mar 2022 11:54:29 +0100
+
 openvpn (2.5.6-1) unstable; urgency=high
 
   * New upstream version 2.5.6
