@@ -35,7 +35,7 @@ fast hardware. SSL/TLS authentication must be used in this mode.
   token is reached or after not being renewed for more than 2 \*
   ``reneg-sec`` seconds. Clients will be sent renewed tokens on every TLS
   renogiation to keep the client's token updated. This is done to
-  invalidate a token if a client is disconnected for a sufficently long
+  invalidate a token if a client is disconnected for a sufficiently long
   time, while at the same time permitting much longer token lifetimes for
   active clients.
 
@@ -46,7 +46,7 @@ fast hardware. SSL/TLS authentication must be used in this mode.
   When the :code:`external-auth` keyword is present the normal
   authentication method will always be called even if auth-token succeeds.
   Normally other authentications method are skipped if auth-token
-  verification suceeds or fails.
+  verification succeeds or fails.
 
   This option postpones this decision to the external authentication
   methods and checks the validity of the account and do other checks.
@@ -285,37 +285,6 @@ fast hardware. SSL/TLS authentication must be used in this mode.
   ::
 
      ifconfig-ipv6-push ipv6addr/bits ipv6remote
-
---inetd args
-  Valid syntaxes:
-  ::
-
-     inetd
-     inetd wait
-     inetd nowait
-     inetd wait progname
-
-  Use this option when OpenVPN is being run from the inetd or ``xinetd``\(8)
-  server.
-
-  The :code:`wait` and :code:`nowait` option must match what is specified
-  in the inetd/xinetd config file. The :code:`nowait` mode can only be used
-  with ``--proto tcp-server`` The default is :code:`wait`.  The
-  :code:`nowait` mode can be used to instantiate the OpenVPN daemon as a
-  classic TCP server, where client connection requests are serviced on a
-  single port number. For additional information on this kind of
-  configuration, see the OpenVPN FAQ:
-  https://community.openvpn.net/openvpn/wiki/325-openvpn-as-a--forking-tcp-server-which-can-service-multiple-clients-over-a-single-tcp-port
-
-  This option precludes the use of ``--daemon``, ``--local`` or
-  ``--remote``.  Note that this option causes message and error output to
-  be handled in the same way as the ``--daemon`` option. The optional
-  ``progname`` parameter is also handled exactly as in ``--daemon``.
-
-  Also note that in ``wait`` mode, each OpenVPN tunnel requires a separate
-  TCP/UDP port and a separate inetd or xinetd entry. See the OpenVPN 1.x
-  HOWTO for an example on using OpenVPN with xinetd:
-  https://openvpn.net/community-resources/1xhowto/
 
 --multihome
   Configure a multi-homed UDP server. This option needs to be used when a

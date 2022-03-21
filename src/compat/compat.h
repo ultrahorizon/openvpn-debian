@@ -24,11 +24,8 @@
 #ifndef COMPAT_H
 #define COMPAT_H
 
-#ifdef HAVE_WINSOCK2_H
+#ifdef _WIN32
 #include <winsock2.h>
-#endif
-
-#ifdef HAVE_WS2TCPIP_H
 #include <ws2tcpip.h>
 #endif
 
@@ -60,19 +57,15 @@ int daemon(int nochdir, int noclose);
 
 #endif
 
-#ifndef HAVE_INET_NTOP
-const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
-
-#endif
-
-#ifndef HAVE_INET_PTON
-int inet_pton(int af, const char *src, void *dst);
-
-#endif
-
 #ifndef HAVE_STRSEP
 char *strsep(char **stringp, const char *delim);
 
+#endif
+
+#if defined(__MINGW32__) && !defined(__MINGW64__)
+BOOL dco_get_overlapped_result(HANDLE handle, OVERLAPPED* ov, DWORD* transferred, DWORD delay_millisec, BOOL unused);
+#else
+#define dco_get_overlapped_result GetOverlappedResultEx
 #endif
 
 #endif /* COMPAT_H */

@@ -45,6 +45,7 @@
 #include "ssl_common.h"
 #include "base64.h"
 #include "openssl_compat.h"
+#include "xkey_common.h"
 
 #ifdef ENABLE_CRYPTOAPI
 #include "cryptoapi.h"
@@ -69,6 +70,10 @@
 #include <openssl/applink.c>
 #endif
 
+OSSL_LIB_CTX *tls_libctx; /* Global */
+
+static void unload_xkey_provider(void);
+
 /*
  * Allocate space in SSL objects in which to store a struct tls_session
  * pointer back to parent.
@@ -80,7 +85,7 @@ int mydata_index; /* GLOBAL */
 void
 tls_init_lib(void)
 {
-#if (OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER))
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     SSL_library_init();
 #ifndef ENABLE_SMALL
     SSL_load_error_strings();
@@ -94,7 +99,7 @@ tls_init_lib(void)
 void
 tls_free_lib(void)
 {
-#if (OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER))
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     EVP_cleanup();
 #ifndef ENABLE_SMALL
     ERR_free_strings();
@@ -113,7 +118,7 @@ tls_ctx_server_new(struct tls_root_ctx *ctx)
 {
     ASSERT(NULL != ctx);
 
-    ctx->ctx = SSL_CTX_new(SSLv23_server_method());
+    ctx->ctx = SSL_CTX_new_ex(tls_libctx, NULL, SSLv23_server_method());
 
     if (ctx->ctx == NULL)
     {
@@ -131,7 +136,7 @@ tls_ctx_client_new(struct tls_root_ctx *ctx)
 {
     ASSERT(NULL != ctx);
 
-    ctx->ctx = SSL_CTX_new(SSLv23_client_method());
+    ctx->ctx = SSL_CTX_new_ex(tls_libctx, NULL, SSLv23_client_method());
 
     if (ctx->ctx == NULL)
     {
@@ -148,11 +153,9 @@ void
 tls_ctx_free(struct tls_root_ctx *ctx)
 {
     ASSERT(NULL != ctx);
-    if (NULL != ctx->ctx)
-    {
-        SSL_CTX_free(ctx->ctx);
-    }
+    SSL_CTX_free(ctx->ctx);
     ctx->ctx = NULL;
+    unload_xkey_provider(); /* in case it is loaded */
 }
 
 bool
@@ -162,35 +165,23 @@ tls_ctx_initialised(struct tls_root_ctx *ctx)
     return NULL != ctx->ctx;
 }
 
-void
-key_state_export_keying_material(struct key_state_ssl *ssl,
-                                 struct tls_session *session)
+bool
+key_state_export_keying_material(struct tls_session *session,
+                                 const char* label, size_t label_size,
+                                 void *ekm, size_t ekm_size)
+
 {
-    if (session->opt->ekm_size > 0)
+    SSL* ssl = session->key[KS_PRIMARY].ks_ssl.ssl;
+
+    if (SSL_export_keying_material(ssl, ekm, ekm_size, label,
+                                   label_size, NULL, 0, 0) == 1)
     {
-        unsigned int size = session->opt->ekm_size;
-        struct gc_arena gc = gc_new();
-        unsigned char *ekm = (unsigned char *) gc_malloc(size, true, &gc);
-
-        if (SSL_export_keying_material(ssl->ssl, ekm, size,
-                                       session->opt->ekm_label,
-                                       session->opt->ekm_label_size,
-                                       NULL, 0, 0))
-        {
-            unsigned int len = (size * 2) + 2;
-
-            const char *key = format_hex_ex(ekm, size, len, 0, NULL, &gc);
-            setenv_str(session->opt->es, "exported_keying_material", key);
-
-            dmsg(D_TLS_DEBUG_MED, "%s: exported keying material: %s",
-                 __func__, key);
-        }
-        else
-        {
-            msg(M_WARN, "WARNING: Export keying material failed!");
-            setenv_del(session->opt->es, "exported_keying_material");
-        }
-        gc_free(&gc);
+        return true;
+    }
+    else
+    {
+        secure_memzero(ekm, ekm_size);
+        return false;
     }
 }
 
@@ -542,7 +533,7 @@ tls_ctx_restrict_ciphers_tls13(struct tls_root_ctx *ctx, const char *ciphers)
 void
 tls_ctx_set_cert_profile(struct tls_root_ctx *ctx, const char *profile)
 {
-#ifdef HAVE_SSL_CTX_SET_SECURITY_LEVEL
+#if OPENSSL_VERSION_NUMBER > 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
     /* OpenSSL does not have certificate profiles, but a complex set of
      * callbacks that we could try to implement to achieve something similar.
      * For now, use OpenSSL's security levels to achieve similar (but not equal)
@@ -550,6 +541,10 @@ tls_ctx_set_cert_profile(struct tls_root_ctx *ctx, const char *profile)
     if (!profile || 0 == strcmp(profile, "legacy"))
     {
         SSL_CTX_set_security_level(ctx->ctx, 1);
+    }
+    else if (0 == strcmp(profile, "insecure"))
+    {
+        SSL_CTX_set_security_level(ctx->ctx, 0);
     }
     else if (0 == strcmp(profile, "preferred"))
     {
@@ -564,13 +559,13 @@ tls_ctx_set_cert_profile(struct tls_root_ctx *ctx, const char *profile)
     {
         msg(M_FATAL, "ERROR: Invalid cert profile: %s", profile);
     }
-#else  /* ifdef HAVE_SSL_CTX_SET_SECURITY_LEVEL */
+#else  /* if OPENSSL_VERSION_NUMBER > 0x10100000L */
     if (profile)
     {
-        msg(M_WARN, "WARNING: OpenSSL 1.0.2 does not support --tls-cert-profile"
-            ", ignoring user-set profile: '%s'", profile);
+        msg(M_WARN, "WARNING: OpenSSL 1.0.2 and LibreSSL do not support "
+            "--tls-cert-profile, ignoring user-set profile: '%s'", profile);
     }
-#endif /* ifdef HAVE_SSL_CTX_SET_SECURITY_LEVEL */
+#endif /* if OPENSSL_VERSION_NUMBER > 0x10100000L */
 }
 
 void
@@ -664,7 +659,6 @@ void
 tls_ctx_load_dh_params(struct tls_root_ctx *ctx, const char *dh_file,
                        bool dh_file_inline)
 {
-    DH *dh;
     BIO *bio;
 
     ASSERT(NULL != ctx);
@@ -685,7 +679,24 @@ tls_ctx_load_dh_params(struct tls_root_ctx *ctx, const char *dh_file,
         }
     }
 
-    dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    EVP_PKEY *dh = PEM_read_bio_Parameters(bio, NULL);
+    BIO_free(bio);
+
+    if (!dh)
+    {
+        crypto_msg(M_FATAL, "Cannot load DH parameters from %s",
+                   print_key_filename(dh_file, dh_file_inline));
+    }
+    if (!SSL_CTX_set0_tmp_dh_pkey(ctx->ctx, dh))
+    {
+        crypto_msg(M_FATAL, "SSL_CTX_set0_tmp_dh_pkey");
+    }
+
+    msg(D_TLS_DEBUG_LOW, "Diffie-Hellman initialized with %d bit key",
+        8 * EVP_PKEY_get_size(dh));
+#else
+    DH *dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
     BIO_free(bio);
 
     if (!dh)
@@ -702,13 +713,20 @@ tls_ctx_load_dh_params(struct tls_root_ctx *ctx, const char *dh_file,
         8 * DH_size(dh));
 
     DH_free(dh);
+#endif
 }
 
 void
-tls_ctx_load_ecdh_params(struct tls_root_ctx *ctx, const char *curve_name
-                         )
+tls_ctx_load_ecdh_params(struct tls_root_ctx *ctx, const char *curve_name)
 {
-#ifndef OPENSSL_NO_EC
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    if (curve_name != NULL)
+    {
+        msg(M_WARN, "WARNING: OpenSSL 3.0+ builds do not support specifying an "
+                    "ECDH curve with --ecdh-curve, using default curves. Use "
+                    "--tls-groups to specify groups.");
+    }
+#elif !defined(OPENSSL_NO_EC)
     int nid = NID_undef;
     EC_KEY *ecdh = NULL;
     const char *sname = NULL;
@@ -724,7 +742,7 @@ tls_ctx_load_ecdh_params(struct tls_root_ctx *ctx, const char *curve_name
     }
     else
     {
-#if (OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER))
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 
         /* OpenSSL 1.0.2 and newer can automatically handle ECDH parameter
          * loading */
@@ -821,6 +839,8 @@ tls_ctx_load_pkcs12(struct tls_root_ctx *ctx, const char *pkcs12_file,
         ca = NULL;
         if (!PKCS12_parse(p12, password, &pkey, &cert, &ca))
         {
+            crypto_msg(M_WARN, "Decoding PKCS12 failed. Probably wrong password "
+                               "or unsupported/legacy encryption");
 #ifdef ENABLE_MANAGEMENT
             if (management && (ERR_GET_REASON(ERR_peek_error()) == PKCS12_R_MAC_VERIFY_FAILURE))
             {
@@ -1000,14 +1020,8 @@ end:
         crypto_print_openssl_errors(M_DEBUG);
     }
 
-    if (in != NULL)
-    {
-        BIO_free(in);
-    }
-    if (x)
-    {
-        X509_free(x);
-    }
+    BIO_free(in);
+    X509_free(x);
 }
 
 int
@@ -1066,14 +1080,8 @@ tls_ctx_load_priv_file(struct tls_root_ctx *ctx, const char *priv_key_file,
     ret = 0;
 
 end:
-    if (pkey)
-    {
-        EVP_PKEY_free(pkey);
-    }
-    if (in)
-    {
-        BIO_free(in);
-    }
+    EVP_PKEY_free(pkey);
+    BIO_free(in);
     return ret;
 }
 
@@ -1161,7 +1169,7 @@ end:
 }
 
 
-#ifdef ENABLE_MANAGEMENT
+#if defined(ENABLE_MANAGEMENT) && !defined(HAVE_XKEY_PROVIDER)
 
 /* encrypt */
 static int
@@ -1279,12 +1287,11 @@ static int
 tls_ctx_use_external_rsa_key(struct tls_root_ctx *ctx, EVP_PKEY *pkey)
 {
     RSA *rsa = NULL;
-    RSA *pub_rsa;
     RSA_METHOD *rsa_meth;
 
     ASSERT(NULL != ctx);
 
-    pub_rsa = EVP_PKEY_get0_RSA(pkey);
+    const RSA *pub_rsa = EVP_PKEY_get0_RSA(pkey);
     ASSERT(NULL != pub_rsa);
 
     /* allocate custom RSA method object */
@@ -1334,19 +1341,14 @@ err:
     {
         RSA_free(rsa);
     }
-    else
+    else if (rsa_meth)
     {
-        if (rsa_meth)
-        {
-            RSA_meth_free(rsa_meth);
-        }
+        RSA_meth_free(rsa_meth);
     }
     return 0;
 }
 
-#if ((OPENSSL_VERSION_NUMBER > 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)) \
-    || LIBRESSL_VERSION_NUMBER > 0x2090000fL) \
-    && !defined(OPENSSL_NO_EC)
+#if OPENSSL_VERSION_NUMBER > 0x10100000L && !defined(OPENSSL_NO_EC)
 
 /* called when EC_KEY is destroyed */
 static void
@@ -1463,18 +1465,14 @@ tls_ctx_use_external_ec_key(struct tls_root_ctx *ctx, EVP_PKEY *pkey)
 
 err:
     /* Reach here only when ec and privkey can be independenly freed */
-    if (privkey)
-    {
-        EVP_PKEY_free(privkey);
-    }
-    if (ec)
-    {
-        EC_KEY_free(ec);
-    }
+    EVP_PKEY_free(privkey);
+    EC_KEY_free(ec);
     return 0;
 }
 #endif /* OPENSSL_VERSION_NUMBER > 1.1.0 dev && !defined(OPENSSL_NO_EC) */
+#endif /* ENABLE_MANAGEMENT && !HAVE_XKEY_PROVIDER */
 
+#ifdef ENABLE_MANAGEMENT
 int
 tls_ctx_use_management_external_key(struct tls_root_ctx *ctx)
 {
@@ -1490,6 +1488,16 @@ tls_ctx_use_management_external_key(struct tls_root_ctx *ctx)
     EVP_PKEY *pkey = X509_get0_pubkey(cert);
     ASSERT(pkey); /* NULL before SSL_CTX_use_certificate() is called */
 
+#ifdef HAVE_XKEY_PROVIDER
+    EVP_PKEY *privkey = xkey_load_management_key(tls_libctx, pkey);
+    if (!privkey
+        || !SSL_CTX_use_PrivateKey(ctx->ctx, privkey))
+    {
+        EVP_PKEY_free(privkey);
+        goto cleanup;
+    }
+    EVP_PKEY_free(privkey);
+#else
     if (EVP_PKEY_id(pkey) == EVP_PKEY_RSA)
     {
         if (!tls_ctx_use_external_rsa_key(ctx, pkey))
@@ -1497,9 +1505,7 @@ tls_ctx_use_management_external_key(struct tls_root_ctx *ctx)
             goto cleanup;
         }
     }
-#if ((OPENSSL_VERSION_NUMBER > 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)) \
-    || LIBRESSL_VERSION_NUMBER > 0x2090000fL) \
-    && !defined(OPENSSL_NO_EC)
+#if (OPENSSL_VERSION_NUMBER > 0x10100000L) && !defined(OPENSSL_NO_EC)
     else if (EVP_PKEY_id(pkey) == EVP_PKEY_EC)
     {
         if (!tls_ctx_use_external_ec_key(ctx, pkey))
@@ -1519,6 +1525,8 @@ tls_ctx_use_management_external_key(struct tls_root_ctx *ctx)
         goto cleanup;
     }
 #endif /* OPENSSL_VERSION_NUMBER > 1.1.0 dev && !defined(OPENSSL_NO_EC) */
+
+#endif /* HAVE_XKEY_PROVIDER */
 
     ret = 0;
 cleanup:
@@ -1667,10 +1675,7 @@ tls_ctx_load_ca(struct tls_root_ctx *ctx, const char *ca_file,
             }
         }
 
-        if (in)
-        {
-            BIO_free(in);
-        }
+        BIO_free(in);
     }
 
     /* Set a store for certs (CA & CRL) with a lookup on the "capath" hash directory */
@@ -1979,13 +1984,11 @@ key_state_write_plaintext(struct key_state_ssl *ks_ssl, struct buffer *buf)
     int ret = 0;
     perf_push(PERF_BIO_WRITE_PLAINTEXT);
 
-#ifdef ENABLE_CRYPTO_OPENSSL
     ASSERT(NULL != ks_ssl);
 
     ret = bio_write(ks_ssl->ssl_bio, BPTR(buf), BLEN(buf),
                     "tls_write_plaintext");
     bio_write_post(ret, buf);
-#endif /* ENABLE_CRYPTO_OPENSSL */
 
     perf_pop();
     return ret;
@@ -2072,13 +2075,15 @@ print_cert_details(X509 *cert, char *buf, size_t buflen)
     int typeid = EVP_PKEY_id(pkey);
 
 #ifndef OPENSSL_NO_EC
-    if (typeid == EVP_PKEY_EC && EVP_PKEY_get0_EC_KEY(pkey) != NULL)
+    char groupname[256];
+    if (typeid == EVP_PKEY_EC)
     {
-        EC_KEY *ec = EVP_PKEY_get0_EC_KEY(pkey);
-        const EC_GROUP *group = EC_KEY_get0_group(ec);
-
-        int nid = EC_GROUP_get_curve_name(group);
-        if (nid == 0 || (curve = OBJ_nid2sn(nid)) == NULL)
+        size_t len;
+        if(EVP_PKEY_get_group_name(pkey, groupname, sizeof(groupname), &len))
+        {
+           curve = groupname;
+        }
+        else
         {
             curve = "(error getting curve name)";
         }
@@ -2190,8 +2195,7 @@ show_available_tls_ciphers_list(const char *cipher_list,
         crypto_msg(M_FATAL, "Cannot create SSL object");
     }
 
-#if (OPENSSL_VERSION_NUMBER < 0x1010000fL)    \
-    || (defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER <= 0x2090000fL)
+#if OPENSSL_VERSION_NUMBER < 0x1010000fL
     STACK_OF(SSL_CIPHER) *sk = SSL_get_ciphers(ssl);
 #else
     STACK_OF(SSL_CIPHER) *sk = SSL_get1_supported_ciphers(ssl);
@@ -2298,6 +2302,89 @@ const char *
 get_ssl_library_version(void)
 {
     return OpenSSL_version(OPENSSL_VERSION);
+}
+
+
+/** Some helper routines for provider load/unload */
+#ifdef HAVE_XKEY_PROVIDER
+static int
+provider_load(OSSL_PROVIDER *prov, void *dest_libctx)
+{
+    const char *name = OSSL_PROVIDER_get0_name(prov);
+    OSSL_PROVIDER_load(dest_libctx, name);
+    return 1;
+}
+
+static int
+provider_unload(OSSL_PROVIDER *prov, void *unused)
+{
+    (void) unused;
+    OSSL_PROVIDER_unload(prov);
+    return 1;
+}
+#endif /* HAVE_XKEY_PROVIDER */
+
+/**
+ * Setup ovpn.xey provider for signing with external keys.
+ * It is loaded into a custom library context so as not to pollute
+ * the default context. Alternatively we could override any
+ * system-wide property query set on the default context. But we
+ * want to avoid that.
+ */
+void
+load_xkey_provider(void)
+{
+#ifdef HAVE_XKEY_PROVIDER
+
+    /* Make a new library context for use in TLS context */
+    if (!tls_libctx)
+    {
+        tls_libctx = OSSL_LIB_CTX_new();
+        check_malloc_return(tls_libctx);
+
+        /* Load all providers in default LIBCTX into this libctx.
+         * OpenSSL has a child libctx functionality to automate this,
+         * but currently that is usable only from within providers.
+         * So we do something close to it manually here.
+         */
+        OSSL_PROVIDER_do_all(NULL, provider_load, tls_libctx);
+    }
+
+    if (!OSSL_PROVIDER_available(tls_libctx, "ovpn.xkey"))
+    {
+        OSSL_PROVIDER_add_builtin(tls_libctx, "ovpn.xkey", xkey_provider_init);
+        if (!OSSL_PROVIDER_load(tls_libctx, "ovpn.xkey"))
+        {
+            msg(M_NONFATAL, "ERROR: failed loading external key provider: "
+                            "Signing with external keys will not work.");
+        }
+    }
+
+    /* We only implement minimal functionality in ovpn.xkey, so we do not want
+     * methods in xkey to be picked unless absolutely required (i.e, when the key
+     * is external). Ensure this by setting a default propquery for the custom
+     * libctx that unprefers, but does not forbid, ovpn.xkey. See also man page
+     * of "property" in OpenSSL 3.0.
+     */
+    EVP_set_default_properties(tls_libctx, "?provider!=ovpn.xkey");
+
+#endif /* HAVE_XKEY_PROVIDER */
+}
+
+/**
+ * Undo steps in load_xkey_provider
+ */
+static void
+unload_xkey_provider(void)
+{
+#ifdef HAVE_XKEY_PROVIDER
+    if (tls_libctx)
+    {
+        OSSL_PROVIDER_do_all(tls_libctx, provider_unload, NULL);
+        OSSL_LIB_CTX_free(tls_libctx);
+    }
+#endif /* HAVE_XKEY_PROVIDER */
+    tls_libctx = NULL;
 }
 
 #endif /* defined(ENABLE_CRYPTO_OPENSSL) */

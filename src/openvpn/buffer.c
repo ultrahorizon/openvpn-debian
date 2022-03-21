@@ -184,10 +184,7 @@ buf_assign(struct buffer *dest, const struct buffer *src)
 void
 free_buf(struct buffer *buf)
 {
-    if (buf->data)
-    {
-        free(buf->data);
-    }
+    free(buf->data);
     CLEAR(*buf);
 }
 
@@ -641,7 +638,7 @@ rm_trailing_chars(char *str, const char *what_to_delete)
     bool modified;
     do
     {
-        const int len = strlen(str);
+        const size_t len = strlen(str);
         modified = false;
         if (len > 0)
         {
@@ -667,7 +664,7 @@ string_alloc(const char *str, struct gc_arena *gc)
 {
     if (str)
     {
-        const int n = strlen(str) + 1;
+        const size_t n = strlen(str) + 1;
         char *ret;
 
         if (gc)
@@ -793,7 +790,7 @@ string_alloc_buf(const char *str, struct gc_arena *gc)
 bool
 buf_string_match_head_str(const struct buffer *src, const char *match)
 {
-    const int size = strlen(match);
+    const size_t size = strlen(match);
     if (size < 0 || size > src->len)
     {
         return false;
@@ -806,7 +803,7 @@ buf_string_compare_advance(struct buffer *src, const char *match)
 {
     if (buf_string_match_head_str(src, match))
     {
-        buf_advance(src, strlen(match));
+        buf_advance(src, (int)strlen(match));
         return true;
     }
     else
@@ -1174,11 +1171,10 @@ valign4(const struct buffer *buf, const char *file, const int line)
  * struct buffer_list
  */
 struct buffer_list *
-buffer_list_new(const int max_size)
+buffer_list_new(void)
 {
     struct buffer_list *ret;
     ALLOC_OBJ_CLEAR(ret, struct buffer_list);
-    ret->max_size = max_size;
     ret->size = 0;
     return ret;
 }
@@ -1223,7 +1219,7 @@ buffer_list_push(struct buffer_list *ol, const char *str)
         struct buffer_entry *e = buffer_list_push_data(ol, str, len+1);
         if (e)
         {
-            e->buf.len = len; /* Don't count trailing '\0' as part of length */
+            e->buf.len = (int)len; /* Don't count trailing '\0' as part of length */
         }
     }
 }
@@ -1232,7 +1228,7 @@ struct buffer_entry *
 buffer_list_push_data(struct buffer_list *ol, const void *data, size_t size)
 {
     struct buffer_entry *e = NULL;
-    if (data && (!ol->max_size || ol->size < ol->max_size))
+    if (data)
     {
         ALLOC_OBJ_CLEAR(e, struct buffer_entry);
 
@@ -1272,7 +1268,7 @@ void
 buffer_list_aggregate_separator(struct buffer_list *bl, const size_t max_len,
                                 const char *sep)
 {
-    const int sep_len = strlen(sep);
+    const size_t sep_len = strlen(sep);
     struct buffer_entry *more = bl->head;
     size_t size = 0;
     int count = 0;
@@ -1362,7 +1358,7 @@ buffer_list_file(const char *fn, int max_line_len)
         char *line = (char *) malloc(max_line_len);
         if (line)
         {
-            bl = buffer_list_new(0);
+            bl = buffer_list_new();
             while (fgets(line, max_line_len, fp) != NULL)
             {
                 buffer_list_push(bl, line);
@@ -1379,7 +1375,7 @@ buffer_read_from_file(const char *filename, struct gc_arena *gc)
 {
     struct buffer ret = { 0 };
 
-    platform_stat_t file_stat = {0};
+    platform_stat_t file_stat = { 0 };
     if (platform_stat(filename, &file_stat) < 0)
     {
         return ret;
@@ -1393,13 +1389,13 @@ buffer_read_from_file(const char *filename, struct gc_arena *gc)
 
     const size_t size = file_stat.st_size;
     ret = alloc_buf_gc(size + 1, gc); /* space for trailing \0 */
-    ssize_t read_size = fread(BPTR(&ret), 1, size, fp);
-    if (read_size < 0)
+    size_t read_size = fread(BPTR(&ret), 1, size, fp);
+    if (read_size == 0)
     {
         free_buf_gc(&ret, gc);
         goto cleanup;
     }
-    ASSERT(buf_inc_len(&ret, read_size));
+    ASSERT(buf_inc_len(&ret, (int)read_size));
     buf_null_terminate(&ret);
 
 cleanup:

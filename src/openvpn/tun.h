@@ -40,6 +40,7 @@
 #include "misc.h"
 #include "networking.h"
 #include "ring_buffer.h"
+#include "dco.h"
 
 #ifdef _WIN32
 #define WINTUN_COMPONENT_ID "wintun"
@@ -47,7 +48,8 @@
 enum windows_driver_type {
     WINDOWS_DRIVER_UNSPECIFIED,
     WINDOWS_DRIVER_TAP_WINDOWS6,
-    WINDOWS_DRIVER_WINTUN
+    WINDOWS_DRIVER_WINTUN,
+    WINDOWS_DRIVER_WINDCO
 };
 #endif
 
@@ -62,6 +64,8 @@ enum windows_driver_type {
 struct tuntap_options {
     /* --ip-win32 options */
     bool ip_win32_defined;
+
+    bool disable_dco;
 
 #define IPW32_SET_MANUAL       0   /* "--ip-win32 manual" */
 #define IPW32_SET_NETSH        1   /* "--ip-win32 netsh" */
@@ -128,12 +132,17 @@ struct tuntap_options {
 
     struct in6_addr dns6[N_DHCP_ADDR];
     int dns6_len;
+#if defined(TARGET_ANDROID)
+    const char *http_proxy;
+    int http_proxy_port;
+#endif
 };
 
-#elif TARGET_LINUX
+#elif defined(TARGET_LINUX)
 
 struct tuntap_options {
     int txqueuelen;
+    bool disable_dco;
 };
 
 #else  /* if defined(_WIN32) || defined(TARGET_ANDROID) */
@@ -164,9 +173,6 @@ struct tuntap
     struct tuntap_options options; /* options set on command line */
 
     char *actual_name; /* actual name of TUN/TAP dev, usually including unit number */
-
-    /* number of TX buffers */
-    int txqueuelen;
 
     /* ifconfig parameters */
     in_addr_t local;
@@ -214,9 +220,7 @@ struct tuntap
     /* used for printing status info only */
     unsigned int rwflags_debug;
 
-    /* Some TUN/TAP drivers like to be ioctled for mtu
-     * after open */
-    int post_open_mtu;
+    dco_context_t dco;
 };
 
 static inline bool
@@ -241,6 +245,10 @@ tuntap_ring_empty(struct tuntap *tt)
 {
     return tuntap_is_wintun(tt) && (tt->wintun_send_ring->head == tt->wintun_send_ring->tail);
 }
+
+/* Low level function to open tun handle, used by DCO to create a handle for DCO*/
+void
+tun_open_device(struct tuntap* tt, const char* dev_node, const char** device_guid, struct gc_arena* gc);
 #endif
 
 /*
@@ -248,9 +256,11 @@ tuntap_ring_empty(struct tuntap *tt)
  */
 
 void open_tun(const char *dev, const char *dev_type, const char *dev_node,
-              struct tuntap *tt);
+              struct tuntap *tt, openvpn_net_ctx_t *ctx);
 
 void close_tun(struct tuntap *tt, openvpn_net_ctx_t *ctx);
+
+void close_tun_handle(struct tuntap* tt);
 
 int write_tun(struct tuntap *tt, uint8_t *buf, int len);
 
@@ -278,7 +288,8 @@ struct tuntap *init_tun(const char *dev,        /* --dev option */
                         struct addrinfo *remote_public,
                         const bool strict_warn,
                         struct env_set *es,
-                        openvpn_net_ctx_t *ctx);
+                        openvpn_net_ctx_t *ctx,
+                        struct tuntap *tt);
 
 void init_tun_post(struct tuntap *tt,
                    const struct frame *frame,
@@ -314,16 +325,6 @@ void check_subnet_conflict(const in_addr_t ip,
                            const char *prefix);
 
 void warn_on_use_of_common_subnets(openvpn_net_ctx_t *ctx);
-
-/*
- * Inline functions
- */
-
-static inline void
-tun_adjust_frame_parameters(struct frame *frame, int size)
-{
-    frame_add_to_extra_tun(frame, size);
-}
 
 /*
  * Should ifconfig be called before or after
@@ -390,7 +391,7 @@ struct panel_reg
 
 struct device_instance_id_interface
 {
-    const char *net_cfg_instance_id;
+    LPBYTE net_cfg_instance_id;
     const char *device_interface_list;
     struct device_instance_id_interface *next;
 };
@@ -450,8 +451,6 @@ int tun_read_queue(struct tuntap *tt, int maxsize);
 
 int tun_write_queue(struct tuntap *tt, struct buffer *buf);
 
-int tun_finalize(HANDLE h, struct overlapped_io *io, struct buffer *buf);
-
 static inline bool
 tuntap_stop(int status)
 {
@@ -479,36 +478,7 @@ tuntap_abort(int status)
     return false;
 }
 
-static inline int
-tun_write_win32(struct tuntap *tt, struct buffer *buf)
-{
-    int err = 0;
-    int status = 0;
-    if (overlapped_io_active(&tt->writes))
-    {
-        status = tun_finalize(tt->hand, &tt->writes, NULL);
-        if (status < 0)
-        {
-            err = GetLastError();
-        }
-    }
-    tun_write_queue(tt, buf);
-    if (status < 0)
-    {
-        SetLastError(err);
-        return status;
-    }
-    else
-    {
-        return BLEN(buf);
-    }
-}
-
-static inline int
-read_tun_buffered(struct tuntap *tt, struct buffer *buf)
-{
-    return tun_finalize(tt->hand, &tt->reads, buf);
-}
+int tun_write_win32(struct tuntap *tt, struct buffer *buf);
 
 static inline ULONG
 wintun_ring_packet_align(ULONG size)
@@ -664,6 +634,11 @@ write_tun_buffered(struct tuntap *tt, struct buffer *buf)
     }
 }
 
+static inline bool is_windco(struct tuntap *tt)
+{
+    return tt->windows_driver == WINDOWS_DRIVER_WINDCO;
+}
+
 #else  /* ifdef _WIN32 */
 
 static inline bool
@@ -689,6 +664,12 @@ tun_standby(struct tuntap *tt)
     return true;
 }
 
+
+static inline bool is_windco(struct tuntap *tt)
+{
+    return false;
+}
+
 #endif /* ifdef _WIN32 */
 
 /*
@@ -712,25 +693,28 @@ tun_set(struct tuntap *tt,
         void *arg,
         unsigned int *persistent)
 {
-    if (tuntap_defined(tt))
+    if (!tuntap_defined(tt) || is_windco(tt))
     {
-        /* if persistent is defined, call event_ctl only if rwflags has changed since last call */
-        if (!persistent || *persistent != rwflags)
-        {
-            event_ctl(es, tun_event_handle(tt), rwflags, arg);
-            if (persistent)
-            {
-                *persistent = rwflags;
-            }
-        }
-#ifdef _WIN32
-        if (tt->windows_driver == WINDOWS_DRIVER_TAP_WINDOWS6 && (rwflags & EVENT_READ))
-        {
-            tun_read_queue(tt, 0);
-        }
-#endif
-        tt->rwflags_debug = rwflags;
+        return;
     }
+
+    /* if persistent is defined, call event_ctl only if rwflags has changed since last call */
+    if (!persistent || *persistent != rwflags)
+    {
+        event_ctl(es, tun_event_handle(tt), rwflags, arg);
+        if (persistent)
+        {
+            *persistent = rwflags;
+        }
+    }
+#ifdef _WIN32
+    if (tt->windows_driver == WINDOWS_DRIVER_TAP_WINDOWS6 && (rwflags & EVENT_READ))
+    {
+        tun_read_queue(tt, 0);
+    }
+#endif
+    tt->rwflags_debug = rwflags;
+
 }
 
 const char *tun_stat(const struct tuntap *tt, unsigned int rwflags, struct gc_arena *gc);

@@ -214,8 +214,7 @@ signal_restart_status(const struct signal_info *si)
 #endif /* ifdef ENABLE_MANAGEMENT */
 }
 
-#ifdef HAVE_SIGNAL_H
-
+#ifndef _WIN32
 /* normal signal handler, when we are in event loop */
 static void
 signal_handler(const int signum)
@@ -223,23 +222,20 @@ signal_handler(const int signum)
     throw_signal(signum);
     signal(signum, signal_handler);
 }
-
 #endif
+
 
 /* set handlers for unix signals */
 
-#ifdef HAVE_SIGNAL_H
 #define SM_UNDEF     0
 #define SM_PRE_INIT  1
 #define SM_POST_INIT 2
 static int signal_mode; /* GLOBAL */
-#endif
 
 void
 pre_init_signal_catch(void)
 {
 #ifndef _WIN32
-#ifdef HAVE_SIGNAL_H
     signal_mode = SM_PRE_INIT;
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
@@ -247,7 +243,6 @@ pre_init_signal_catch(void)
     signal(SIGUSR1, SIG_IGN);
     signal(SIGUSR2, SIG_IGN);
     signal(SIGPIPE, SIG_IGN);
-#endif /* HAVE_SIGNAL_H */
 #endif /* _WIN32 */
 }
 
@@ -255,7 +250,6 @@ void
 post_init_signal_catch(void)
 {
 #ifndef _WIN32
-#ifdef HAVE_SIGNAL_H
     signal_mode = SM_POST_INIT;
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
@@ -263,7 +257,6 @@ post_init_signal_catch(void)
     signal(SIGUSR1, signal_handler);
     signal(SIGUSR2, signal_handler);
     signal(SIGPIPE, SIG_IGN);
-#endif /* HAVE_SIGNAL_H */
 #endif
 }
 
@@ -271,7 +264,6 @@ post_init_signal_catch(void)
 void
 restore_signal_state(void)
 {
-#ifdef HAVE_SIGNAL_H
     if (signal_mode == SM_PRE_INIT)
     {
         pre_init_signal_catch();
@@ -280,7 +272,6 @@ restore_signal_state(void)
     {
         post_init_signal_catch();
     }
-#endif
 }
 
 /*

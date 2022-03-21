@@ -67,7 +67,7 @@ verify_callback(int preverify_ok, X509_STORE_CTX *ctx)
     cert_hash_remember(session, X509_STORE_CTX_get_error_depth(ctx), &cert_hash);
 
     /* did peer present cert which was signed by our root cert? */
-    if (!preverify_ok)
+    if (!preverify_ok && !session->opt->verify_hash_no_ca)
     {
         /* get the X509 name */
         char *subject = x509_get_subject(current_cert, &gc);
@@ -269,6 +269,21 @@ backend_x509_get_username(char *common_name, int cn_len,
             return FAILURE;
         }
     }
+    else if (strcmp(LN_serialNumber, x509_username_field) == 0)
+    {
+        ASN1_INTEGER *asn1_i = X509_get_serialNumber(peer_cert);
+        struct gc_arena gc = gc_new();
+        char *serial = format_hex_ex(asn1_i->data, asn1_i->length,
+                                     0, 1 | FHE_CAPS, NULL, &gc);
+
+        if (!serial || cn_len <= strlen(serial)+2)
+        {
+            gc_free(&gc);
+            return FAILURE;
+        }
+        openvpn_snprintf(common_name, cn_len, "0x%s", serial);
+        gc_free(&gc);
+    }
     else
 #endif
     if (FAILURE == extract_x509_field_ssl(X509_get_subject_name(peer_cert),
@@ -357,11 +372,7 @@ x509_get_subject(X509 *cert, struct gc_arena *gc)
     subject[subject_mem->length] = '\0';
 
 err:
-    if (subject_bio)
-    {
-        BIO_free(subject_bio);
-    }
-
+    BIO_free(subject_bio);
     return subject;
 }
 

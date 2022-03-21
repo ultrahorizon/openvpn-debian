@@ -62,7 +62,7 @@ static int mute_category;   /* GLOBAL */
  * Output mode priorities are as follows:
  *
  *  (1) --log-x overrides everything
- *  (2) syslog is used if --daemon or --inetd is defined and not --log-x
+ *  (2) syslog is used if --daemon is defined and not --log-x
  *  (3) if OPENVPN_DEBUG_COMMAND_LINE is defined, output
  *      to constant logfile name.
  *  (4) Output to stdout.
@@ -236,26 +236,22 @@ x_msg_va(const unsigned int flags, const char *format, va_list arglist)
 
     void usage_small(void);
 
-#ifndef HAVE_VARARG_MACROS
     /* the macro has checked this otherwise */
     if (!msg_test(flags))
     {
         return;
     }
-#endif
 
     e = openvpn_errno();
 
     /*
      * Apply muting filter.
      */
-#ifndef HAVE_VARARG_MACROS
     /* the macro has checked this otherwise */
     if (!dont_mute(flags))
     {
         return;
     }
-#endif
 
     gc_init(&gc);
 
@@ -476,7 +472,7 @@ open_syslog(const char *pgmname, bool stdio_to_null)
         }
     }
 #else  /* if SYSLOG_CAPABILITY */
-    msg(M_WARN, "Warning on use of --daemon/--inetd: this operating system lacks daemon logging features, therefore when I become a daemon, I won't be able to log status or error messages");
+    msg(M_WARN, "Warning on use of --daemon: this operating system lacks daemon logging features, therefore when I become a daemon, I won't be able to log status or error messages");
 #endif
 }
 
@@ -488,11 +484,8 @@ close_syslog(void)
     {
         closelog();
         use_syslog = false;
-        if (pgmname_syslog)
-        {
-            free(pgmname_syslog);
-            pgmname_syslog = NULL;
-        }
+        free(pgmname_syslog);
+        pgmname_syslog = NULL;
     }
 #endif
 }
@@ -683,15 +676,15 @@ x_check_status(int status,
         {
             if (extended_msg)
             {
-                msg(x_cs_info_level, "%s %s [%s]: %s (code=%d)", description,
+                msg(x_cs_info_level, "%s %s [%s]: %s (fd=%d,code=%d)", description,
                     sock ? proto2ascii(sock->info.proto, sock->info.af, true) : "",
-                    extended_msg, strerror(my_errno), my_errno);
+                    extended_msg, strerror(my_errno), sock ? sock->sd : -1, my_errno);
             }
             else
             {
-                msg(x_cs_info_level, "%s %s: %s (code=%d)", description,
+                msg(x_cs_info_level, "%s %s: %s (fd=%d,code=%d)", description,
                     sock ? proto2ascii(sock->info.proto, sock->info.af, true) : "",
-                    strerror(my_errno), my_errno);
+                    strerror(my_errno), sock ? sock->sd : -1, my_errno);
             }
 
             if (x_cs_err_delay_ms)

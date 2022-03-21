@@ -85,8 +85,6 @@ static void netsh_command(const struct argv *a, int n, int msglevel);
 
 static const char *netsh_get_id(const char *dev_node, struct gc_arena *gc);
 
-static DWORD get_adapter_index_flexible(const char *name);
-
 static bool
 do_address_service(const bool add, const short family, const struct tuntap *tt)
 {
@@ -283,7 +281,6 @@ out:
 static bool
 do_set_mtu_service(const struct tuntap *tt, const short family, const int mtu)
 {
-    DWORD len;
     bool ret = false;
     ack_message_t ack;
     struct gc_arena gc = gc_new();
@@ -745,13 +742,23 @@ init_tun(const char *dev,        /* --dev option */
          struct addrinfo *remote_public,
          const bool strict_warn,
          struct env_set *es,
-         openvpn_net_ctx_t *ctx)
+         openvpn_net_ctx_t *ctx,
+         struct tuntap *tt)
 {
     struct gc_arena gc = gc_new();
-    struct tuntap *tt;
 
-    ALLOC_OBJ(tt, struct tuntap);
-    clear_tuntap(tt);
+    if (!tt)
+    {
+        ALLOC_OBJ(tt, struct tuntap);
+        clear_tuntap(tt);
+    }
+#if defined(_WIN32)
+    else
+    {
+        ASSERT(!tt->dco.real_tun_init);
+        tt->dco.real_tun_init = true;
+    }
+#endif
 
     tt->type = dev_type_enum(dev, dev_type);
     tt->topology = topology;
@@ -894,6 +901,12 @@ init_tun_post(struct tuntap *tt,
 {
     tt->options = *options;
 #ifdef _WIN32
+    if (tt->windows_driver == WINDOWS_DRIVER_WINDCO)
+    {
+        dco_start_tun(tt);
+        return;
+    }
+
     overlapped_io_init(&tt->reads, frame, FALSE, true);
     overlapped_io_init(&tt->writes, frame, TRUE, true);
     tt->adapter_index = TUN_ADAPTER_INDEX_INVALID;
@@ -1209,10 +1222,12 @@ static void
 do_ifconfig_ipv4(struct tuntap *tt, const char *ifname, int tun_mtu,
                  const struct env_set *es, openvpn_net_ctx_t *ctx)
 {
+#if !defined(_WIN32) && !defined(TARGET_ANDROID)
     /*
      * We only handle TUN/TAP devices here, not --dev null devices.
      */
     bool tun = is_tun_p2p(tt);
+#endif
 
 #if !defined(TARGET_LINUX)
     const char *ifconfig_local = NULL;
@@ -1536,7 +1551,7 @@ do_ifconfig_ipv4(struct tuntap *tt, const char *ifname, int tun_mtu,
         msg(M_INFO,
             "******** NOTE:  Please manually set the IP/netmask of '%s' to %s/%s (if it is not already set)",
             ifname, ifconfig_local,
-            print_in_addr_t(tt->adapter_netmask, 0, &gc));
+            ifconfig_remote_netmask);
     }
     else if (tt->options.ip_win32_type == IPW32_SET_DHCP_MASQ || tt->options.ip_win32_type == IPW32_SET_ADAPTIVE)
     {
@@ -1719,10 +1734,10 @@ read_tun_header(struct tuntap *tt, uint8_t *buf, int len)
 #endif /* if defined (TARGET_OPENBSD) || (defined(TARGET_DARWIN) && HAVE_NET_IF_UTUN_H) */
 
 
-#if !(defined(_WIN32) || defined(TARGET_LINUX))
+#if !defined(_WIN32)
 static void
 open_tun_generic(const char *dev, const char *dev_type, const char *dev_node,
-                 bool dynamic, struct tuntap *tt)
+                 bool dynamic, struct tuntap *tt, openvpn_net_ctx_t *ctx)
 {
     char tunname[256];
     char dynamic_name[256];
@@ -1781,6 +1796,19 @@ open_tun_generic(const char *dev, const char *dev_type, const char *dev_node,
                                      "/dev/%s%d", dev, i);
                     openvpn_snprintf(dynamic_name, sizeof(dynamic_name),
                                      "%s%d", dev, i);
+#ifdef TARGET_LINUX
+                    if (!tt->options.disable_dco)
+                    {
+                        if (open_tun_dco(tt, ctx, dynamic_name) == 0)
+                        {
+                            dynamic_opened = true;
+                            strncpynt(tunname, dynamic_name,
+                                      sizeof(dynamic_name));
+                            break;
+                        }
+                    }
+                    else
+#endif
                     if ((tt->fd = open(tunname, O_RDWR)) > 0)
                     {
                         dynamic_opened = true;
@@ -1799,26 +1827,49 @@ open_tun_generic(const char *dev, const char *dev_type, const char *dev_node,
             else
             {
                 openvpn_snprintf(tunname, sizeof(tunname), "/dev/%s", dev);
+                strncpynt(dynamic_name, dev, sizeof(dynamic_name));
             }
         }
 
-        if (!dynamic_opened)
+#ifdef TARGET_LINUX
+        if (!tt->options.disable_dco)
         {
-            /* has named device existed before? if so, don't destroy at end */
-            if (if_nametoindex( dev ) > 0)
+            if (!dynamic_opened)
             {
-                msg(M_INFO, "TUN/TAP device %s exists previously, keep at program end", dev );
-                tt->persistent_if = true;
-            }
-
-            if ((tt->fd = open(tunname, O_RDWR)) < 0)
-            {
-                msg(M_ERR, "Cannot open TUN/TAP dev %s", tunname);
+                int ret = open_tun_dco(tt, ctx, dynamic_name);
+                if (ret == -EEXIST)
+                {
+                    msg(M_INFO, "TUN/TAP device %s exists previously, keep at program end",
+                        dynamic_name);
+                    tt->persistent_if = true;
+                }
+                else if (ret < 0)
+                {
+                    msg(M_ERR, "Cannot open TUN/TAP dev %s: %d", dynamic_name, ret);
+                }
             }
         }
+        else
+#endif
+        {
+            if (!dynamic_opened)
+            {
+                /* has named device existed before? if so, don't destroy at end */
+                if (if_nametoindex( dev ) > 0)
+                {
+                    msg(M_INFO, "TUN/TAP device %s exists previously, keep at program end", dev );
+                    tt->persistent_if = true;
+                }
 
-        set_nonblock(tt->fd);
-        set_cloexec(tt->fd); /* don't pass fd to scripts */
+                if ((tt->fd = open(tunname, O_RDWR)) < 0)
+                {
+                    msg(M_ERR, "Cannot open TUN/TAP dev %s", tunname);
+                }
+            }
+            set_nonblock(tt->fd);
+            set_cloexec(tt->fd); /* don't pass fd to scripts */
+        }
+
         msg(M_INFO, "TUN/TAP device %s opened", tunname);
 
         /* tt->actual_name is passed to up and down scripts and used as the ifconfig dev name */
@@ -1835,17 +1886,16 @@ close_tun_generic(struct tuntap *tt)
     {
         close(tt->fd);
     }
-    if (tt->actual_name)
-    {
-        free(tt->actual_name);
-    }
+
+    free(tt->actual_name);
     clear_tuntap(tt);
 }
 #endif /* !_WIN32 */
 
 #if defined (TARGET_ANDROID)
 void
-open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt)
+open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
+         openvpn_net_ctx_t *ctx)
 {
 #define ANDROID_TUNNAME "vpnservice-tun"
     struct user_pass up;
@@ -1871,6 +1921,13 @@ open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tun
     if (tt->options.domain)
     {
         management_android_control(management, "DNSDOMAIN", tt->options.domain);
+    }
+
+    if (tt->options.http_proxy)
+    {
+        struct buffer buf = alloc_buf_gc(strlen(tt->options.http_proxy) + 20, &gc);
+        buf_printf(&buf, "%s %d", tt->options.http_proxy, tt->options.http_proxy_port);
+        management_android_control(management, "HTTPPROXY", BSTR(&buf));
     }
 
     int android_method = managment_android_persisttun_action(management);
@@ -1942,7 +1999,8 @@ read_tun(struct tuntap *tt, uint8_t *buf, int len)
 #if !PEDANTIC
 
 void
-open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt)
+open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
+         openvpn_net_ctx_t *ctx)
 {
     struct ifreq ifr;
 
@@ -1953,6 +2011,12 @@ open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tun
     {
         open_null(tt);
     }
+#if defined(TARGET_LINUX)
+    else if (!tt->options.disable_dco)
+    {
+        open_tun_generic(dev, dev_type, NULL, true, tt, ctx);
+    }
+#endif
     else
     {
         /*
@@ -2059,7 +2123,8 @@ open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tun
 #else  /* if !PEDANTIC */
 
 void
-open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt)
+open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
+         openvpn_net_ctx_t *ctx)
 {
     ASSERT(0);
 }
@@ -2084,7 +2149,7 @@ tuncfg(const char *dev, const char *dev_type, const char *dev_node,
     clear_tuntap(tt);
     tt->type = dev_type_enum(dev, dev_type);
     tt->options = *options;
-    open_tun(dev, dev_type, dev_node, tt);
+    open_tun(dev, dev_type, dev_node, tt, ctx);
     if (ioctl(tt->fd, TUNSETPERSIST, persist_mode) < 0)
     {
         msg(M_ERR, "Cannot ioctl TUNSETPERSIST(%d) %s", persist_mode, dev);
@@ -2202,7 +2267,16 @@ close_tun(struct tuntap *tt, openvpn_net_ctx_t *ctx)
         net_ctx_reset(ctx);
     }
 
-    close_tun_generic(tt);
+#ifdef TARGET_LINUX
+    if (!tt->options.disable_dco)
+    {
+        close_tun_dco(tt, ctx);
+    }
+    else
+#endif
+    {
+        close_tun_generic(tt);
+    }
     free(tt);
 }
 
@@ -2225,7 +2299,8 @@ read_tun(struct tuntap *tt, uint8_t *buf, int len)
 #endif
 
 void
-open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt)
+open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
+         openvpn_net_ctx_t *ctx)
 {
     int if_fd, ip_muxid, arp_muxid, arp_fd, ppa = -1;
     struct lifreq ifr;
@@ -2522,10 +2597,7 @@ close_tun(struct tuntap *tt, openvpn_net_ctx_t *ctx)
 
     solaris_close_tun(tt);
 
-    if (tt->actual_name)
-    {
-        free(tt->actual_name);
-    }
+    free(tt->actual_name);
 
     clear_tuntap(tt);
     free(tt);
@@ -2580,9 +2652,10 @@ read_tun(struct tuntap *tt, uint8_t *buf, int len)
 #elif defined(TARGET_OPENBSD)
 
 void
-open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt)
+open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
+         openvpn_net_ctx_t *ctx)
 {
-    open_tun_generic(dev, dev_type, dev_node, true, tt);
+    open_tun_generic(dev, dev_type, dev_node, true, tt, ctx);
 
     /* Enable multicast on the interface */
     if (tt->fd >= 0)
@@ -2674,9 +2747,10 @@ read_tun(struct tuntap *tt, uint8_t *buf, int len)
  */
 
 void
-open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt)
+open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
+         openvpn_net_ctx_t *ctx)
 {
-    open_tun_generic(dev, dev_type, dev_node, true, tt);
+    open_tun_generic(dev, dev_type, dev_node, true, tt, ctx);
 
     if (tt->fd >= 0)
     {
@@ -2814,9 +2888,10 @@ freebsd_modify_read_write_return(int len)
 }
 
 void
-open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt)
+open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
+         openvpn_net_ctx_t *ctx)
 {
-    open_tun_generic(dev, dev_type, dev_node, true, tt);
+    open_tun_generic(dev, dev_type, dev_node, true, tt, ctx);
 
     if (tt->fd >= 0 && tt->type == DEV_TYPE_TUN)
     {
@@ -2942,9 +3017,10 @@ dragonfly_modify_read_write_return(int len)
 }
 
 void
-open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt)
+open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
+         openvpn_net_ctx_t *ctx)
 {
-    open_tun_generic(dev, dev_type, dev_node, true, tt);
+    open_tun_generic(dev, dev_type, dev_node, true, tt, ctx);
 
     if (tt->fd >= 0)
     {
@@ -3170,7 +3246,8 @@ open_darwin_utun(const char *dev, const char *dev_type, const char *dev_node, st
 #endif /* ifdef HAVE_NET_IF_UTUN_H */
 
 void
-open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt)
+open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
+         openvpn_net_ctx_t *ctx)
 {
 #ifdef HAVE_NET_IF_UTUN_H
     /* If dev_node does not start start with utun assume regular tun/tap */
@@ -3196,7 +3273,7 @@ open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tun
             {
                 /* No explicit utun and utun failed, try the generic way) */
                 msg(M_INFO, "Failed to open utun device. Falling back to /dev/tun device");
-                open_tun_generic(dev, dev_type, NULL, true, tt);
+                open_tun_generic(dev, dev_type, NULL, true, tt, ctx);
             }
             else
             {
@@ -3219,7 +3296,7 @@ open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tun
             dev_node = NULL;
         }
 
-        open_tun_generic(dev, dev_type, dev_node, true, tt);
+        open_tun_generic(dev, dev_type, dev_node, true, tt, ctx);
     }
 }
 
@@ -3277,7 +3354,8 @@ read_tun(struct tuntap *tt, uint8_t *buf, int len)
 #elif defined(TARGET_AIX)
 
 void
-open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt)
+open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
+         openvpn_net_ctx_t *ctx)
 {
     char tunname[256];
     char dynamic_name[20];
@@ -3427,6 +3505,9 @@ print_windows_driver(enum windows_driver_type windows_driver)
         case WINDOWS_DRIVER_WINTUN:
             return "wintun";
 
+        case WINDOWS_DRIVER_WINDCO:
+            return "ovpn-dco-win";
+
         default:
             return "unspecified";
     }
@@ -3560,87 +3641,29 @@ tun_write_queue(struct tuntap *tt, struct buffer *buf)
 }
 
 int
-tun_finalize(
-    HANDLE h,
-    struct overlapped_io *io,
-    struct buffer *buf)
+tun_write_win32(struct tuntap *tt, struct buffer *buf)
 {
-    int ret = -1;
-    BOOL status;
-
-    switch (io->iostate)
+    int err = 0;
+    int status = 0;
+    if (overlapped_io_active(&tt->writes))
     {
-        case IOSTATE_QUEUED:
-            status = GetOverlappedResult(
-                h,
-                &io->overlapped,
-                &io->size,
-                FALSE
-                );
-            if (status)
-            {
-                /* successful return for a queued operation */
-                if (buf)
-                {
-                    *buf = io->buf;
-                }
-                ret = io->size;
-                io->iostate = IOSTATE_INITIAL;
-                ASSERT(ResetEvent(io->overlapped.hEvent));
-                dmsg(D_WIN32_IO, "WIN32 I/O: TAP Completion success [%d]", ret);
-            }
-            else
-            {
-                /* error during a queued operation */
-                ret = -1;
-                if (GetLastError() != ERROR_IO_INCOMPLETE)
-                {
-                    /* if no error (i.e. just not finished yet),
-                     * then DON'T execute this code */
-                    io->iostate = IOSTATE_INITIAL;
-                    ASSERT(ResetEvent(io->overlapped.hEvent));
-                    msg(D_WIN32_IO | M_ERRNO, "WIN32 I/O: TAP Completion error");
-                }
-            }
-            break;
-
-        case IOSTATE_IMMEDIATE_RETURN:
-            io->iostate = IOSTATE_INITIAL;
-            ASSERT(ResetEvent(io->overlapped.hEvent));
-            if (io->status)
-            {
-                /* error return for a non-queued operation */
-                SetLastError(io->status);
-                ret = -1;
-                msg(D_WIN32_IO | M_ERRNO, "WIN32 I/O: TAP Completion non-queued error");
-            }
-            else
-            {
-                /* successful return for a non-queued operation */
-                if (buf)
-                {
-                    *buf = io->buf;
-                }
-                ret = io->size;
-                dmsg(D_WIN32_IO, "WIN32 I/O: TAP Completion non-queued success [%d]", ret);
-            }
-            break;
-
-        case IOSTATE_INITIAL: /* were we called without proper queueing? */
-            SetLastError(ERROR_INVALID_FUNCTION);
-            ret = -1;
-            dmsg(D_WIN32_IO, "WIN32 I/O: TAP Completion BAD STATE");
-            break;
-
-        default:
-            ASSERT(0);
+        sockethandle_t sh = { .is_handle = true, .h = tt->hand };
+        status = sockethandle_finalize(sh, &tt->writes, NULL, NULL);
+        if (status < 0)
+        {
+            err = GetLastError();
+        }
     }
-
-    if (buf)
+    tun_write_queue(tt, buf);
+    if (status < 0)
     {
-        buf->len = ret;
+        SetLastError(err);
+        return status;
     }
-    return ret;
+    else
+    {
+        return BLEN(buf);
+    }
 }
 
 static const struct device_instance_id_interface *
@@ -3664,7 +3687,7 @@ get_device_instance_id_interface(struct gc_arena *gc)
         BOOL res;
         HKEY dev_key;
         char net_cfg_instance_id_string[] = "NetCfgInstanceId";
-        char net_cfg_instance_id[256];
+        BYTE net_cfg_instance_id[256];
         char device_instance_id[256];
         DWORD len;
         DWORD data_type;
@@ -3726,7 +3749,7 @@ get_device_instance_id_interface(struct gc_arena *gc)
 
         dev_interface_list = alloc_buf_gc(dev_interface_list_size, gc);
         cr = CM_Get_Device_Interface_List((LPGUID)&GUID_DEVINTERFACE_NET, device_instance_id,
-                                          BPTR(&dev_interface_list),
+                                          BSTR(&dev_interface_list),
                                           dev_interface_list_size,
                                           CM_GET_DEVICE_INTERFACE_LIST_PRESENT);
         if (cr != CR_SUCCESS)
@@ -3736,7 +3759,7 @@ get_device_instance_id_interface(struct gc_arena *gc)
 
         struct device_instance_id_interface *dev_if;
         ALLOC_OBJ_CLEAR_GC(dev_if, struct device_instance_id_interface, gc);
-        dev_if->net_cfg_instance_id = string_alloc(net_cfg_instance_id, gc);
+        dev_if->net_cfg_instance_id = (unsigned char *)string_alloc((char *)net_cfg_instance_id, gc);
         dev_if->device_interface_list = string_alloc(BSTR(&dev_interface_list), gc);
 
         /* link into return list */
@@ -3789,7 +3812,7 @@ get_tap_reg(struct gc_arena *gc)
         char component_id_string[] = "ComponentId";
         char component_id[256];
         char net_cfg_instance_id_string[] = "NetCfgInstanceId";
-        char net_cfg_instance_id[256];
+        BYTE net_cfg_instance_id[256];
         DWORD data_type;
 
         len = sizeof(enum_name);
@@ -3834,7 +3857,7 @@ get_tap_reg(struct gc_arena *gc)
                 component_id_string,
                 NULL,
                 &data_type,
-                component_id,
+                (LPBYTE)component_id,
                 &len);
 
             if (status != ERROR_SUCCESS || data_type != REG_SZ)
@@ -3866,12 +3889,17 @@ get_tap_reg(struct gc_arena *gc)
                     {
                         windows_driver = WINDOWS_DRIVER_WINTUN;
                     }
+                    else if (strcasecmp(component_id, "ovpn-dco") == 0)
+                    {
+                        windows_driver = WINDOWS_DRIVER_WINDCO;
+                    }
+
 
                     if (windows_driver != WINDOWS_DRIVER_UNSPECIFIED)
                     {
                         struct tap_reg *reg;
                         ALLOC_OBJ_CLEAR_GC(reg, struct tap_reg, gc);
-                        reg->guid = string_alloc(net_cfg_instance_id, gc);
+                        reg->guid = string_alloc((char *)net_cfg_instance_id, gc);
                         reg->windows_driver = windows_driver;
 
                         /* link into return list */
@@ -4220,7 +4248,9 @@ at_least_one_tap_win(const struct tap_reg *tap_reg)
 {
     if (!tap_reg)
     {
-        msg(M_FATAL, "There are no TAP-Windows nor Wintun adapters on this system.  You should be able to create an adapter by using tapctl.exe utility.");
+        msg(M_FATAL, "There are no TAP-Windows, Wintun or ovpn-dco-win adapters "
+                     "on this system.  You should be able to create an adapter "
+                     "by using tapctl.exe utility.");
     }
 }
 
@@ -4230,7 +4260,7 @@ at_least_one_tap_win(const struct tap_reg *tap_reg)
  */
 static const char *
 get_unspecified_device_guid(const int device_number,
-                            char *actual_name,
+                            uint8_t *actual_name,
                             int actual_name_size,
                             const struct tap_reg *tap_reg_src,
                             const struct panel_reg *panel_reg_src,
@@ -4297,7 +4327,7 @@ get_unspecified_device_guid(const int device_number,
  */
 static const char *
 get_device_guid(const char *name,
-                char *actual_name,
+                uint8_t *actual_name,
                 int actual_name_size,
                 enum windows_driver_type *windows_driver,
                 const struct tap_reg *tap_reg,
@@ -4832,7 +4862,7 @@ get_adapter_index_method_1(const char *guid)
     DWORD index;
     ULONG aindex;
     wchar_t wbuf[256];
-    openvpn_swprintf(wbuf, SIZE(wbuf), L"\\DEVICE\\TCPIP_%S", guid);
+    openvpn_swprintf(wbuf, SIZE(wbuf), L"\\DEVICE\\TCPIP_%hs", guid);
     if (GetAdapterIndex(wbuf, &aindex) != NO_ERROR)
     {
         index = TUN_ADAPTER_INDEX_INVALID;
@@ -4879,38 +4909,6 @@ get_adapter_index(const char *guid)
     {
         msg(M_INFO, "NOTE: could not get adapter index for %s", guid);
     }
-    return index;
-}
-
-static DWORD
-get_adapter_index_flexible(const char *name)  /* actual name or GUID */
-{
-    struct gc_arena gc = gc_new();
-    DWORD index;
-    index = get_adapter_index_method_1(name);
-    if (index == TUN_ADAPTER_INDEX_INVALID)
-    {
-        index = get_adapter_index_method_2(name);
-    }
-    if (index == TUN_ADAPTER_INDEX_INVALID)
-    {
-        const struct tap_reg *tap_reg = get_tap_reg(&gc);
-        const struct panel_reg *panel_reg = get_panel_reg(&gc);
-        const struct tap_reg *tr = get_adapter_by_name(name, tap_reg, panel_reg);
-        if (tr)
-        {
-            index = get_adapter_index_method_1(tr->guid);
-            if (index == TUN_ADAPTER_INDEX_INVALID)
-            {
-                index = get_adapter_index_method_2(tr->guid);
-            }
-        }
-    }
-    if (index == TUN_ADAPTER_INDEX_INVALID)
-    {
-        msg(M_INFO, "NOTE: could not get adapter index for name/GUID '%s'", name);
-    }
-    gc_free(&gc);
     return index;
 }
 
@@ -5028,7 +5026,7 @@ tap_allow_nonadmin_access(const char *dev_node)
     const struct panel_reg *panel_reg = get_panel_reg(&gc);
     const char *device_guid = NULL;
     HANDLE hand;
-    char actual_buffer[256];
+    uint8_t actual_buffer[256];
     char device_path[256];
 
     at_least_one_tap_win(tap_reg);
@@ -5637,7 +5635,7 @@ windows_set_mtu(const int iface_index, const short family,
 
     if (err != NO_ERROR)
     {
-        msg(M_WARN, "TUN: Setting %s mtu failed: %s [status=%u if_index=%d]",
+        msg(M_WARN, "TUN: Setting %s mtu failed: %s [status=%lu if_index=%d]",
             family_name, strerror_win32(err, &gc), err, iface_index);
     }
     else
@@ -5678,9 +5676,9 @@ netsh_get_id(const char *dev_node, struct gc_arena *gc)
     {
         return "NULL";     /* not found */
     }
-    else if (strcmp(BPTR(&actual), "NULL"))
+    else if (strcmp(BSTR(&actual), "NULL"))
     {
-        return BPTR(&actual); /* control panel name */
+        return BSTR(&actual); /* control panel name */
     }
     else
     {
@@ -6102,7 +6100,6 @@ tuntap_get_mtu(struct tuntap *tt)
                         &mtu, sizeof(mtu),
                         &mtu, sizeof(mtu), &len, NULL))
     {
-        tt->post_open_mtu = (int)mtu;
         msg(D_MTU_INFO, "TAP-Windows MTU=%d", (int)mtu);
     }
 }
@@ -6453,14 +6450,14 @@ tun_try_open_device(struct tuntap *tt, const char *device_guid, const struct dev
     const char *path = NULL;
     char tuntap_device_path[256];
 
-    if (tt->windows_driver == WINDOWS_DRIVER_WINTUN)
+    if (tt->windows_driver == WINDOWS_DRIVER_WINTUN || tt->windows_driver == WINDOWS_DRIVER_WINDCO)
     {
         const struct device_instance_id_interface *dev_if;
 
         /* Open Wintun adapter */
         for (dev_if = device_instance_id_interface; dev_if != NULL; dev_if = dev_if->next)
         {
-            if (strcmp(dev_if->net_cfg_instance_id, device_guid) == 0)
+            if (strcmp((const char *)dev_if->net_cfg_instance_id, device_guid) == 0)
             {
                 path = dev_if->device_interface_list;
                 break;
@@ -6473,7 +6470,7 @@ tun_try_open_device(struct tuntap *tt, const char *device_guid, const struct dev
     }
     else
     {
-        /* Open TAP-Windows adapter */
+        /* Open TAP-Windows or dco-win adapter */
         openvpn_snprintf(tuntap_device_path, sizeof(tuntap_device_path), "%s%s%s",
                          USERMODEDEVICEDIR,
                          device_guid,
@@ -6509,13 +6506,13 @@ tun_try_open_device(struct tuntap *tt, const char *device_guid, const struct dev
     return true;
 }
 
-static void
+void
 tun_open_device(struct tuntap *tt, const char *dev_node, const char **device_guid, struct gc_arena *gc)
 {
     const struct tap_reg *tap_reg = get_tap_reg(gc);
     const struct panel_reg *panel_reg = get_panel_reg(gc);
     const struct device_instance_id_interface *device_instance_id_interface = get_device_instance_id_interface(gc);
-    char actual_buffer[256];
+    uint8_t actual_buffer[256];
 
     at_least_one_tap_win(tap_reg);
 
@@ -6583,7 +6580,7 @@ next:
 
     /* translate high-level device name into a device instance
      * GUID using the registry */
-    tt->actual_name = string_alloc(actual_buffer, NULL);
+    tt->actual_name = string_alloc((const char*)actual_buffer, NULL);
 
     msg(M_INFO, "%s device [%s] opened", print_windows_driver(tt->windows_driver), tt->actual_name);
     tt->adapter_index = get_adapter_index(*device_guid);
@@ -6677,7 +6674,8 @@ tuntap_post_open(struct tuntap *tt, const char *device_guid)
 }
 
 void
-open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt)
+open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
+         openvpn_net_ctx_t *ctx)
 {
     const char *device_guid = NULL;
 
@@ -6800,6 +6798,45 @@ netsh_delete_address_dns(const struct tuntap *tt, bool ipv6, struct gc_arena *gc
     argv_free(&argv);
 }
 
+void close_tun_handle(struct tuntap* tt)
+{
+    const char* adaptertype = print_windows_driver(tt->windows_driver);
+    if (tt->hand != NULL)
+    {
+        dmsg(D_WIN32_IO_LOW, "Attempting CancelIO on %s adapter", adaptertype);
+        if (!CancelIo(tt->hand))
+        {
+            msg(M_WARN | M_ERRNO, "Warning: CancelIO failed on %s adapter", adaptertype);
+        }
+    }
+
+    dmsg(D_WIN32_IO_LOW, "Attempting close of overlapped read event on %s adapter", adaptertype);
+    overlapped_io_close(&tt->reads);
+
+    dmsg(D_WIN32_IO_LOW, "Attempting close of overlapped write event on %s adapter", adaptertype);
+    overlapped_io_close(&tt->writes);
+
+    if (tt->hand != NULL)
+    {
+        dmsg(D_WIN32_IO_LOW, "Attempting CloseHandle on %s adapter", adaptertype);
+        if (!CloseHandle(tt->hand))
+        {
+            msg(M_WARN | M_ERRNO, "Warning: CloseHandle failed on %s adapter", adaptertype);
+        }
+        tt->hand = NULL;
+    }
+
+    if (tt->windows_driver == WINDOWS_DRIVER_WINTUN)
+    {
+        CloseHandle(tt->rw_handle.read);
+        CloseHandle(tt->rw_handle.write);
+        UnmapViewOfFile(tt->wintun_send_ring);
+        UnmapViewOfFile(tt->wintun_receive_ring);
+        CloseHandle(tt->wintun_send_ring_handle);
+        CloseHandle(tt->wintun_receive_ring_handle);
+    }
+}
+
 void
 close_tun(struct tuntap *tt, openvpn_net_ctx_t *ctx)
 {
@@ -6869,45 +6906,9 @@ close_tun(struct tuntap *tt, openvpn_net_ctx_t *ctx)
 
     dhcp_release(tt);
 
-    if (tt->hand != NULL)
-    {
-        dmsg(D_WIN32_IO_LOW, "Attempting CancelIO on TAP-Windows adapter");
-        if (!CancelIo(tt->hand))
-        {
-            msg(M_WARN | M_ERRNO, "Warning: CancelIO failed on TAP-Windows adapter");
-        }
-    }
+    close_tun_handle(tt);
 
-    dmsg(D_WIN32_IO_LOW, "Attempting close of overlapped read event on TAP-Windows adapter");
-    overlapped_io_close(&tt->reads);
-
-    dmsg(D_WIN32_IO_LOW, "Attempting close of overlapped write event on TAP-Windows adapter");
-    overlapped_io_close(&tt->writes);
-
-    if (tt->hand != NULL)
-    {
-        dmsg(D_WIN32_IO_LOW, "Attempting CloseHandle on TAP-Windows adapter");
-        if (!CloseHandle(tt->hand))
-        {
-            msg(M_WARN | M_ERRNO, "Warning: CloseHandle failed on TAP-Windows adapter");
-        }
-    }
-
-    if (tt->actual_name)
-    {
-        free(tt->actual_name);
-    }
-
-    if (tt->windows_driver == WINDOWS_DRIVER_WINTUN)
-    {
-        CloseHandle(tt->rw_handle.read);
-        CloseHandle(tt->rw_handle.write);
-        UnmapViewOfFile(tt->wintun_send_ring);
-        UnmapViewOfFile(tt->wintun_receive_ring);
-        CloseHandle(tt->wintun_send_ring_handle);
-        CloseHandle(tt->wintun_receive_ring_handle);
-    }
-
+    free(tt->actual_name);
 
     clear_tuntap(tt);
     free(tt);
@@ -6981,9 +6982,10 @@ ipset2ascii_all(struct gc_arena *gc)
 #else /* generic */
 
 void
-open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt)
+open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
+         openvpn_net_ctx_t *ctx)
 {
-    open_tun_generic(dev, dev_type, dev_node, true, tt);
+    open_tun_generic(dev, dev_type, dev_node, true, tt, ctx);
 }
 
 void

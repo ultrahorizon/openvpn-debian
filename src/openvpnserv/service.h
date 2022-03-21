@@ -24,6 +24,11 @@
 #ifndef _SERVICE_H
 #define _SERVICE_H
 
+/* We do not support non-unicode builds */
+#ifndef UNICODE
+#define UNICODE
+#endif
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #elif defined(_MSC_VER)
@@ -48,7 +53,6 @@
 #define M_ERR     (MSG_FLAGS_ERROR)                    /* error */
 
 typedef enum {
-    automatic,
     interactive,
     _service_max
 } openvpn_service_type;
@@ -72,13 +76,8 @@ typedef struct {
     BOOL append;
 } settings_t;
 
-extern openvpn_service_t automatic_service;
 extern openvpn_service_t interactive_service;
 extern LPCTSTR service_instance;
-
-VOID WINAPI ServiceStartAutomaticOwn(DWORD argc, LPTSTR *argv);
-
-VOID WINAPI ServiceStartAutomatic(DWORD argc, LPTSTR *argv);
 
 VOID WINAPI ServiceStartInteractiveOwn(DWORD argc, LPTSTR *argv);
 

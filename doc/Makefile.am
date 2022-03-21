@@ -49,6 +49,7 @@ openvpn_sections = \
 	man-sections/windows-options.rst
 
 openvpn_examples_sections = \
+	man-sections/example-fingerprint.rst \
 	man-sections/examples.rst
 
 dist_noinst_DATA = \
