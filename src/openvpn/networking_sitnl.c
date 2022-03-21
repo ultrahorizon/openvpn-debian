@@ -28,10 +28,12 @@
 
 #include "syshead.h"
 
+#include "dco.h"
 #include "errlevel.h"
 #include "buffer.h"
 #include "misc.h"
 #include "networking.h"
+#include "proto.h"
 
 #include <errno.h>
 #include <string.h>
@@ -54,6 +56,18 @@
 
 #define NLMSG_TAIL(nmsg) \
     ((struct rtattr *)(((uint8_t *)(nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
+
+#define SITNL_NEST(_msg, _max_size, _attr)              \
+    ({                                                  \
+        struct rtattr *_nest = NLMSG_TAIL(_msg);        \
+        SITNL_ADDATTR(_msg, _max_size, _attr, NULL, 0); \
+        _nest;                                          \
+    })
+
+#define SITNL_NEST_END(_msg, _nest)                                 \
+    {                                                               \
+        _nest->rta_len = (void *)NLMSG_TAIL(_msg) - (void *)_nest;  \
+    }
 
 /**
  * Generic address data structure used to pass addresses and prefixes as
@@ -596,26 +610,11 @@ net_route_v6_best_gw(openvpn_net_ctx_t *ctx, const struct in6_addr *dst,
 
 #ifdef ENABLE_SITNL
 
-int
-net_ctx_init(struct context *c, openvpn_net_ctx_t *ctx)
-{
-    (void)c;
-    (void)ctx;
-
-    return 0;
-}
-
-void
-net_ctx_reset(openvpn_net_ctx_t *ctx)
-{
-    (void)ctx;
-}
-
-void
-net_ctx_free(openvpn_net_ctx_t *ctx)
-{
-    (void)ctx;
-}
+static const char *iface_type_str[] = {
+    [IFACE_DUMMY] = "dummy",
+    [IFACE_TUN] = "tun",
+    [IFACE_OVPN_DCO] = "ovpn-dco",
+};
 
 int
 net_route_v4_best_gw(openvpn_net_ctx_t *ctx, const in_addr_t *dst,
@@ -748,7 +747,7 @@ net_addr_ll_set(openvpn_net_ctx_t *ctx, const openvpn_net_iface_t *iface,
     req.i.ifi_family = AF_PACKET;
     req.i.ifi_index = ifindex;
 
-    SITNL_ADDATTR(&req.n, sizeof(req), IFLA_ADDRESS, addr, ETH_ALEN);
+    SITNL_ADDATTR(&req.n, sizeof(req), IFLA_ADDRESS, addr, OPENVPN_ETH_ALEN);
 
     msg(M_INFO, "%s: lladdr " MAC_FMT " for %s", __func__, MAC_PRINT_ARG(addr),
         iface);
@@ -1332,6 +1331,68 @@ net_route_v6_del(openvpn_net_ctx_t *ctx, const struct in6_addr *dst,
 
     return sitnl_route_del(iface, AF_INET6, &dst_v6, prefixlen, &gw_v6,
                            table, metric);
+}
+
+
+int
+net_iface_new(openvpn_net_ctx_t *ctx, const char *iface, enum iface_type type,
+              void *arg)
+{
+    struct sitnl_link_req req = { };
+    int ret = -1;
+
+    ASSERT(iface);
+
+    req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.i));
+    req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL;
+    req.n.nlmsg_type = RTM_NEWLINK;
+
+    SITNL_ADDATTR(&req.n, sizeof(req), IFLA_IFNAME, iface, strlen(iface) + 1);
+
+    struct rtattr *linkinfo = SITNL_NEST(&req.n, sizeof(req), IFLA_LINKINFO);
+    SITNL_ADDATTR(&req.n, sizeof(req), IFLA_INFO_KIND, iface_type_str[type],
+                  strlen(iface_type_str[type]) + 1);
+#if defined(ENABLE_DCO)
+    if (arg && type == IFACE_OVPN_DCO)
+    {
+        dco_context_t *dco = arg;
+        struct rtattr *data = SITNL_NEST(&req.n, sizeof(req), IFLA_INFO_DATA);
+        SITNL_ADDATTR(&req.n, sizeof(req), IFLA_OVPN_MODE, &dco->ifmode,
+                      sizeof(uint8_t));
+        SITNL_NEST_END(&req.n, data);
+    }
+#endif
+    SITNL_NEST_END(&req.n, linkinfo);
+
+    req.i.ifi_family = AF_PACKET;
+    req.i.ifi_change = 0xFFFFFFFF;
+
+    msg(D_ROUTE, "%s: add %s type %s", __func__,  iface, iface_type_str[type]);
+
+    ret = sitnl_send(&req.n, 0, 0, NULL, NULL);
+err:
+    return ret;
+}
+
+int
+net_iface_del(openvpn_net_ctx_t *ctx, const char *iface)
+{
+    struct sitnl_link_req req = { };
+    int ifindex = if_nametoindex(iface);
+
+    if (!ifindex)
+        return errno;
+
+    req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.i));
+    req.n.nlmsg_flags = NLM_F_REQUEST;
+    req.n.nlmsg_type = RTM_DELLINK;
+
+    req.i.ifi_family = AF_PACKET;
+    req.i.ifi_index = ifindex;
+
+    msg(D_ROUTE, "%s: delete %s", __func__, iface);
+
+    return sitnl_send(&req.n, 0, 0, NULL, NULL);
 }
 
 #endif /* !ENABLE_SITNL */

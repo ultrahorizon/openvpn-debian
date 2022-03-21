@@ -248,21 +248,10 @@ struct ip_tcp_udp_hdr {
 }
 
 /*
- * We are in a "liberal" position with respect to MSS,
- * i.e. we assume that MSS can be calculated from MTU
- * by subtracting out only the IP and TCP header sizes
- * without options.
- *
- * (RFC 879, section 7).
- */
-#define MTU_TO_MSS(mtu) (mtu - sizeof(struct openvpn_iphdr) \
-                         - sizeof(struct openvpn_tcphdr))
-
-/*
  * This returns an ip protocol version of packet inside tun
  * and offset of IP header (via parameter).
  */
-inline static int
+static inline int
 get_tun_ip_ver(int tunnel_type, struct buffer *buf, int *ip_hdr_offset)
 {
     int ip_ver = -1;

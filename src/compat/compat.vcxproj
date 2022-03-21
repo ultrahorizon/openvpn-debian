@@ -159,12 +159,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="compat-basename.c" />
+    <ClCompile Include="compat-dco_get_overlapped_result.c" />
     <ClCompile Include="compat-dirname.c" />
     <ClCompile Include="compat-gettimeofday.c" />
-    <ClCompile Include="compat-inet_ntop.c" />
-    <ClCompile Include="compat-inet_pton.c" />
     <ClCompile Include="compat-daemon.c" />
-    <ClCompile Include="compat-lz4.c" />
     <ClCompile Include="compat-strsep.c" />
   </ItemGroup>
   <ItemGroup>

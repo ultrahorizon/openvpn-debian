@@ -1570,32 +1570,23 @@ add_route(struct route_ipv4 *r,
           const struct env_set *es,
           openvpn_net_ctx_t *ctx)
 {
-    struct gc_arena gc;
-    struct argv argv = argv_new();
-#if !defined(TARGET_LINUX)
-    const char *network;
-#if !defined(TARGET_AIX)
-    const char *netmask;
-#endif
-    const char *gateway;
-#endif
     bool status = false;
     int is_local_route;
 
     if (!(r->flags & RT_DEFINED))
     {
-        argv_free(&argv);
         return;
     }
 
-    gc_init(&gc);
+    struct argv argv = argv_new();
+    struct gc_arena gc = gc_new();
 
 #if !defined(TARGET_LINUX)
-    network = print_in_addr_t(r->network, 0, &gc);
+    const char *network = print_in_addr_t(r->network, 0, &gc);
 #if !defined(TARGET_AIX)
-    netmask = print_in_addr_t(r->netmask, 0, &gc);
+    const char *netmask = print_in_addr_t(r->netmask, 0, &gc);
 #endif
-    gateway = print_in_addr_t(r->gateway, 0, &gc);
+    const char *gateway = print_in_addr_t(r->gateway, 0, &gc);
 #endif
 
     is_local_route = local_route(r->network, r->netmask, r->gateway, rgi);
@@ -1878,23 +1869,17 @@ add_route_ipv6(struct route_ipv6 *r6, const struct tuntap *tt,
                unsigned int flags, const struct env_set *es,
                openvpn_net_ctx_t *ctx)
 {
-    struct gc_arena gc;
-    struct argv argv = argv_new();
-
-    const char *network;
-    const char *gateway;
     bool status = false;
     const char *device = tt->actual_name;
-#if defined(TARGET_LINUX)
-    int metric;
-#endif
     bool gateway_needed = false;
 
     if (!(r6->flags & RT_DEFINED) )
     {
-        argv_free(&argv);
         return;
     }
+
+    struct argv argv = argv_new();
+    struct gc_arena gc = gc_new();
 
 #ifndef _WIN32
     if (r6->iface != NULL)              /* vpn server special route */
@@ -1907,12 +1892,9 @@ add_route_ipv6(struct route_ipv6 *r6, const struct tuntap *tt,
     }
 #endif
 
-    gc_init(&gc);
-
     route_ipv6_clear_host_bits(r6);
-
-    network = print_in6_addr( r6->network, 0, &gc);
-    gateway = print_in6_addr( r6->gateway, 0, &gc);
+    const char *network = print_in6_addr( r6->network, 0, &gc);
+    const char *gateway = print_in6_addr( r6->gateway, 0, &gc);
 
 #if defined(TARGET_DARWIN)    \
     || defined(TARGET_FREEBSD) || defined(TARGET_DRAGONFLY)    \
@@ -1963,7 +1945,7 @@ add_route_ipv6(struct route_ipv6 *r6, const struct tuntap *tt,
     }
 
 #if defined(TARGET_LINUX)
-    metric = -1;
+    int metric = -1;
     if ((r6->flags & RT_METRIC_DEFINED) && (r6->metric > 0))
     {
         metric = r6->metric;
@@ -2362,7 +2344,6 @@ delete_route_ipv6(const struct route_ipv6 *r6, const struct tuntap *tt,
 #else
     int metric;
 #endif
-    const char *device = tt->actual_name;
     bool gateway_needed = false;
 
     if ((r6->flags & (RT_DEFINED|RT_ADDED)) != (RT_DEFINED|RT_ADDED))
@@ -2371,6 +2352,7 @@ delete_route_ipv6(const struct route_ipv6 *r6, const struct tuntap *tt,
     }
 
 #ifndef _WIN32
+    const char *device = tt->actual_name;
     if (r6->iface != NULL)              /* vpn server special route */
     {
         device = r6->iface;
@@ -2703,12 +2685,11 @@ get_default_gateway_row(const MIB_IPFORWARDTABLE *routes)
     struct gc_arena gc = gc_new();
     DWORD lowest_metric = MAXDWORD;
     const MIB_IPFORWARDROW *ret = NULL;
-    int i;
     int best = -1;
 
     if (routes)
     {
-        for (i = 0; i < routes->dwNumEntries; ++i)
+        for (DWORD i = 0; i < routes->dwNumEntries; ++i)
         {
             const MIB_IPFORWARDROW *row = &routes->table[i];
             const in_addr_t net = ntohl(row->dwForwardDest);
@@ -2716,7 +2697,7 @@ get_default_gateway_row(const MIB_IPFORWARDTABLE *routes)
             const DWORD index = row->dwForwardIfIndex;
             const DWORD metric = row->dwForwardMetric1;
 
-            dmsg(D_ROUTE_DEBUG, "GDGR: route[%d] %s/%s i=%d m=%d",
+            dmsg(D_ROUTE_DEBUG, "GDGR: route[%lu] %s/%s i=%d m=%d",
                  i,
                  print_in_addr_t((in_addr_t) net, 0, &gc),
                  print_in_addr_t((in_addr_t) mask, 0, &gc),
@@ -3169,14 +3150,13 @@ void
 show_routes(int msglev)
 {
     struct gc_arena gc = gc_new();
-    int i;
 
     const MIB_IPFORWARDTABLE *rt = get_windows_routing_table(&gc);
 
     msg(msglev, "SYSTEM ROUTING TABLE");
     if (rt)
     {
-        for (i = 0; i < rt->dwNumEntries; ++i)
+        for (DWORD i = 0; i < rt->dwNumEntries; ++i)
         {
             msg(msglev, "%s", format_route_entry(&rt->table[i], &gc));
         }
@@ -4025,8 +4005,7 @@ test_local_addr(const in_addr_t addr, const struct route_gateway_info *rgi)
     const MIB_IPFORWARDTABLE *rt = get_windows_routing_table(&gc);
     if (rt)
     {
-        int i;
-        for (i = 0; i < rt->dwNumEntries; ++i)
+        for (DWORD i = 0; i < rt->dwNumEntries; ++i)
         {
             const MIB_IPFORWARDROW *row = &rt->table[i];
             const in_addr_t net = ntohl(row->dwForwardDest);

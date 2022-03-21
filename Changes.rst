@@ -1,328 +1,146 @@
-Overview of changes in 2.5.6
-============================
-
-User-visible Changes
---------------------
-- update copyright year to 2022
-
-New features
-------------
-- new plugin (sample-plugin/defer/multi-auth.c) to help testing with
-  multiple parallel plugins that succeed/fail in direct/deferred mode
-
-- various build improvements (github actions etc)
-
-- upgrade pkcs11-helper to release 1.28.4
-
-Bugfixes
---------
-- CVE-2022-0547
-  see https://community.openvpn.net/openvpn/wiki/SecurityAnnouncements
-
-  If openvpn is configured with multiple authentication plugins and
-  more than one plugin tries to do deferred authentication, the result
-  is not well-defined - creating a possible authentication bypass.
-
-  In this situation the server process will now abort itself with a clear
-  log message.  Only one plugin is allowed to do deferred authentication.
-
-- Fix "--mtu-disc maybe|yes" on Linux
-
-  Due to configure/syshead.h/#ifdef confusion, the code in question was
-  not compiled-in since a long time.  Fixed.  Trac: #1452
-
-- Fix $common_name variable passed to scripts when username-as-common-name
-  is in effect.
-
-  This was not consistently set - sometimes, OpenVPN exported the username,
-  sometimes the common name from the client cert.  Fixed.  Trac: #1434
-
-- Fix potential memory leaks in add_route() and add_route_ipv6().
-
-- Apply connect-retry backoff only to one side of the connection in
-  p2p mode.  Without that fix/enhancement, two sides could end up
-  only sending packets when the other end is not ready.  Trac: #1010, #1384
-
-- remove unused sitnl.h file
-
-- clean up msvc build files, remove unused MSVC build .bat files
-
-- repair "--inactive" handling with a 'bytes' parameter larger than 2 Gbytes
-
-  due to integer overflow, this ended up being "0" on Linux, but on
-  Windows with MSVC it ends up being "always 2 Gbyte", both not doing
-  what is requested. Trac: #1448
-
-- repair handling of EC certificates on Windows with pkcs11-helper
-
-  (wrong compile-time defines for OpenSSL 1.1.1)
-
-Documentation
--------------
-- documentation improvements related to DynDNS.  Trac: #1417
-
-- clean up documentation for --proto and related options
-
-- rebuild rst docs if input files change (proper dependency handling)
-
-
-
-Overview of changes in 2.5.5
-============================
-
-User-visible Changes
---------------------
-- SWEET32/64bit cipher deprecation change was postponed to 2.7
-
-- Windows: use network address for emulated DHCP server as default
-  this enables use of a /30 subnet, which is needed when connecting
-  to OpenVPN Cloud.
-
-- require EC support in windows builds
-  (this means it's no longer possible to build a Windows OpenVPN binary
-  with an OpenSSL lib without EC support)
-
-New features
-------------
-- Windows build: use CFG and Spectre mitigations on MSVC builds
-
-- bring back OpenSSL config loading to Windows builds.
-  OpenSSL config is loaded from %installdir%\\ssl\\openssl.cnf
-  (typically: c:\\program files\\openvpn\\ssl\\openssl.cnf) if it exists.
-
-  This is important for some hardware tokens which need special
-  OpenSSL config for correct operation.  Trac #1296
-
-Bugfixes
---------
-- Windows build: enable EKM
-
-- Windows build: improve various vcpkg related build issues
-
-- Windows build: fix regression related to non-writeable status files
-  (Trac #1430)
-
-- Windows build: fix regression that broke OpenSSL EC support
-
-- Windows build: fix "product version" display (2.5..4 -> 2.5.4)
-
-- Windows build: fix regression preventing use of PKCS12 files
-
-- improve "make check" to notice if "openvpn --show-cipher" crashes
-
-- improve argv unit tests
-
-- ensure unit tests work with mbedTLS builds without BF-CBC ciphers
-
-- include "--push-remove" in the output of "openvpn --help"
-
-- fix error in iptables syntax in example firewall.sh script
-
-- fix "resolvconf -p" invocation in example "up" script
-
-- fix "common_name" environment for script calls when
-  "--username-as-common-name" is in effect (Trac #1434)
-
-Documentation
--------------
-- move "push-peer-info" documentation from "server options" to "client"
-  (where it belongs)
-
-- correct "foreign_option_{n}" typo in manpage
-
-- update IRC information in CONTRIBUTING.rst (libera.chat)
-
-- README.down-root: fix plugin module name
-
-
-Overview of changes in 2.5.4
-============================
-Bugfixes
---------
-- fix prompting for password on windows console if stderr redirection
-  is in use - this breaks 2.5.x on Win11/ARM, and might also break
-  on Win11/adm64 when released.
-
-- fix setting MAC address on TAP adapters (--lladdr) to use sitnl
-  (was overlooked, and still used "ifconfig" calls)
-
-- various improvements for man page building (rst2man/rst2html etc)
-
-- minor bugfix with IN6_IS_ADDR_UNSPECIFIED() use (breaks build on
-  at least one platform strictly checking this)
-
-- fix minor memory leak under certain conditions in add_route() and
-  add_route_ipv6()
-
-User-visible Changes
---------------------
-- documentation improvements
-
-- copyright updates where needed
-
-- better error reporting when win32 console access fails
-
-New features
-------------
-- also build man page on Windows builds
-
-
-Overview of changes in 2.5.3
-============================
-Bugfixes
---------
-- CVE-2021-3606
-  see https://community.openvpn.net/openvpn/wiki/SecurityAnnouncements
-
-  OpenVPN windows builds could possibly load OpenSSL Config files from
-  world writeable locations, thus posing a security risk to OpenVPN.
-
-  As a fix, disable OpenSSL config loading completely on Windows.
-
-- disable connect-retry backoff for p2p (--secret) instances
-  (Trac #1010, #1384)
-
-- fix build with mbedtls w/o SSL renegotiation support
-
-- Fix SIGSEGV (NULL deref) receiving push "echo" (Trac #1409)
-
-- MSI installers: properly schedule reboot in the end of installation
-
-- fix small memory leak in free_key_ctx for auth_token
-
-
-User-visible Changes
---------------------
-- update copyright messages in files and --version output
-
-New features
-------------
-- add --auth-token-user option (for --auth-token deployments without
-  --auth-user-pass in client config)
-
-- improve MSVC building for Windows
-
-- official MSI installers will now contain arm64 drivers and binaries
-  (x86, amd64, arm64)
-
-
-Overview of changes in 2.5.2
-============================
-
-Bugfixes
---------
-- CVE-2020-15078
-  see https://community.openvpn.net/openvpn/wiki/SecurityAnnouncements
-
-  This bug allows - under very specific circumstances - to trick a
-  server using delayed authentication (plugin or management) into
-  returning a PUSH_REPLY before the AUTH_FAILED message, which can
-  possibly be used to gather information about a VPN setup.
-
-  In combination with "--auth-gen-token" or an user-specific token auth
-  solution it can be possible to get access to a VPN with an
-  otherwise-invalid account.
-
-- restore pushed "ping" settings correctly on a SIGUSR1 restart
-
-- avoid generating unecessary mbed debug messages - this is actually
-  a workaround for an mbedTLS 2.25 bug when using Curve25519 and Curve448
-  ED curves - mbedTLS crashes on preparing debug infos that we do not
-  actually need unless running with "--verb 8"
-
-- do not print inlined (<dh>...</dh>) Diffie Hellman parameters to log file
-
-- fix Linux/SITNL default route lookup in case of multiple routing tables
-  with more than one default route present (always use "main table" for now)
-
-- Fix CRL file handling in combination with chroot
-
-User-visible Changes
---------------------
-
-- OpenVPN will now refuse to start if CRL file is not present at startup
-  time.  At "reload time" absense of the CRL file is still OK (and the
-  in memory copy is used) but at startup it is now considered an error.
+Overview of changes in 2.6
+==========================
 
 
 New features
 ------------
-- printing of the TLS ciphers negotiated has been extended, especially
-  displaying TLS 1.3 and EC certificates more correctly.
+Keying Material Exporters (RFC 5705) based key generation
+    As part of the cipher negotiation OpenVPN will automatically prefer
+    the RFC5705 based key material generation to the current custom
+    OpenVPN PRF. This feature requires OpenSSL or mbed TLS 2.18+.
+
+Compatibility with OpenSSL in FIPS mode
+    OpenVPN will now work with OpenSSL in FIPS mode. Note, no effort
+    has been made to check or implement all the
+    requirements/recommendation of FIPS 140-2. This just allows OpenVPN
+    to be run on a system that be configured OpenSSL in FIPS mode.
+
+``mlock`` will now check if enough memlock-able memory has been reserved,
+    and if less than 100MB RAM are available, use setrlimit() to upgrade
+    the limit.  See Trac #1390.  Not available on OpenSolaris.
+
+Certificate pinning/verify peer fingerprint
+    The ``--peer-fingerprint`` option has been introduced to give users an
+    easy to use alternative to the ``tls-verify`` for matching the
+    fingerprint of the peer. The option takes use a number of allowed
+    SHA256 certificate fingerprints.
+
+    See the man page section "Small OpenVPN setup with peer-fingerprint"
+    for a tutorial on how to use this feature. This is also available online
+    under https://github.com/openvpn/openvpn/blob/master/doc/man-sections/example-fingerprint.rst
+
+TLS mode with self-signed certificates
+    When ``--peer-fingerprint`` is used, the ``--ca`` and ``--capath`` option
+    become optional. This allows for small OpenVPN setups without setting up
+    a PKI with Easy-RSA or similar software.
+
+Deferred auth support for scripts
+    The ``--auth-user-pass-verify`` script supports now deferred authentication.
+
+Pending auth support for plugins and scripts
+    Both auth plugin and script can now signal pending authentication to
+    the client when using deferred authentication. The new ``client-crresponse``
+    script option and ``OPENVPN_PLUGIN_CLIENT_CRRESPONSE`` plugin function can
+    be used to parse a client response to a ``CR_TEXT`` two factor challenge.
+
+    See ``sample/sample-scripts/totpauth.py`` for an example.
+
+Compatibility mode (``--compat-mode``)
+    The modernisation of defaults can impact the compatibility of OpenVPN 2.6.0
+    with older peers. The options ``--compat-mode`` allows UIs to provide users
+    with an easy way to still connect to older servers.
+
+OpenSSL 3.0 support
+    OpenSSL 3.0 has been added. Most of OpenSSL 3.0 changes are not user visible but
+    improve general compatibility with OpenSSL 3.0. ``--tls-cert-profile insecure``
+    has been added to allow selecting the lowest OpenSSL security level (not
+    recommended, use only if you must). OpenSSL 3.0 no longer supports the Blowfish
+    (and other deprecated) algorithm by default and the new option ``--providers``
+    allows loading the legacy provider to renable these algorithms.
+
+Optional ciphers in ``--data-ciphers``
+    Ciphers in ``--data-ciphers`` can now be prefixed with a ``?`` to mark
+    those as optional and only use them if the SSL library supports them.
 
 
-Overview of changes in 2.5.1
-============================
+Improved ``--mssfix`` and ``--fragment`` calculation
+    The ``--mssfix`` and ``--fragment`` options now allow an optional :code:`mtu`
+    parameter to specify that different overhead for IPv4/IPv6 should taken into
+    account and the resulting size is specified as the total size of the VPN packets
+    including IP and UDP headers.
 
-New features
-------------
-- "echo msg" support, to enable the server to pushed messages that are
-  then displayed by the client-side GUI.  See doc/gui-notes.txt and
-  doc/management-notes.txt.
+Data channel offloading with ovpn-dco
+    2.6.0+ implements support for data-channel offloading where the data packets
+    are directly processed and forwarded in kernel space thanks to the ovpn-dco
+    kernel module. The userspace openvpn program acts purely as a control plane
+    application.
 
-  Supported by the Windows GUI shipped in 2.5.1, not yet supported by
-  Tunnelblick and the Android GUI.
+
+Deprecated features
+-------------------
+``inetd`` has been removed
+    This was a very limited and not-well-tested way to run OpenVPN, on TCP
+    and TAP mode only.
+
+``verify-hash`` has been deprecated
+    This option has very limited usefulness and should be replaced by either
+    a better ``--ca`` configuration or with a ``--tls-verify`` script.
+
+``secret`` has been deprecated
+    static key mode (non-TLS) is no longer considered "good and secure enough"
+    for today's requirements.  Use TLS mode instead.  If deploying a PKI CA
+    is considered "too complicated", using ``--peer-fingerprint`` makes
+    TLS mode about as easy as using ``--secret``.
+
+``ncp-disable`` has been removed
+    This option mainly served a role as debug option when NCP was first
+    introduced. It should now no longer be necessary.
+
+TLS 1.0 and 1.1 are deprecated
+    ``tls-version-min`` is set to 1.2 by default.  OpenVPN 2.6.0 defaults
+    to a minimum TLS version of 1.2 as TLS 1.0 and 1.1 should be generally
+    avoided. Note that OpenVPN versions older than 2.3.7 use TLS 1.0 only.
+
+``--cipher`` argument is no longer appended to ``--data-ciphers``
+    by default. Data cipher negotiation has been introduced in 2.4.0
+    and been significantly improved in 2.5.0. The implicit fallback
+    to the cipher specified in ``--cipher`` has been removed.
+    Effectively, ``--cipher`` is a no-op in TLS mode now, and will
+    only have an effect in pre-shared-key mode (``--secret``).
+    From now on ``--cipher`` should not be used in new configurations
+    for TLS mode.
+    Should backwards compatibility with older OpenVPN peers be
+    required, please see the ``--compat-mode`` instead.
+
+``--prng`` has beeen removed
+    OpenVPN used to implement its own PRNG based on a hash. However implementing
+    a PRNG is better left to a crypto library. So we use the PRNG
+    mbed TLS or OpenSSL now.
+
+
+Compression no longer enabled by default
+    Unless an explicit compression option is specified in the configuration,
+    ``--allow-compression`` defaults to ``no`` in OpeNVPN 2.6.0.
+    By default, OpenVPN 2.5 still allowed a server to enable compression by
+    pushing compression related options.
+
+PF (Packet Filtering) support has been removed
+   The built-in PF functionality has been removed from the code base. This
+   feature wasn't really easy to use and was long unmaintained.
+   This implies that also ``--management-client-pf`` and any other compile
+   time or run time related option do not exist any longer.
+
 
 User-visible Changes
 --------------------
-- make OPENVPN_PLUGIN_ENABLE_PF plugin failures FATAL - if a plugin offers
-  to set the "openvpn packet filter", and returns a failure when requested
-  to, OpenVPN 2.5.0 would crash trying to clean up not-yet-initialized
-  structure members.  Since PF is going away in 2.6.0, this is just turning
-  the crash into a well-defined program abort, and no further effort has
-  been spent in rewriting the PF plugin error handling (see trac #1377).
+- CHACHA20-POLY1305 is included in the default of ``--data-ciphers`` when available.
+- Option ``--prng`` is ignored as we rely on the SSL library random number generator.
+- Option ``--nobind`` is default when ``--client`` or ``--pull`` is used in the configuration
+- :code:`link_mtu` parameter is removed from environment or replaced with 0 when scripts are
+  called with parameters. This parameter is unreliable and no longer internally calculated.
 
-Documentation
--------------
-- rework sample-plugins/defer/simple.c - this is an extensive rewrite
-  of the plugin to bring code quality to acceptable standards and add
-  documentation on the various plugin API aspects.  Since it's just
-  example code, filed under "Documentation", not under "Bugfix".
-
-- various man page improvements.
-
-- clarify ``--block-ipv6`` intent and direction
-
-Bugfixes
---------
-- fix installation of openvpn.8 manpage on systems without docutils.
-
-- Windows: fix DNS search list setup for domains with "-" chars.
-
-- Fix tls-auth mismatch OCC message when tls-cryptv2 is used.
-
-- Windows: Skip DHCP renew with Wintun adapter (Wintun does not support
-  DHCP, so this was just causing an - harmless - error and needless delay).
-
-- Windows: Remove 1 second delay before running netsh - speeds up
-  interface init for wintun setups not using the interactive service.
-
-- Windows: Fix too early argv freeing when registering DNS - this would
-  cause a client side crash on Windows if ``register-dns`` is used,
-  and the interactive service is not used.
-
-- Android: Zero initialise msghdr prior to calling sendmesg.
-
-- Fix line number reporting on config file errors after <inline> segments
-  (see Trac #1325).
-
-- Fix port-share option with TLS-Crypt v2.
-
-- tls-crypt-v2: also preload tls-crypt-v2 keys (if --persist-key), otherwise
-  dropping privs on the server would fail.
-
-- tls-crypt-v2: fix server memory leak (about 600 bytes per connecting
-  client with tls-crypt-v2)
-
-- rework handling of server-pushed ``--auth-token`` in combination with
-  ``--auth-nocache`` on reconnection / TLS renegotiation events.  This
-  used to "forget" to update new incoming token after a reconnection event
-  (leading to failure to reauth some time later) and now works in all
-  tested cases.
-
-
-Overview of changes in 2.5.0
-============================
+Overview of changes in 2.5
+==========================
 
 New features
 ------------

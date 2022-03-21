@@ -13,7 +13,7 @@ vcpkg_extract_source_archive_ex(
     PATCHES
         0001-nmake-compatibility-with-vcpkg-nmake.patch
         0002-pkcs11.h-rename-interface-parameter.patch
-        0003-config-w32-vc.h.in-indicate-OpenSSL-EC-support.patch
+        0003-config-w32-vc.h.in-indicate-OpenSSL.patch
         pkcs11-helper-001-RFC7512.patch
 )
 
@@ -23,7 +23,7 @@ vcpkg_build_nmake(
     PROJECT_NAME Makefile.w32-vc
     OPTIONS
         OPENSSL=1
-        OPENSSL_HOME=${CURRENT_PACKAGES_DIR}/../openssl_${TARGET_TRIPLET}
+        OPENSSL_HOME=${CURRENT_PACKAGES_DIR}/../openssl3_${TARGET_TRIPLET}
 )
 
 file(INSTALL ${SOURCE_PATH}/include/pkcs11-helper-1.0 DESTINATION ${CURRENT_PACKAGES_DIR}/include/)

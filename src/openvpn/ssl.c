@@ -60,7 +60,10 @@
 #include "ssl_verify.h"
 #include "ssl_backend.h"
 #include "ssl_ncp.h"
+#include "ssl_util.h"
 #include "auth_token.h"
+#include "mss.h"
+#include "dco.h"
 
 #include "memdbg.h"
 
@@ -280,9 +283,9 @@ tls_get_cipher_name_pair(const char *cipher_name, size_t len)
  *                      May *not* be NULL.
  */
 static void
-tls_limit_reneg_bytes(const cipher_kt_t *cipher, int *reneg_bytes)
+tls_limit_reneg_bytes(const char *ciphername, int *reneg_bytes)
 {
-    if (cipher && cipher_kt_insecure(cipher))
+    if (cipher_kt_insecure(ciphername))
     {
         if (*reneg_bytes == -1) /* Not user-specified */
         {
@@ -291,18 +294,6 @@ tls_limit_reneg_bytes(const cipher_kt_t *cipher, int *reneg_bytes)
             *reneg_bytes = 64 * 1024 * 1024;
         }
     }
-}
-
-/*
- * Max number of bytes we will add
- * for data structures common to both
- * data and control channel packets.
- * (opcode only).
- */
-void
-tls_adjust_frame_parameters(struct frame *frame)
-{
-    frame_add_to_extra_frame(frame, 1); /* space for opcode */
 }
 
 /*
@@ -318,18 +309,34 @@ tls_init_control_channel_frame_parameters(const struct frame *data_channel_frame
      * if --tls-auth is enabled.
      */
 
-    /* inherit link MTU and extra_link from data channel */
-    frame->link_mtu = data_channel_frame->link_mtu;
-    frame->extra_link = data_channel_frame->extra_link;
+    /* calculate the maximum overhead that control channel frames may have */
+    int overhead = 0;
 
-    /* set extra_frame */
-    tls_adjust_frame_parameters(frame);
-    reliable_ack_adjust_frame_parameters(frame, CONTROL_SEND_ACK_MAX);
-    frame_add_to_extra_frame(frame, SID_SIZE + sizeof(packet_id_type));
+    /* Socks */
+    overhead += 10;
 
-    /* set dynamic link MTU to cap control channel packets at 1250 bytes */
-    ASSERT(TUN_LINK_DELTA(frame) < min_int(frame->link_mtu, 1250));
-    frame->link_mtu_dynamic = min_int(frame->link_mtu, 1250) - TUN_LINK_DELTA(frame);
+    /* tls-auth and tls-crypt */
+    overhead += max_int(tls_crypt_buf_overhead(),
+                        packet_id_size(true) + OPENVPN_MAX_HMAC_SIZE);
+
+    /* TCP length field and opcode */
+    overhead+= 3;
+
+    /* ACK array and remote SESSION ID (part of the ACK array) */
+    overhead += ACK_SIZE(RELIABLE_ACK_SIZE);
+
+    /* Previous OpenVPN version calculated the maximum size and buffer of a
+     * control frame depending on the overhead of the data channel frame
+     * overhead and limited its maximum size to 1250. We always allocate the
+     * 1250 buffer size since a lot of code blindly assumes a large buffer
+     * (e.g. PUSH_BUNDLE_SIZE) and set frame->mtu_mtu as suggestion for the
+     * size */
+    frame->buf.payload_size = 1250 + overhead;
+
+    frame->buf.headroom = overhead;
+    frame->buf.tailroom = overhead;
+
+    frame->tun_mtu = min_int(data_channel_frame->tun_mtu, 1250);
 }
 
 void
@@ -344,7 +351,6 @@ void
 free_ssl_lib(void)
 {
     crypto_uninit_lib();
-    prng_uninit();
 
     tls_free_lib();
 }
@@ -603,6 +609,11 @@ init_ssl(const struct options *options, struct tls_root_ctx *new_ctx, bool in_ch
 
     tls_clear_error();
 
+    if (key_is_external(options))
+    {
+        load_xkey_provider();
+    }
+
     if (options->tls_server)
     {
         tls_ctx_server_new(new_ctx);
@@ -787,8 +798,27 @@ state_name(int state)
         case S_ERROR:
             return "S_ERROR";
 
+        case S_GENERATED_KEYS:
+            return "S_GENERATED_KEYS";
+
         default:
             return "S_???";
+    }
+}
+
+static const char *
+ks_auth_name(enum ks_auth_state auth)
+{
+    switch (auth)
+    {
+        case KS_AUTH_TRUE:
+            return "KS_AUTH_TRUE";
+        case KS_AUTH_DEFERRED:
+            return "KS_AUTH_DEFERRED";
+        case KS_AUTH_FALSE:
+            return "KS_AUTH_FALSE";
+        default:
+            return "KS_????";
     }
 }
 
@@ -861,9 +891,10 @@ print_key_id(struct tls_multi *multi, struct gc_arena *gc)
 
     for (int i = 0; i < KEY_SCAN_SIZE; ++i)
     {
-        struct key_state *ks = multi->key_scan[i];
-        buf_printf(&out, " [key#%d state=%s id=%d sid=%s]", i,
-                   state_name(ks->state), ks->key_id,
+        struct key_state *ks = get_key_scan(multi, i);
+        buf_printf(&out, " [key#%d state=%s auth=%s id=%d sid=%s]", i,
+                   state_name(ks->state), ks_auth_name(ks->authenticated),
+                   ks->key_id,
                    session_id_print(&ks->session_id_remote, gc));
     }
 
@@ -949,10 +980,10 @@ key_state_init(struct tls_session *session, struct key_state *ks)
     ks->plaintext_write_buf = alloc_buf(TLS_CHANNEL_BUF_SIZE);
     ks->ack_write_buf = alloc_buf(BUF_SIZE(&session->opt->frame));
     reliable_init(ks->send_reliable, BUF_SIZE(&session->opt->frame),
-                  FRAME_HEADROOM(&session->opt->frame), TLS_RELIABLE_N_SEND_BUFFERS,
+                  session->opt->frame.buf.headroom, TLS_RELIABLE_N_SEND_BUFFERS,
                   ks->key_id ? false : session->opt->xmit_hold);
     reliable_init(ks->rec_reliable, BUF_SIZE(&session->opt->frame),
-                  FRAME_HEADROOM(&session->opt->frame), TLS_RELIABLE_N_REC_BUFFERS,
+                  session->opt->frame.buf.headroom, TLS_RELIABLE_N_REC_BUFFERS,
                   false);
     reliable_set_timeout(ks->send_reliable, session->opt->packet_timeout);
 
@@ -966,7 +997,7 @@ key_state_init(struct tls_session *session, struct key_state *ks)
 
     ks->crypto_options.pid_persist = NULL;
 
-#ifdef MANAGEMENT_DEF_AUTH
+#ifdef ENABLE_MANAGEMENT
     ks->mda_key_id = session->opt->mda_context->mda_key_id_counter++;
 #endif
 }
@@ -998,33 +1029,16 @@ key_state_free(struct key_state *ks, bool clear)
     free_buf(&ks->ack_write_buf);
     buffer_list_free(ks->paybuf);
 
-    if (ks->send_reliable)
-    {
-        reliable_free(ks->send_reliable);
-        free(ks->send_reliable);
-    }
+    reliable_free(ks->send_reliable);
+    reliable_free(ks->rec_reliable);
 
-    if (ks->rec_reliable)
-    {
-        reliable_free(ks->rec_reliable);
-        free(ks->rec_reliable);
-    }
-
-    if (ks->rec_ack)
-    {
-        free(ks->rec_ack);
-    }
-
-    if (ks->key_src)
-    {
-        free(ks->key_src);
-    }
+    free(ks->rec_ack);
+    free(ks->key_src);
 
     packet_id_free(&ks->crypto_options.packet_id);
 
-#ifdef PLUGIN_DEF_AUTH
-    key_state_rm_auth_control_file(ks);
-#endif
+    key_state_rm_auth_control_files(&ks->plugin_auth);
+    key_state_rm_auth_control_files(&ks->script_auth);
 
     if (clear)
     {
@@ -1050,7 +1064,7 @@ tls_session_user_pass_enabled(struct tls_session *session)
 {
     return (session->opt->auth_user_pass_verify_script
             || plugin_defined(session->opt->plugins, OPENVPN_PLUGIN_AUTH_USER_PASS_VERIFY)
-#ifdef MANAGEMENT_DEF_AUTH
+#ifdef ENABLE_MANAGEMENT
             || management_enable_def_auth(management)
 #endif
             );
@@ -1138,7 +1152,10 @@ tls_session_init(struct tls_multi *multi, struct tls_session *session)
  * @param session      - A pointer to the \c tls_session structure to be
  *                       cleaned up.
  * @param clear        - Whether the memory allocated for the \a session
- *                       object should be overwritten with 0s.
+ *                       object should be overwritten with 0s. This
+ *                       implicitly sets many states to 0/false,
+ *                       e.g. the validity of the keys in the structure
+ *
  */
 static void
 tls_session_free(struct tls_session *session, bool clear)
@@ -1147,13 +1164,13 @@ tls_session_free(struct tls_session *session, bool clear)
 
     for (size_t i = 0; i < KS_SIZE; ++i)
     {
+        /* we don't need clear=true for this call since
+         * the structs are part of session and get cleared
+         * as part of session */
         key_state_free(&session->key[i], false);
     }
 
-    if (session->common_name)
-    {
-        free(session->common_name);
-    }
+    free(session->common_name);
 
     cert_hash_free(session->cert_hash_set);
 
@@ -1258,15 +1275,6 @@ tls_multi_init(struct tls_options *tls_options)
     /* get command line derived options */
     ret->opt = *tls_options;
 
-    /* set up list of keys to be scanned by data channel encrypt and decrypt routines */
-    ASSERT(SIZE(ret->key_scan) == 3);
-    ret->key_scan[0] = &ret->session[TM_ACTIVE].key[KS_PRIMARY];
-    ret->key_scan[1] = &ret->session[TM_ACTIVE].key[KS_LAME_DUCK];
-    ret->key_scan[2] = &ret->session[TM_LAME_DUCK].key[KS_LAME_DUCK];
-
-    /* By default not use P_DATA_V2 */
-    ret->use_peer_id = false;
-
     return ret;
 }
 
@@ -1345,16 +1353,8 @@ tls_multi_free(struct tls_multi *multi, bool clear)
     auth_set_client_reason(multi, NULL);
 
     free(multi->peer_info);
-
-    if (multi->locked_cn)
-    {
-        free(multi->locked_cn);
-    }
-
-    if (multi->locked_username)
-    {
-        free(multi->locked_username);
-    }
+    free(multi->locked_cn);
+    free(multi->locked_username);
 
     cert_hash_free(multi->locked_cert_hash_set);
 
@@ -1624,135 +1624,7 @@ key_source2_print(const struct key_source2 *k)
     key_source_print(&k->server, "Server");
 }
 
-/*
- * Generate the hash required by for the \c tls1_PRF function.
- *
- * @param md_kt         Message digest to use
- * @param sec           Secret to base the hash on
- * @param sec_len       Length of the secret
- * @param seed          Seed to hash
- * @param seed_len      Length of the seed
- * @param out           Output buffer
- * @param olen          Length of the output buffer
- */
-static void
-tls1_P_hash(const md_kt_t *md_kt,
-            const uint8_t *sec,
-            int sec_len,
-            const uint8_t *seed,
-            int seed_len,
-            uint8_t *out,
-            int olen)
-{
-    struct gc_arena gc = gc_new();
-    uint8_t A1[MAX_HMAC_KEY_LENGTH];
-
-#ifdef ENABLE_DEBUG
-    const int olen_orig = olen;
-    const uint8_t *out_orig = out;
-#endif
-
-    hmac_ctx_t *ctx = hmac_ctx_new();
-    hmac_ctx_t *ctx_tmp = hmac_ctx_new();
-
-    dmsg(D_SHOW_KEY_SOURCE, "tls1_P_hash sec: %s", format_hex(sec, sec_len, 0, &gc));
-    dmsg(D_SHOW_KEY_SOURCE, "tls1_P_hash seed: %s", format_hex(seed, seed_len, 0, &gc));
-
-    int chunk = md_kt_size(md_kt);
-    unsigned int A1_len = md_kt_size(md_kt);
-
-    hmac_ctx_init(ctx, sec, sec_len, md_kt);
-    hmac_ctx_init(ctx_tmp, sec, sec_len, md_kt);
-
-    hmac_ctx_update(ctx,seed,seed_len);
-    hmac_ctx_final(ctx, A1);
-
-    for (;; )
-    {
-        hmac_ctx_reset(ctx);
-        hmac_ctx_reset(ctx_tmp);
-        hmac_ctx_update(ctx,A1,A1_len);
-        hmac_ctx_update(ctx_tmp,A1,A1_len);
-        hmac_ctx_update(ctx,seed,seed_len);
-
-        if (olen > chunk)
-        {
-            hmac_ctx_final(ctx, out);
-            out += chunk;
-            olen -= chunk;
-            hmac_ctx_final(ctx_tmp, A1); /* calc the next A1 value */
-        }
-        else    /* last one */
-        {
-            hmac_ctx_final(ctx, A1);
-            memcpy(out,A1,olen);
-            break;
-        }
-    }
-    hmac_ctx_cleanup(ctx);
-    hmac_ctx_free(ctx);
-    hmac_ctx_cleanup(ctx_tmp);
-    hmac_ctx_free(ctx_tmp);
-    secure_memzero(A1, sizeof(A1));
-
-    dmsg(D_SHOW_KEY_SOURCE, "tls1_P_hash out: %s", format_hex(out_orig, olen_orig, 0, &gc));
-    gc_free(&gc);
-}
-
-/*
- * Use the TLS PRF function for generating data channel keys.
- * This code is based on the OpenSSL library.
- *
- * TLS generates keys as such:
- *
- * master_secret[48] = PRF(pre_master_secret[48], "master secret",
- *                         ClientHello.random[32] + ServerHello.random[32])
- *
- * key_block[] = PRF(SecurityParameters.master_secret[48],
- *                 "key expansion",
- *                 SecurityParameters.server_random[32] +
- *                 SecurityParameters.client_random[32]);
- *
- * Notes:
- *
- * (1) key_block contains a full set of 4 keys.
- * (2) The pre-master secret is generated by the client.
- */
-static void
-tls1_PRF(const uint8_t *label,
-         int label_len,
-         const uint8_t *sec,
-         int slen,
-         uint8_t *out1,
-         int olen)
-{
-    struct gc_arena gc = gc_new();
-    const md_kt_t *md5 = md_kt_get("MD5");
-    const md_kt_t *sha1 = md_kt_get("SHA1");
-
-    uint8_t *out2 = (uint8_t *) gc_malloc(olen, false, &gc);
-
-    int len = slen/2;
-    const uint8_t *S1 = sec;
-    const uint8_t *S2 = &(sec[len]);
-    len += (slen&1); /* add for odd, make longer */
-
-    tls1_P_hash(md5,S1,len,label,label_len,out1,olen);
-    tls1_P_hash(sha1,S2,len,label,label_len,out2,olen);
-
-    for (int i = 0; i<olen; i++)
-    {
-        out1[i] ^= out2[i];
-    }
-
-    secure_memzero(out2, olen);
-
-    dmsg(D_SHOW_KEY_SOURCE, "tls1_PRF out[%d]: %s", olen, format_hex(out1, olen, 0, &gc));
-
-    gc_free(&gc);
-}
-
-static void
+static bool
 openvpn_PRF(const uint8_t *secret,
             int secret_len,
             const char *label,
@@ -1786,12 +1658,128 @@ openvpn_PRF(const uint8_t *secret,
     }
 
     /* compute PRF */
-    tls1_PRF(BPTR(&seed), BLEN(&seed), secret, secret_len, output, output_len);
+    bool ret = ssl_tls1_PRF(BPTR(&seed), BLEN(&seed), secret, secret_len,
+                            output, output_len);
 
     buf_clear(&seed);
     free_buf(&seed);
 
     VALGRIND_MAKE_READABLE((void *)output, output_len);
+    return ret;
+}
+
+static void
+init_key_contexts(struct key_state *ks,
+                  struct tls_multi *multi,
+                  const struct key_type *key_type,
+                  bool server,
+                  struct key2 *key2,
+                  bool dco_disabled)
+{
+    struct key_ctx_bi *key = &ks->crypto_options.key_ctx_bi;
+
+    /* Initialize key contexts */
+    int key_direction = server ? KEY_DIRECTION_INVERSE : KEY_DIRECTION_NORMAL;
+
+    if (dco_disabled)
+    {
+        init_key_ctx_bi(key, key2, key_direction, key_type, "Data Channel");
+        /* Initialize implicit IVs */
+        key_ctx_update_implicit_iv(&key->encrypt, key2->keys[(int)server].hmac,
+                                   MAX_HMAC_KEY_LENGTH);
+        key_ctx_update_implicit_iv(&key->decrypt,
+                                   key2->keys[1 - (int)server].hmac,
+                                   MAX_HMAC_KEY_LENGTH);
+    }
+
+    if (!dco_disabled)
+    {
+        if (key->encrypt.hmac)
+        {
+            msg(M_FATAL, "FATAL: DCO does not support --auth");
+        }
+
+        int ret = init_key_dco_bi(multi, ks, key2, key_direction,
+                                  key_type->cipher, server);
+        if (ret < 0)
+        {
+            msg(M_FATAL, "Impossible to install key material in DCO: %s",
+                strerror(-ret));
+        }
+
+        /* encrypt/decrypt context are unused with DCO */
+        CLEAR(key->encrypt);
+        CLEAR(key->decrypt);
+        key->initialized = true;
+    }
+}
+
+static bool
+generate_key_expansion_tls_export(struct tls_session *session, struct key2 *key2)
+{
+    if (!key_state_export_keying_material(session, EXPORT_KEY_DATA_LABEL,
+                                          strlen(EXPORT_KEY_DATA_LABEL),
+                                          key2->keys, sizeof(key2->keys)))
+    {
+        return false;
+    }
+    key2->n = 2;
+
+    return true;
+}
+
+static bool
+generate_key_expansion_openvpn_prf(const struct tls_session *session, struct key2 *key2)
+{
+    uint8_t master[48] = { 0 };
+
+    const struct key_state *ks = &session->key[KS_PRIMARY];
+    const struct key_source2 *key_src = ks->key_src;
+
+    const struct session_id *client_sid = session->opt->server ?
+                                          &ks->session_id_remote : &session->session_id;
+    const struct session_id *server_sid = !session->opt->server ?
+                                          &ks->session_id_remote : &session->session_id;
+
+    /* debugging print of source key material */
+    key_source2_print(key_src);
+
+    /* compute master secret */
+    if (!openvpn_PRF(key_src->client.pre_master,
+                     sizeof(key_src->client.pre_master),
+                     KEY_EXPANSION_ID " master secret",
+                     key_src->client.random1,
+                     sizeof(key_src->client.random1),
+                     key_src->server.random1,
+                     sizeof(key_src->server.random1),
+                     NULL,
+                     NULL,
+                     master,
+                     sizeof(master)))
+    {
+        return false;
+    }
+
+    /* compute key expansion */
+    if (!openvpn_PRF(master,
+                     sizeof(master),
+                     KEY_EXPANSION_ID " key expansion",
+                     key_src->client.random2,
+                     sizeof(key_src->client.random2),
+                     key_src->server.random2,
+                     sizeof(key_src->server.random2),
+                     client_sid,
+                     server_sid,
+                     (uint8_t *)key2->keys,
+                     sizeof(key2->keys)))
+    {
+        return false;
+    }
+    secure_memzero(&master, sizeof(master));
+
+    key2->n = 2;
+
+    return true;
 }
 
 /*
@@ -1799,16 +1787,12 @@ openvpn_PRF(const uint8_t *secret,
  * master key.
  */
 static bool
-generate_key_expansion(struct key_ctx_bi *key,
-                       const struct key_type *key_type,
-                       const struct key_source2 *key_src,
-                       const struct session_id *client_sid,
-                       const struct session_id *server_sid,
-                       bool server)
+generate_key_expansion(struct tls_multi *multi, struct key_state *ks,
+                       struct tls_session *session)
 {
-    uint8_t master[48] = { 0 };
-    struct key2 key2 = { 0 };
+    struct key_ctx_bi *key = &ks->crypto_options.key_ctx_bi;
     bool ret = false;
+    struct key2 key2;
 
     if (key->initialized)
     {
@@ -1816,64 +1800,43 @@ generate_key_expansion(struct key_ctx_bi *key,
         goto exit;
     }
 
-    /* debugging print of source key material */
-    key_source2_print(key_src);
+    bool server = session->opt->server;
 
-    /* compute master secret */
-    openvpn_PRF(key_src->client.pre_master,
-                sizeof(key_src->client.pre_master),
-                KEY_EXPANSION_ID " master secret",
-                key_src->client.random1,
-                sizeof(key_src->client.random1),
-                key_src->server.random1,
-                sizeof(key_src->server.random1),
-                NULL,
-                NULL,
-                master,
-                sizeof(master));
+    if (session->opt->crypto_flags & CO_USE_TLS_KEY_MATERIAL_EXPORT)
+    {
+        if (!generate_key_expansion_tls_export(session, &key2))
+        {
+            msg(D_TLS_ERRORS, "TLS Error: Keying material export failed");
+            goto exit;
+        }
+    }
+    else
+    {
+        if (!generate_key_expansion_openvpn_prf(session, &key2))
+        {
+            msg(D_TLS_ERRORS, "TLS Error: PRF calcuation failed");
+            goto exit;
+        }
+    }
 
-    /* compute key expansion */
-    openvpn_PRF(master,
-                sizeof(master),
-                KEY_EXPANSION_ID " key expansion",
-                key_src->client.random2,
-                sizeof(key_src->client.random2),
-                key_src->server.random2,
-                sizeof(key_src->server.random2),
-                client_sid,
-                server_sid,
-                (uint8_t *)key2.keys,
-                sizeof(key2.keys));
-
-    key2.n = 2;
-
-    key2_print(&key2, key_type, "Master Encrypt", "Master Decrypt");
+    key2_print(&key2, &session->opt->key_type,
+               "Master Encrypt", "Master Decrypt");
 
     /* check for weak keys */
     for (int i = 0; i < 2; ++i)
     {
-        fixup_key(&key2.keys[i], key_type);
-        if (!check_key(&key2.keys[i], key_type))
+        if (!check_key(&key2.keys[i], &session->opt->key_type))
         {
             msg(D_TLS_ERRORS, "TLS Error: Bad dynamic key generated");
             goto exit;
         }
     }
 
-    /* Initialize OpenSSL key contexts */
-    int key_direction = server ? KEY_DIRECTION_INVERSE : KEY_DIRECTION_NORMAL;
-    init_key_ctx_bi(key, &key2, key_direction, key_type, "Data Channel");
-
-    /* Initialize implicit IVs */
-    key_ctx_update_implicit_iv(&key->encrypt, key2.keys[(int)server].hmac,
-                               MAX_HMAC_KEY_LENGTH);
-    key_ctx_update_implicit_iv(&key->decrypt, key2.keys[1-(int)server].hmac,
-                               MAX_HMAC_KEY_LENGTH);
-
+    init_key_contexts(ks, multi, &session->opt->key_type, server, &key2,
+                      session->opt->disable_dco);
     ret = true;
 
 exit:
-    secure_memzero(&master, sizeof(master));
     secure_memzero(&key2, sizeof(key2));
 
     return ret;
@@ -1882,14 +1845,12 @@ exit:
 static void
 key_ctx_update_implicit_iv(struct key_ctx *ctx, uint8_t *key, size_t key_len)
 {
-    const cipher_kt_t *cipher_kt = cipher_ctx_get_cipher_kt(ctx->cipher);
-
     /* Only use implicit IV in AEAD cipher mode, where HMAC key is not used */
-    if (cipher_kt_mode_aead(cipher_kt))
+    if (cipher_ctx_mode_aead(ctx->cipher))
     {
         size_t impl_iv_len = 0;
-        ASSERT(cipher_kt_iv_size(cipher_kt) >= OPENVPN_AEAD_MIN_IV_LEN);
-        impl_iv_len = cipher_kt_iv_size(cipher_kt) - sizeof(packet_id_type);
+        ASSERT(cipher_ctx_iv_length(ctx->cipher) >= OPENVPN_AEAD_MIN_IV_LEN);
+        impl_iv_len = cipher_ctx_iv_length(ctx->cipher) - sizeof(packet_id_type);
         ASSERT(impl_iv_len <= OPENVPN_MAX_IV_LENGTH);
         ASSERT(impl_iv_len <= key_len);
         memcpy(ctx->implicit_iv, key, impl_iv_len);
@@ -1903,32 +1864,31 @@ key_ctx_update_implicit_iv(struct key_ctx *ctx, uint8_t *key, size_t key_len)
  * This erases the source material used to generate the data channel keys, and
  * can thus be called only once per session.
  */
-static bool
-tls_session_generate_data_channel_keys(struct tls_session *session)
+bool
+tls_session_generate_data_channel_keys(struct tls_multi *multi,
+                                       struct tls_session *session)
 {
     bool ret = false;
     struct key_state *ks = &session->key[KS_PRIMARY];   /* primary key */
-    const struct session_id *client_sid = session->opt->server ?
-                                          &ks->session_id_remote : &session->session_id;
-    const struct session_id *server_sid = !session->opt->server ?
-                                          &ks->session_id_remote : &session->session_id;
 
-    if (ks->authenticated == KS_AUTH_FALSE)
+    if (ks->authenticated <= KS_AUTH_FALSE)
     {
         msg(D_TLS_ERRORS, "TLS Error: key_state not authenticated");
         goto cleanup;
     }
 
     ks->crypto_options.flags = session->opt->crypto_flags;
-    if (!generate_key_expansion(&ks->crypto_options.key_ctx_bi,
-                                &session->opt->key_type, ks->key_src, client_sid, server_sid,
-                                session->opt->server))
+
+    if (!generate_key_expansion(multi, ks, session))
     {
         msg(D_TLS_ERRORS, "TLS Error: generate_key_expansion failed");
         goto cleanup;
     }
     tls_limit_reneg_bytes(session->opt->key_type.cipher,
                           &session->opt->renegotiate_bytes);
+
+    /* set the state of the keys for the session to generated */
+    ks->state = S_GENERATED_KEYS;
 
     ret = true;
 cleanup:
@@ -1937,49 +1897,27 @@ cleanup:
 }
 
 bool
-tls_session_update_crypto_params(struct tls_session *session,
-                                 struct options *options, struct frame *frame,
-                                 struct frame *frame_fragment)
+tls_session_update_crypto_params_do_work(struct tls_multi *multi,
+                                         struct tls_session *session,
+                                         struct options* options,
+                                         struct frame *frame,
+                                         struct frame *frame_fragment,
+                                         struct link_socket_info *lsi)
 {
     if (session->key[KS_PRIMARY].crypto_options.key_ctx_bi.initialized)
     {
         /* keys already generated, nothing to do */
         return true;
+
     }
-
-    bool cipher_allowed_as_fallback = options->enable_ncp_fallback
-                                      && streq(options->ciphername, session->opt->config_ciphername);
-
-    if (!session->opt->server && !cipher_allowed_as_fallback
-        && !tls_item_in_cipher_list(options->ciphername, options->ncp_ciphers))
-    {
-        msg(D_TLS_ERRORS, "Error: pushed cipher not allowed - %s not in %s",
-            options->ciphername, options->ncp_ciphers);
-        /* undo cipher push, abort connection setup */
-        options->ciphername = session->opt->config_ciphername;
-        return false;
-    }
-
     if (strcmp(options->ciphername, session->opt->config_ciphername))
     {
         msg(D_HANDSHAKE, "Data Channel: using negotiated cipher '%s'",
             options->ciphername);
-        if (options->keysize)
-        {
-            msg(D_HANDSHAKE, "NCP: overriding user-set keysize with default");
-            options->keysize = 0;
-        }
-    }
-    else
-    {
-        /* Very hacky workaround and quick fix for frame calculation
-         * different when adjusting frame size when the original and new cipher
-         * are identical to avoid a regression with client without NCP */
-        return tls_session_generate_data_channel_keys(session);
     }
 
     init_key_type(&session->opt->key_type, options->ciphername,
-                  options->authname, options->keysize, true, true);
+                  options->authname, true, true);
 
     bool packet_id_long_form = cipher_kt_mode_ofb_cfb(session->opt->key_type.cipher);
     session->opt->crypto_flags &= ~(CO_PACKET_ID_LONG_FORM);
@@ -1988,13 +1926,8 @@ tls_session_update_crypto_params(struct tls_session *session,
         session->opt->crypto_flags |= CO_PACKET_ID_LONG_FORM;
     }
 
-    /* Update frame parameters: undo worst-case overhead, add actual overhead */
-    frame_remove_from_extra_frame(frame, crypto_max_overhead());
-    crypto_adjust_frame_parameters(frame, &session->opt->key_type,
-                                   options->replay, packet_id_long_form);
-    frame_finalize(frame, options->ce.link_mtu_defined, options->ce.link_mtu,
-                   options->ce.tun_mtu_defined, options->ce.tun_mtu);
-    frame_init_mssfix(frame, options);
+    frame_calculate_dynamic(frame, &session->opt->key_type, options, lsi);
+
     frame_print(frame, D_MTU_INFO, "Data Channel MTU parms");
 
     /*
@@ -2006,15 +1939,41 @@ tls_session_update_crypto_params(struct tls_session *session,
 
     if (frame_fragment)
     {
-        frame_remove_from_extra_frame(frame_fragment, crypto_max_overhead());
-        crypto_adjust_frame_parameters(frame_fragment, &session->opt->key_type,
-                                       options->replay, packet_id_long_form);
-        frame_set_mtu_dynamic(frame_fragment, options->ce.fragment, SET_MTU_UPPER_BOUND);
+        frame_calculate_dynamic(frame_fragment, &session->opt->key_type, options, lsi);
         frame_print(frame_fragment, D_MTU_INFO, "Fragmentation MTU parms");
     }
 
-    return tls_session_generate_data_channel_keys(session);
+    return tls_session_generate_data_channel_keys(multi, session);
 }
+
+bool
+tls_session_update_crypto_params(struct tls_multi *multi,
+                                 struct tls_session *session,
+                                 struct options *options, struct frame *frame,
+                                 struct frame *frame_fragment,
+                                 struct link_socket_info *lsi)
+{
+
+    bool cipher_allowed_as_fallback = options->enable_ncp_fallback
+        && streq(options->ciphername, session->opt->config_ciphername);
+
+    if (!session->opt->server && !cipher_allowed_as_fallback
+        && !tls_item_in_cipher_list(options->ciphername, options->ncp_ciphers))
+    {
+        msg(D_TLS_ERRORS, "Error: negotiated cipher not allowed - %s not in %s",
+            options->ciphername, options->ncp_ciphers);
+        /* undo cipher push, abort connection setup */
+        options->ciphername = session->opt->config_ciphername;
+        return false;
+    }
+
+    /* Import crypto settings that might be set by pull/push */
+    session->opt->crypto_flags |= options->data_channel_crypto_flags;
+
+    return tls_session_update_crypto_params_do_work(multi, session, options,
+                                                    frame, frame_fragment, lsi);
+}
+
 
 static bool
 random_bytes_to_buf(struct buffer *buf,
@@ -2204,17 +2163,30 @@ read_string_alloc(struct buffer *buf)
     return str;
 }
 
+/**
+ * Prepares the IV_ and UV_ variables that are part of the
+ * exchange to signal the peer's capabilities. The amount
+ * of variables is determined by session->opt->push_peer_info_detail
+ *
+ *     0     nothing. Used on a TLS P2MP server side to send no information
+ *           to the client
+ *     1     minimal info needed for NCP in P2P mode
+ *     2     when --pull is enabled, the "default" set of variables
+ *     3     all information including MAC address and library versions
+ *
+ * @param buf       the buffer to write these variables to
+ * @param session   the TLS session object
+ * @return          true if no error was encountered
+ */
 static bool
 push_peer_info(struct buffer *buf, struct tls_session *session)
 {
     struct gc_arena gc = gc_new();
     bool ret = false;
+    struct buffer out = alloc_buf_gc(512 * 3, &gc);
 
-    if (session->opt->push_peer_info_detail > 0)
+    if (session->opt->push_peer_info_detail > 1)
     {
-        struct env_set *es = session->opt->es;
-        struct buffer out = alloc_buf_gc(512*3, &gc);
-
         /* push version */
         buf_printf(&out, "IV_VER=%s\n", PACKAGE_VERSION);
 
@@ -2236,7 +2208,14 @@ push_peer_info(struct buffer *buf, struct tls_session *session)
 #elif defined(_WIN32)
         buf_printf(&out, "IV_PLAT=win\n");
 #endif
+        /* Announce that we do not require strict sequence numbers with
+         * TCP. (TCP non-linear) */
+        buf_printf(&out, "IV_TCPNL=1\n");
+    }
 
+    /* These are the IV variable that are sent to peers in p2p mode */
+    if (session->opt->push_peer_info_detail > 0)
+    {
         /* support for P_DATA_V2 */
         int iv_proto = IV_PROTO_DATA_V2;
 
@@ -2244,16 +2223,14 @@ push_peer_info(struct buffer *buf, struct tls_session *session)
          * push request, also signal that the client wants
          * to get push-reply messages without without requiring a round
          * trip for a push request message*/
-        if(session->opt->pull)
+        if (session->opt->pull)
         {
             iv_proto |= IV_PROTO_REQUEST_PUSH;
+            iv_proto |= IV_PROTO_AUTH_PENDING_KW;
         }
 
-        buf_printf(&out, "IV_PROTO=%d\n", iv_proto);
-
         /* support for Negotiable Crypto Parameters */
-        if (session->opt->ncp_enabled
-            && (session->opt->mode == MODE_SERVER || session->opt->pull))
+        if (session->opt->mode == MODE_SERVER || session->opt->pull)
         {
             if (tls_item_in_cipher_list("AES-128-GCM", session->opt->config_ncp_ciphers)
                 && tls_item_in_cipher_list("AES-256-GCM", session->opt->config_ncp_ciphers))
@@ -2261,15 +2238,30 @@ push_peer_info(struct buffer *buf, struct tls_session *session)
 
                 buf_printf(&out, "IV_NCP=2\n");
             }
-            buf_printf(&out, "IV_CIPHERS=%s\n", session->opt->config_ncp_ciphers);
+        }
+        else
+        {
+            /* We are not using pull or p2mp server, instead do P2P NCP */
+            iv_proto |= IV_PROTO_NCP_P2P;
         }
 
-        /* push compression status */
-#ifdef USE_COMP
-        comp_generate_peer_info_string(&session->opt->comp_options, &out);
+        buf_printf(&out, "IV_CIPHERS=%s\n", session->opt->config_ncp_ciphers);
+
+#ifdef HAVE_EXPORT_KEYING_MATERIAL
+        iv_proto |= IV_PROTO_TLS_KEY_EXPORT;
 #endif
 
-        if (session->opt->push_peer_info_detail >= 2)
+        buf_printf(&out, "IV_PROTO=%d\n", iv_proto);
+
+        if (session->opt->push_peer_info_detail > 1)
+        {
+            /* push compression status */
+#ifdef USE_COMP
+            comp_generate_peer_info_string(&session->opt->comp_options, &out);
+#endif
+        }
+
+        if (session->opt->push_peer_info_detail > 2)
         {
             /* push mac addr */
             struct route_gateway_info rgi;
@@ -2278,26 +2270,30 @@ push_peer_info(struct buffer *buf, struct tls_session *session)
             {
                 buf_printf(&out, "IV_HWADDR=%s\n", format_hex_ex(rgi.hwaddr, 6, 0, 1, ":", &gc));
             }
-            buf_printf(&out, "IV_SSL=%s\n", get_ssl_library_version() );
+            buf_printf(&out, "IV_SSL=%s\n", get_ssl_library_version());
 #if defined(_WIN32)
             buf_printf(&out, "IV_PLAT_VER=%s\n", win32_version_string(&gc, false));
 #endif
         }
 
-        /* push env vars that begin with UV_, IV_PLAT_VER and IV_GUI_VER */
-        for (struct env_item *e = es->list; e != NULL; e = e->next)
+        if (session->opt->push_peer_info_detail > 1)
         {
-            if (e->string)
+            struct env_set *es = session->opt->es;
+            /* push env vars that begin with UV_, IV_PLAT_VER and IV_GUI_VER */
+            for (struct env_item *e = es->list; e != NULL; e = e->next)
             {
-                if ((((strncmp(e->string, "UV_", 3)==0
-                       || strncmp(e->string, "IV_PLAT_VER=", sizeof("IV_PLAT_VER=")-1)==0)
-                      && session->opt->push_peer_info_detail >= 2)
-                     || (strncmp(e->string,"IV_GUI_VER=",sizeof("IV_GUI_VER=")-1)==0)
-                     || (strncmp(e->string,"IV_SSO=",sizeof("IV_SSO=")-1)==0)
-                     )
-                    && buf_safe(&out, strlen(e->string)+1))
+                if (e->string)
                 {
-                    buf_printf(&out, "%s\n", e->string);
+                    if ((((strncmp(e->string, "UV_", 3) == 0
+                        || strncmp(e->string, "IV_PLAT_VER=", sizeof("IV_PLAT_VER=") - 1) == 0)
+                        && session->opt->push_peer_info_detail >= 2)
+                        || (strncmp(e->string, "IV_GUI_VER=", sizeof("IV_GUI_VER=") - 1) == 0)
+                        || (strncmp(e->string, "IV_SSO=", sizeof("IV_SSO=") - 1) == 0)
+                    )
+                        && buf_safe(&out, strlen(e->string) + 1))
+                    {
+                        buf_printf(&out, "%s\n", e->string);
+                    }
                 }
             }
         }
@@ -2321,13 +2317,24 @@ error:
     return ret;
 }
 
+#ifdef USE_COMP
+static bool
+write_compat_local_options(struct buffer *buf, const char *options)
+{
+    struct gc_arena gc = gc_new();
+    const char *local_options = options_string_compat_lzo(options, &gc);
+    bool ret = write_string(buf, local_options, TLS_OPTIONS_LEN);
+    gc_free(&gc);
+    return ret;
+}
+#endif
+
 /**
  * Handle the writing of key data, peer-info, username/password, OCC
  * to the TLS control channel (cleartext).
  */
 static bool
-key_method_2_write(struct buffer *buf, struct tls_multi *multi,
-                   struct tls_session *session)
+key_method_2_write(struct buffer *buf, struct tls_multi *multi, struct tls_session *session)
 {
     struct key_state *ks = &session->key[KS_PRIMARY];      /* primary key */
 
@@ -2353,6 +2360,17 @@ key_method_2_write(struct buffer *buf, struct tls_multi *multi,
 
     /* write options string */
     {
+#ifdef USE_COMP
+        if (multi->remote_usescomp && session->opt->mode == MODE_SERVER
+           && multi->opt.comp_options.flags & COMP_F_MIGRATE)
+        {
+            if (!write_compat_local_options(buf, session->opt->local_options))
+            {
+                goto error;
+            }
+        }
+        else
+#endif
         if (!write_string(buf, session->opt->local_options, TLS_OPTIONS_LEN))
         {
             goto error;
@@ -2418,26 +2436,12 @@ key_method_2_write(struct buffer *buf, struct tls_multi *multi,
         goto error;
     }
 
-    /*
-     * Generate tunnel keys if we're a TLS server.
-     *
-     * If we're a p2mp server to allow NCP, the first key
-     * generation is postponed until after the connect script finished and the
-     * NCP options can be processed. Since that always happens at after connect
-     * script options are available the CAS_SUCCEEDED status is identical to
-     * NCP options are processed and we have no extra state for NCP finished.
-     */
-    if (session->opt->server && (session->opt->mode != MODE_SERVER
-            || multi->multi_state == CAS_SUCCEEDED))
+    if (session->opt->server && session->opt->mode != MODE_SERVER
+        && ks->key_id == 0)
     {
-        if (ks->authenticated > KS_AUTH_FALSE)
-        {
-            if (!tls_session_generate_data_channel_keys(session))
-            {
-                msg(D_TLS_ERRORS, "TLS Error: server generate_key_expansion failed");
-                goto error;
-            }
-        }
+        /* tls-server option set and not P2MP server, so we
+         * are a P2P client running in tls-server mode */
+        p2p_mode_ncp(multi, session);
     }
 
     return true;
@@ -2446,6 +2450,39 @@ error:
     msg(D_TLS_ERRORS, "TLS Error: Key Method #2 write failed");
     secure_memzero(ks->key_src, sizeof(*ks->key_src));
     return false;
+}
+
+static void
+export_user_keying_material(struct key_state_ssl *ssl,
+                            struct tls_session *session)
+{
+    if (session->opt->ekm_size > 0)
+    {
+        unsigned int size = session->opt->ekm_size;
+        struct gc_arena gc = gc_new();
+
+        unsigned char *ekm = gc_malloc(session->opt->ekm_size, true, &gc);
+        if (key_state_export_keying_material(session,
+                                             session->opt->ekm_label,
+                                             session->opt->ekm_label_size,
+                                             ekm, session->opt->ekm_size))
+        {
+            unsigned int len = (size * 2) + 2;
+
+            const char *key = format_hex_ex(ekm, size, len, 0, NULL, &gc);
+            setenv_str(session->opt->es, "exported_keying_material", key);
+
+            dmsg(D_TLS_DEBUG_MED, "%s: exported keying material: %s",
+                 __func__, key);
+            secure_memzero(ekm, size);
+        }
+        else
+        {
+            msg(M_WARN, "WARNING: Export keying material failed!");
+            setenv_del(session->opt->es, "exported_keying_material");
+        }
+        gc_free(&gc);
+    }
 }
 
 /**
@@ -2519,6 +2556,7 @@ key_method_2_read(struct buffer *buf, struct tls_multi *multi, struct tls_sessio
     free(multi->remote_ciphername);
     multi->remote_ciphername =
         options_string_extract_option(options, "cipher", NULL);
+    multi->remote_usescomp = strstr(options, ",comp-lzo,");
 
     /* In OCC we send '[null-cipher]' instead 'none' */
     if (multi->remote_ciphername
@@ -2568,7 +2606,18 @@ key_method_2_read(struct buffer *buf, struct tls_multi *multi, struct tls_sessio
     if (!session->opt->disable_occ
         && !options_cmp_equal(options, session->opt->remote_options))
     {
-        options_warning(options, session->opt->remote_options);
+        const char *remote_options = session->opt->remote_options;
+#ifdef USE_COMP
+        if (multi->opt.comp_options.flags & COMP_F_MIGRATE && multi->remote_usescomp)
+        {
+            msg(D_SHOW_OCC, "Note: 'compress migrate' detected remote peer "
+                            "with compression enabled.");
+            remote_options = options_string_compat_lzo(remote_options, &gc);
+        }
+#endif
+
+        options_warning(options, remote_options);
+
         if (session->opt->ssl_flags & SSLF_OPT_VERIFY)
         {
             msg(D_TLS_ERRORS, "Option inconsistency warnings triggering disconnect due to --opt-verify");
@@ -2585,7 +2634,7 @@ key_method_2_read(struct buffer *buf, struct tls_multi *multi, struct tls_sessio
     if ((ks->authenticated > KS_AUTH_FALSE)
         && plugin_defined(session->opt->plugins, OPENVPN_PLUGIN_TLS_FINAL))
     {
-        key_state_export_keying_material(&ks->ks_ssl, session);
+        export_user_keying_material(&ks->ks_ssl, session);
 
         if (plugin_call(session->opt->plugins, OPENVPN_PLUGIN_TLS_FINAL, NULL, NULL, session->opt->es) != OPENVPN_PLUGIN_FUNC_SUCCESS)
         {
@@ -2595,18 +2644,11 @@ key_method_2_read(struct buffer *buf, struct tls_multi *multi, struct tls_sessio
         setenv_del(session->opt->es, "exported_keying_material");
     }
 
-    /*
-     * Generate tunnel keys if we're a client.
-     * If --pull is enabled, the first key generation is postponed until after the
-     * pull/push, so we can process pushed cipher directives.
-     */
-    if (!session->opt->server && (!session->opt->pull || ks->key_id > 0))
+    if (!session->opt->server && !session->opt->pull && ks->key_id == 0)
     {
-        if (!tls_session_generate_data_channel_keys(session))
-        {
-            msg(D_TLS_ERRORS, "TLS Error: client generate_key_expansion failed");
-            goto error;
-        }
+        /* We are a p2p tls-client without pull, enable common
+         * protocol options */
+        p2p_mode_ncp(multi, session);
     }
 
     gc_free(&gc);
@@ -2718,6 +2760,7 @@ tls_process(struct tls_multi *multi,
             buf = reliable_get_buf_output_sequenced(ks->send_reliable);
             if (buf)
             {
+                ks->initial = now;
                 ks->must_negotiate = now + session->opt->handshake_window;
                 ks->auth_deferred_expire = now + auth_deferred_expire_window(session->opt);
 
@@ -2797,6 +2840,21 @@ tls_process(struct tls_multi *multi,
 
                 /* Set outgoing address for data channel packets */
                 link_socket_set_outgoing_addr(to_link_socket_info, &ks->remote_addr, session->common_name, session->opt->es);
+
+                /* Check if we need to advance the tls_multi state machine */
+                if (multi->multi_state == CAS_NOT_CONNECTED)
+                {
+                    if (session->opt->mode == MODE_SERVER)
+                    {
+                        /* On a server we continue with running connect scripts next */
+                        multi->multi_state = CAS_WAITING_AUTH;
+                    }
+                    else
+                    {
+                        /* Skip the connect script related states */
+                        multi->multi_state = CAS_WAITING_OPTIONS_IMPORT;
+                    }
+                }
 
                 /* Flush any payload packets that were buffered before our state transitioned to S_ACTIVE */
                 flush_payload_buffer(ks);
@@ -2934,7 +2992,8 @@ tls_process(struct tls_multi *multi,
             buf = reliable_get_buf_output_sequenced(ks->send_reliable);
             if (buf)
             {
-                int status = key_state_read_ciphertext(&ks->ks_ssl, buf, PAYLOAD_SIZE_DYNAMIC(&multi->opt.frame));
+                int status = key_state_read_ciphertext(&ks->ks_ssl, buf, multi->opt.frame.tun_mtu);
+
                 if (status == -1)
                 {
                     msg(D_TLS_ERRORS,
@@ -2959,7 +3018,7 @@ tls_process(struct tls_multi *multi,
     if (!to_link->len && !reliable_ack_empty(ks->rec_ack))
     {
         struct buffer buf = ks->ack_write_buf;
-        ASSERT(buf_init(&buf, FRAME_HEADROOM(&multi->opt.frame)));
+        ASSERT(buf_init(&buf, multi->opt.frame.buf.headroom));
         write_control_auth(session, ks, &buf, to_link_addr, P_ACK_V1,
                            RELIABLE_ACK_SIZE, false);
         *to_link = buf;
@@ -3113,7 +3172,40 @@ tls_multi_process(struct tls_multi *multi,
 
     update_time();
 
-    int tas = tls_authentication_status(multi, TLS_MULTI_AUTH_STATUS_INTERVAL);
+    enum tls_auth_status tas = tls_authentication_status(multi);
+
+    /* If we have successfully authenticated and are still waiting for the authentication to finish
+     * move the state machine for the multi context forward */
+
+    if (multi->multi_state >= CAS_CONNECT_DONE)
+    {
+        for (int i = 0; i < TM_SIZE; ++i)
+        {
+            struct tls_session *session = &multi->session[i];
+            struct key_state *ks = &session->key[KS_PRIMARY];
+
+            if (ks->state == S_ACTIVE && ks->authenticated == KS_AUTH_TRUE)
+            {
+                /* Session is now fully authenticated.
+                 * tls_session_generate_data_channel_keys will move ks->state
+                 * from S_ACTIVE to S_GENERATED_KEYS */
+                if (!tls_session_generate_data_channel_keys(multi, session))
+                {
+                    msg(D_TLS_ERRORS, "TLS Error: generate_key_expansion failed");
+                    ks->authenticated = KS_AUTH_FALSE;
+                    ks->state = S_ERROR;
+                }
+
+                /* Update auth token on the client if needed */
+                resend_auth_token_renegotiation(multi, session);
+            }
+        }
+    }
+
+    if (multi->multi_state == CAS_WAITING_AUTH && tas == TLS_AUTHENTICATION_SUCCEEDED)
+    {
+        multi->multi_state = CAS_PENDING;
+    }
 
     /*
      * If lame duck session expires, kill it.
@@ -3133,7 +3225,7 @@ tls_multi_process(struct tls_multi *multi,
      * verification failed.  A semi-trusted session can forward data on the
      * TLS control channel but not on the tunnel channel.
      */
-    if (DECRYPT_KEY_ENABLED(multi, &multi->session[TM_UNTRUSTED].key[KS_PRIMARY]))
+    if (TLS_AUTHENTICATED(multi, &multi->session[TM_UNTRUSTED].key[KS_PRIMARY]))
     {
         move_session(multi, TM_ACTIVE, TM_UNTRUSTED, true);
         msg(D_TLS_DEBUG_LOW, "TLS: tls_multi_process: untrusted session promoted to %strusted",
@@ -3146,9 +3238,9 @@ tls_multi_process(struct tls_multi *multi,
      */
     if (error)
     {
-        for (int i = 0; i < (int) SIZE(multi->key_scan); ++i)
+        for (int i = 0; i < KEY_SCAN_SIZE; ++i)
         {
-            if (multi->key_scan[i]->state >= S_ACTIVE)
+            if (get_key_scan(multi, i)->state >= S_ACTIVE)
             {
                 goto nohard;
             }
@@ -3163,9 +3255,9 @@ nohard:
         const int throw_level = GREMLIN_CONNECTION_FLOOD_LEVEL(multi->opt.gremlin);
         if (throw_level)
         {
-            for (int i = 0; i < (int) SIZE(multi->key_scan); ++i)
+            for (int i = 0; i < KEY_SCAN_SIZE; ++i)
             {
-                if (multi->key_scan[i]->state >= throw_level)
+                if (get_key_scan(multi, i)->state >= throw_level)
                 {
                     ++multi->n_hard_errors;
                     ++multi->n_soft_errors;
@@ -3203,7 +3295,7 @@ handle_data_channel_packet(struct tls_multi *multi,
     /* data channel packet */
     for (int i = 0; i < KEY_SCAN_SIZE; ++i)
     {
-        struct key_state *ks = multi->key_scan[i];
+        struct key_state *ks = get_key_scan(multi, i);
 
         /*
          * This is the basic test of TLS state compatibility between a local OpenVPN
@@ -3218,9 +3310,8 @@ handle_data_channel_packet(struct tls_multi *multi,
          * passive side is the server which only listens for the connections, the
          * active side is the client which initiates connections).
          */
-        if (DECRYPT_KEY_ENABLED(multi, ks)
-            && key_id == ks->key_id
-            && (ks->authenticated == KS_AUTH_TRUE)
+        if (ks->state >= S_GENERATED_KEYS && key_id == ks->key_id
+            && ks->authenticated == KS_AUTH_TRUE
             && (floated || link_socket_actual_match(from, &ks->remote_addr)))
         {
             if (!ks->crypto_options.key_ctx_bi.initialized)
@@ -3265,8 +3356,10 @@ handle_data_channel_packet(struct tls_multi *multi,
     }
 
     msg(D_TLS_ERRORS,
-        "TLS Error: local/remote TLS keys are out of sync: %s [%d]",
-        print_link_socket_actual(from, &gc), key_id);
+        "TLS Error: local/remote TLS keys are out of sync: %s "
+        "(received key id: %d, known key ids: %s)",
+        print_link_socket_actual(from, &gc), key_id,
+        print_key_id(multi, &gc));
 
 done:
     tls_clear_error();
@@ -3426,7 +3519,7 @@ tls_pre_decrypt(struct tls_multi *multi,
     if (i == TM_SIZE && is_hard_reset_method2(op))
     {
         struct tls_session *session = &multi->session[TM_ACTIVE];
-        struct key_state *ks = &session->key[KS_PRIMARY];
+        const struct key_state *ks = get_primary_key(multi);
 
         /*
          * If we have no session currently in progress, the initial packet will
@@ -3542,8 +3635,7 @@ tls_pre_decrypt(struct tls_multi *multi,
         /*
          * Remote is requesting a key renegotiation
          */
-        if (op == P_CONTROL_SOFT_RESET_V1
-            && DECRYPT_KEY_ENABLED(multi, ks))
+        if (op == P_CONTROL_SOFT_RESET_V1 && TLS_AUTHENTICATED(multi, ks))
         {
             if (!read_control_auth(buf, &session->tls_wrap, from,
                                    session->opt))
@@ -3679,6 +3771,8 @@ tls_pre_decrypt(struct tls_multi *multi,
             }
         }
     }
+    /* Remember that we received a valid control channel packet */
+    ks->peer_last_packet = now;
 
 done:
     buf->len = 0;
@@ -3745,17 +3839,6 @@ tls_pre_decrypt_lite(const struct tls_auth_standalone *tas,
         goto error;
     }
 
-    if (buf->len > EXPANDED_SIZE_DYNAMIC(&tas->frame))
-    {
-        dmsg(D_TLS_STATE_ERRORS,
-             "TLS State Error: Large packet (size %d) received from %s -- a packet no larger than %d bytes was expected",
-             buf->len,
-             print_link_socket_actual(from, &gc),
-             EXPANDED_SIZE_DYNAMIC(&tas->frame));
-        goto error;
-    }
-
-
     struct buffer newbuf = clone_buf(buf);
     struct tls_wrap_ctx tls_wrap_tmp = tas->tls_wrap;
 
@@ -3796,6 +3879,31 @@ error:
     return false;
 }
 
+struct key_state *tls_select_encryption_key(struct tls_multi *multi)
+{
+    struct key_state *ks_select = NULL;
+    for (int i = 0; i < KEY_SCAN_SIZE; ++i)
+    {
+        struct key_state *ks = get_key_scan(multi, i);
+        if (ks->state >= S_GENERATED_KEYS && ks->authenticated == KS_AUTH_TRUE)
+        {
+            ASSERT(ks->crypto_options.key_ctx_bi.initialized);
+
+            if (!ks_select)
+            {
+                ks_select = ks;
+            }
+            if (now >= ks->auth_deferred_expire)
+            {
+                ks_select = ks;
+                break;
+            }
+        }
+    }
+    return ks_select;
+}
+
+
 /* Choose the key with which to encrypt a data packet */
 void
 tls_pre_encrypt(struct tls_multi *multi,
@@ -3809,26 +3917,7 @@ tls_pre_encrypt(struct tls_multi *multi,
         return;
     }
 
-    struct key_state *ks_select = NULL;
-    for (int i = 0; i < KEY_SCAN_SIZE; ++i)
-    {
-        struct key_state *ks = multi->key_scan[i];
-        if (ks->state >= S_ACTIVE
-            && (ks->authenticated == KS_AUTH_TRUE)
-            && ks->crypto_options.key_ctx_bi.initialized
-            )
-        {
-            if (!ks_select)
-            {
-                ks_select = ks;
-            }
-            if (now >= ks->auth_deferred_expire)
-            {
-                ks_select = ks;
-                break;
-            }
-        }
-    }
+    struct key_state *ks_select = tls_select_encryption_key(multi);
 
     if (ks_select)
     {
@@ -3903,7 +3992,6 @@ tls_send_payload(struct tls_multi *multi,
                  const uint8_t *data,
                  int size)
 {
-    struct tls_session *session;
     struct key_state *ks;
     bool ret = false;
 
@@ -3911,8 +3999,7 @@ tls_send_payload(struct tls_multi *multi,
 
     ASSERT(multi);
 
-    session = &multi->session[TM_ACTIVE];
-    ks = &session->key[KS_PRIMARY];
+    ks = get_key_scan(multi, 0);
 
     if (ks->state >= S_ACTIVE)
     {
@@ -3925,7 +4012,7 @@ tls_send_payload(struct tls_multi *multi,
     {
         if (!ks->paybuf)
         {
-            ks->paybuf = buffer_list_new(0);
+            ks->paybuf = buffer_list_new();
         }
         buffer_list_push_data(ks->paybuf, data, (size_t)size);
         ret = true;
@@ -3941,16 +4028,13 @@ bool
 tls_rec_payload(struct tls_multi *multi,
                 struct buffer *buf)
 {
-    struct tls_session *session;
-    struct key_state *ks;
     bool ret = false;
 
     tls_clear_error();
 
     ASSERT(multi);
 
-    session = &multi->session[TM_ACTIVE];
-    ks = &session->key[KS_PRIMARY];
+    struct key_state *ks = get_key_scan(multi, 0);
 
     if (ks->state >= S_ACTIVE && BLEN(&ks->plaintext_read_buf))
     {

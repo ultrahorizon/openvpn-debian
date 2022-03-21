@@ -50,25 +50,7 @@ static const uint8_t TLS_CRYPT_METADATA_TYPE_TIMESTAMP      = 0x01;
 static struct key_type
 tls_crypt_kt(void)
 {
-    struct key_type kt;
-    kt.cipher = cipher_kt_get("AES-256-CTR");
-    kt.digest = md_kt_get("SHA256");
-
-    if (!kt.cipher)
-    {
-        msg(M_WARN, "ERROR: --tls-crypt requires AES-256-CTR support.");
-        return (struct key_type) { 0 };
-    }
-    if (!kt.digest)
-    {
-        msg(M_WARN, "ERROR: --tls-crypt requires HMAC-SHA-256 support.");
-        return (struct key_type) { 0 };
-    }
-
-    kt.cipher_length = cipher_kt_key_size(kt.cipher);
-    kt.hmac_length = md_kt_size(kt.digest);
-
-    return kt;
+    return create_kt("AES-256-CTR", "SHA256", "tls-crypt");
 }
 
 int
@@ -91,16 +73,6 @@ tls_crypt_init_key(struct key_ctx_bi *key, const char *key_file,
     crypto_read_openvpn_key(&kt, key, key_file, key_inline, key_direction,
                             "Control Channel Encryption", "tls-crypt");
 }
-
-void
-tls_crypt_adjust_frame_parameters(struct frame *frame)
-{
-    frame_add_to_extra_frame(frame, tls_crypt_buf_overhead());
-
-    msg(D_MTU_DEBUG, "%s: Adjusting frame parameters for tls-crypt by %i bytes",
-        __func__, tls_crypt_buf_overhead());
-}
-
 
 bool
 tls_crypt_wrap(const struct buffer *src, struct buffer *dst,

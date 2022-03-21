@@ -24,13 +24,25 @@ the local and the remote host.
   from any address, not only the address which was specified in the
   ``--remote`` option.
 
---fragment max
+--fragment args
+
+  Valid syntax:
+  ::
+
+     fragment max
+     fragment max mtu
+
   Enable internal datagram fragmentation so that no UDP datagrams are sent
   which are larger than ``max`` bytes.
 
-  The ``max`` parameter is interpreted in the same way as the
-  ``--link-mtu`` parameter, i.e. the UDP packet size after encapsulation
-  overhead has been added in, but not including the UDP header itself.
+  If the :code:`mtu` parameter is present the ``max`` parameter is
+  interpreted to include IP and UDP encapsulation overhead. The
+  :code:`mtu` parameter is introduced in OpenVPN version 2.6.0.
+
+  If the :code:`mtu` parameter is absent, the ``max`` parameter is
+  interpreted in the same way as the ``--link-mtu`` parameter, i.e.
+  the UDP packet size after encapsulation overhead has been added in,
+  but not including the UDP header itself.
 
   The ``--fragment`` option only makes sense when you are using the UDP
   protocol (``--proto udp``).
@@ -59,6 +71,9 @@ the local and the remote host.
 
      keepalive interval timeout
 
+  Send ping once every ``interval`` seconds, restart if ping is not received
+  for ``timeout`` seconds.
+
   This option can be used on both client and server side, but it is enough
   to add this on the server side as it will push appropriate ``--ping``
   and ``--ping-restart`` options to the client. If used on both server and
@@ -82,9 +97,14 @@ the local and the remote host.
          ping-restart 60            # Argument: timeout
 
 --link-mtu n
-  Sets an upper bound on the size of UDP packets which are sent between
+  **DEPRECATED** Sets an upper bound on the size of UDP packets which are sent between
   OpenVPN peers. *It's best not to set this parameter unless you know what
   you're doing.*
+
+  Due to variable header size of IP header (20 bytes for IPv4 and 40 bytes
+  for IPv6) and dynamically negotiated data channel cipher, this option
+  is not reliable. It is recommended to set tun-mtu with enough headroom
+  instead.
 
 --local host
   Local host name or IP address for bind. If specified, OpenVPN will bind
@@ -96,7 +116,7 @@ the local and the remote host.
   ``--nobind`` option.
 
 --mark value
-  Mark encrypted packets being sent with value. The mark value can be
+  Mark encrypted packets being sent with ``value``. The mark value can be
   matched in policy routing and packetfilter rules. This option is only
   supported in Linux and does nothing on other operating systems.
 
@@ -105,19 +125,37 @@ the local and the remote host.
   (:code:`p2p`). OpenVPN 2.0 introduces a new mode (:code:`server`) which
   implements a multi-client server capability.
 
---mssfix max
+--mssfix args
+
+  Valid syntax:
+  ::
+
+     mssfix max [mtu]
+
+     mssfix
+
   Announce to TCP sessions running over the tunnel that they should limit
   their send packet sizes such that after OpenVPN has encapsulated them,
   the resulting UDP packet size that OpenVPN sends to its peer will not
-  exceed ``max`` bytes. The default value is :code:`1450`.
+  exceed ``max`` bytes. The default value is :code:`1450`. Use :code:`0`
+  as max to disable mssfix.
 
-  The ``max`` parameter is interpreted in the same way as the
-  ``--link-mtu`` parameter, i.e. the UDP packet size after encapsulation
-  overhead has been added in, but not including the UDP header itself.
-  Resulting packet would be at most 28 bytes larger for IPv4 and 48 bytes
-  for IPv6 (20/40 bytes for IP header and 8 bytes for UDP header). Default
-  value of 1450 allows IPv4 packets to be transmitted over a link with MTU
-  1473 or higher without IP level fragmentation.
+  If the :code:`mtu` parameter is specified the ``max`` value is interpreted
+  as the resulting packet size of VPN packets including the IP and UDP header.
+  Support for the :code:`mtu` parameter was added with OpenVPN version 2.6.0.
+
+  If the :code:`mtu` parameter is not specified, the ``max`` parameter
+  is interpreted in the same way as the ``--link-mtu`` parameter, i.e.
+  the UDP packet size after encapsulation overhead has been added in, but
+  not including the UDP header itself. Resulting packet would be at most 28
+  bytes larger for IPv4 and 48 bytes for IPv6 (20/40 bytes for IP header and
+  8 bytes for UDP header). Default value of 1450 allows OpenVPN packets to be
+  transmitted over IPv4 on a link with MTU 1478 or higher without IP level
+  fragmentation (and 1498 for IPv6).
+
+  if ``--mssfix`` is specified is specified without any parameter it
+  inherits the parameters of ``--fragment`` if specified or uses the
+  default for ``--mssfix`` otherwise.
 
   The ``--mssfix`` option only makes sense when you are using the UDP
   protocol for OpenVPN peer-to-peer communication, i.e. ``--proto udp``.
@@ -167,7 +205,7 @@ the local and the remote host.
   Do not bind to local address and port. The IP stack will allocate a
   dynamic port for returning packets. Since the value of the dynamic port
   could not be known in advance by a peer, this option is only suitable
-  for peers which will be initiating connections by using the --remote
+  for peers which will be initiating connections by using the ``--remote``
   option.
 
 --passtos
@@ -190,6 +228,8 @@ the local and the remote host.
 
   (2)  To provide a basis for the remote to test the existence of its peer
        using the ``--ping-exit`` option.
+
+  When using OpenVPN in server mode see also ``--keepalive``.
 
 --ping-exit n
   Causes OpenVPN to exit after ``n`` seconds pass without reception of a
@@ -294,18 +334,19 @@ the local and the remote host.
 --replay-window args
   Modify the replay protection sliding-window size and time window.
 
-  Valid syntax:
-  ::
+  Valid syntaxes::
 
-     replay-window n [t]
+     replay-window n
+     replay-window n t
 
-  Use a replay protection sliding-window of size **n** and a time window
-  of **t** seconds.
+  Use a replay protection sliding-window of size ``n`` and a time window
+  of ``t`` seconds.
 
-  By default **n** is 64 (the IPSec default) and **t** is 15 seconds.
+  By default ``n`` is :code:`64` (the IPSec default) and ``t`` is
+  :code:`15` seconds.
 
-  This option is only relevant in UDP mode, i.e. when either **--proto
-  udp** is specified, or no **--proto** option is specified.
+  This option is only relevant in UDP mode, i.e. when either ``--proto
+  udp`` is specified, or no ``--proto`` option is specified.
 
   When OpenVPN tunnels IP packets over UDP, there is the possibility that
   packets might be dropped or delivered out of order. Because OpenVPN,
@@ -368,10 +409,6 @@ the local and the remote host.
 --replay-persist file
   Persist replay-protection state across sessions using ``file`` to save
   and reload the state.
-
-  This option will strengthen protection against replay attacks,
-  especially when you are using OpenVPN in a dynamic context (such as with
-  ``--inetd``) when OpenVPN sessions are frequently started and stopped.
 
   This option will keep a disk copy of the current replay protection state
   (i.e. the most recent packet timestamp and sequence number received from

@@ -27,8 +27,6 @@ libcompat_la_SOURCES = \
 	compat-basename.c \
 	compat-gettimeofday.c \
 	compat-daemon.c \
-	compat-inet_ntop.c \
-	compat-inet_pton.c \
-	compat-lz4.c compat-lz4.h \
 	compat-strsep.c \
-	compat-versionhelpers.h
+	compat-versionhelpers.h \
+	compat-dco_get_overlapped_result.c
