@@ -8,6 +8,7 @@ Build-Depends:
  dpkg-dev (>= 1.16.1),
  liblz4-dev,
  liblzo2-dev,
+ libnl-genl-3-dev,
  libp11-kit-dev,
  libpam0g-dev,
  libpkcs11-helper1-dev,
