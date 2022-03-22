@@ -30,7 +30,6 @@ Depends:
  debconf | debconf-2.0,
  ${shlibs:Depends},
  ${misc:Depends},
- iproute2 [linux-any],
  net-tools [!linux-any],
  lsb-base (>= 3.0-6)
 Suggests:
