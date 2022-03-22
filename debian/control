@@ -36,7 +36,8 @@ Depends:
 Suggests:
  openssl,
  resolvconf,
- openvpn-systemd-resolved
+ openvpn-dco-dkms,
+ openvpn-systemd-resolved,
 Recommends: easy-rsa
 Description: virtual private network daemon
  OpenVPN is an application to securely tunnel IP networks over a
