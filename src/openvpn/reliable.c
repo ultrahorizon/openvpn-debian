@@ -153,56 +153,64 @@ reliable_ack_acknowledge_packet_id(struct reliable_ack *ack, packet_id_type pid)
     return false;
 }
 
-/* read a packet ID acknowledgement record from buf into ack */
+
 bool
 reliable_ack_read(struct reliable_ack *ack,
                   struct buffer *buf, const struct session_id *sid)
 {
-    struct gc_arena gc = gc_new();
-    int i;
-    uint8_t count;
-    packet_id_type net_pid;
-    packet_id_type pid;
     struct session_id session_id_remote;
+
+    if (!reliable_ack_parse(buf, ack, &session_id_remote))
+    {
+        return false;
+    }
+
+    if (ack->len >= 1 && (!session_id_defined(&session_id_remote)
+                          || !session_id_equal(&session_id_remote, sid)))
+    {
+        struct gc_arena gc = gc_new();
+        dmsg(D_REL_LOW,
+             "ACK read BAD SESSION-ID FROM REMOTE, local=%s, remote=%s",
+             session_id_print(sid, &gc), session_id_print(&session_id_remote, &gc));
+        gc_free(&gc);
+        return false;
+    }
+    return true;
+}
+
+bool
+reliable_ack_parse(struct buffer *buf, struct reliable_ack *ack,
+                   struct session_id *session_id_remote)
+{
+    uint8_t count;
+    ack->len = 0;
 
     if (!buf_read(buf, &count, sizeof(count)))
     {
-        goto error;
+        return false;
     }
-    for (i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i)
     {
+        packet_id_type net_pid;
         if (!buf_read(buf, &net_pid, sizeof(net_pid)))
         {
-            goto error;
+            return false;
         }
         if (ack->len >= RELIABLE_ACK_SIZE)
         {
-            goto error;
+            return false;
         }
-        pid = ntohpid(net_pid);
+        packet_id_type pid = ntohpid(net_pid);
         ack->packet_id[ack->len++] = pid;
     }
     if (count)
     {
-        if (!session_id_read(&session_id_remote, buf))
+        if (!session_id_read(session_id_remote, buf))
         {
-            goto error;
-        }
-        if (!session_id_defined(&session_id_remote)
-            || !session_id_equal(&session_id_remote, sid))
-        {
-            dmsg(D_REL_LOW,
-                 "ACK read BAD SESSION-ID FROM REMOTE, local=%s, remote=%s",
-                 session_id_print(sid, &gc), session_id_print(&session_id_remote, &gc));
-            goto error;
+            return false;
         }
     }
-    gc_free(&gc);
     return true;
-
-error:
-    gc_free(&gc);
-    return false;
 }
 
 /* write a packet ID acknowledgement record to buf, */
@@ -525,8 +533,8 @@ reliable_get_buf_output_sequenced(struct reliable *rel)
 }
 
 /* get active buffer for next sequentially increasing key ID */
-struct buffer *
-reliable_get_buf_sequenced(struct reliable *rel)
+struct reliable_entry *
+reliable_get_entry_sequenced(struct reliable *rel)
 {
     int i;
     for (i = 0; i < rel->size; ++i)
@@ -534,7 +542,7 @@ reliable_get_buf_sequenced(struct reliable *rel)
         struct reliable_entry *e = &rel->array[i];
         if (e->active && e->packet_id == rel->packet_id)
         {
-            return &e->buf;
+            return e;
         }
     }
     return NULL;
@@ -594,14 +602,9 @@ reliable_send(struct reliable *rel, int *opcode)
     }
     if (best)
     {
-#ifdef EXPONENTIAL_BACKOFF
         /* exponential backoff */
         best->next_try = local_now + best->timeout;
         best->timeout *= 2;
-#else
-        /* constant timeout, no backoff */
-        best->next_try = local_now + best->timeout;
-#endif
         best->n_acks = 0;
         *opcode = best->opcode;
         dmsg(D_REL_DEBUG, "ACK reliable_send ID " packet_id_format " (size=%d to=%d)",
@@ -730,7 +733,7 @@ reliable_mark_active_outgoing(struct reliable *rel, struct buffer *buf, int opco
 
 /* delete a buffer previously activated by reliable_mark_active() */
 void
-reliable_mark_deleted(struct reliable *rel, struct buffer *buf, bool inc_pid)
+reliable_mark_deleted(struct reliable *rel, struct buffer *buf)
 {
     int i;
     for (i = 0; i < rel->size; ++i)
@@ -739,10 +742,7 @@ reliable_mark_deleted(struct reliable *rel, struct buffer *buf, bool inc_pid)
         if (buf == &e->buf)
         {
             e->active = false;
-            if (inc_pid)
-            {
-                rel->packet_id = e->packet_id + 1;
-            }
+            rel->packet_id = e->packet_id + 1;
             return;
         }
     }

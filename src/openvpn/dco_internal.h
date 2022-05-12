@@ -67,9 +67,6 @@ dco_get_cipher(const char *cipher)
 int dco_new_peer(dco_context_t *dco, unsigned int peerid, int sd,
                  struct sockaddr *localaddr, struct sockaddr *remoteaddr,
                  struct in_addr *remote_in4, struct in6_addr *remote_in6);
-int ovpn_set_peer(dco_context_t *dco, unsigned  int peerid,
-                  unsigned int keepalive_interval,
-                  unsigned int keepalive_timeout);
 int dco_del_peer(dco_context_t *dco, unsigned int peerid);
 
 int dco_new_key(dco_context_t *dco, unsigned int peerid, int keyid,
@@ -77,8 +74,10 @@ int dco_new_key(dco_context_t *dco, unsigned int peerid, int keyid,
                 const uint8_t *encrypt_key, const uint8_t *encrypt_iv,
                 const uint8_t *decrypt_key, const uint8_t *decrypt_iv,
                 const char *ciphername);
+
 int dco_del_key(dco_context_t *dco, unsigned int peerid,
                 dco_key_slot_t slot);
+
 int dco_swap_keys(dco_context_t *dco, unsigned int peerid);
 
 #endif /* defined(ENABLE_DCO) */

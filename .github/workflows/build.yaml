@@ -3,6 +3,35 @@ name: Build
 on: [push, pull_request]
 
 jobs:
+  checkuncrustify:
+    name: "Check code style with Uncrustify"
+    # Ubuntu 22.04 has uncrustify 0.72_f
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y uncrustify
+      - name: Checkout OpenVPN
+        uses: actions/checkout@v2
+        with:
+          path: openvpn
+      - name: Show uncrustify version
+        run: uncrustify --version
+      - name: Run uncrustify
+        run: ./dev-tools/reformat-all.sh
+        working-directory: openvpn
+      - name: Check for changes
+        run: git diff --output=uncrustify-changes.patch
+        working-directory: openvpn
+      - name: Show changes on standard output
+        run: git diff
+        working-directory: openvpn
+      - uses: actions/upload-artifact@v2
+        with:
+          name: uncrustify-changes.patch
+          path: 'openvpn/uncrustify-changes.patch'
+      - name: Set job status
+        run: test ! -s uncrustify-changes.patch
+        working-directory: openvpn
   mingw:
     strategy:
       fail-fast: false
@@ -19,8 +48,8 @@ jobs:
     env:
       MAKEFLAGS: -j3
       LZO_VERSION: "2.10"
-      PKCS11_HELPER_VERSION: "1.26"
-      OPENSSL_VERSION: "1.1.1j"
+      PKCS11_HELPER_VERSION: "1.29.0"
+      OPENSSL_VERSION: "1.1.1n"
       TAP_WINDOWS_VERSION: "9.23.3"
       CHOST: ${{ matrix.chost }}
       TARGET: ${{ matrix.target }}
@@ -41,20 +70,20 @@ jobs:
         uses: actions/cache@v2
         with:
           path: '~/mingw/'
-          key: ${{ matrix.target }}-mingw-${{ env.LZO_VERSION }}-${{ env.PKCS11_HELPER_VERSION }}-${{ env.TAP_WINDOWS_VERSION }}
+          key: ${{ matrix.target }}-mingw-${{ env.OPENSSL_VERSION }}-${{ env.LZO_VERSION }}-${{ env.PKCS11_HELPER_VERSION }}-${{ env.TAP_WINDOWS_VERSION }}
 
       # Repeating  if: steps.cache.outputs.cache-hit != 'true'
       # on every step for building dependencies is ugly but
       # I haven't found a better solution so far.
 
-      - name: Download mingw depnendencies
+      - name: Download mingw dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           wget -c -P download-cache/ "https://build.openvpn.net/downloads/releases/tap-windows-${TAP_WINDOWS_VERSION}.zip"
           wget -c -P download-cache/ "https://www.oberhumer.com/opensource/lzo/download/lzo-${LZO_VERSION}.tar.gz"
-          wget -c -P download-cache/ "https://github.com/OpenSC/pkcs11-helper/archive/pkcs11-helper-${PKCS11_HELPER_VERSION}.tar.gz"
-          wget -c -P download-cache/ "https://www.openssl.org/source/old/1.1.1/openssl-${OPENSSL_VERSION}.tar.gz"
-          tar zxf "download-cache/pkcs11-helper-${PKCS11_HELPER_VERSION}.tar.gz"
+          wget -c -P download-cache/ "https://github.com/OpenSC/pkcs11-helper/releases/download/pkcs11-helper-${PKCS11_HELPER_VERSION}/pkcs11-helper-${PKCS11_HELPER_VERSION}.tar.bz2"
+          wget -c -P download-cache/ "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz"
+          tar jxf "download-cache/pkcs11-helper-${PKCS11_HELPER_VERSION}.tar.bz2"
           tar zxf "download-cache/openssl-${OPENSSL_VERSION}.tar.gz"
           tar zxf "download-cache/lzo-${LZO_VERSION}.tar.gz"
           unzip download-cache/tap-windows-${TAP_WINDOWS_VERSION}.zip
@@ -62,56 +91,56 @@ jobs:
       - name: Configure OpenSSL
         if: steps.cache.outputs.cache-hit != 'true'
         run: ./Configure --cross-compile-prefix=${CHOST}- shared ${{ matrix.target }} no-capieng --prefix="${HOME}/mingw/opt" --openssldir="${HOME}/mingw/opt" -static-libgcc
-        working-directory: "./openssl-1.1.1j"
+        working-directory: "./openssl-${{ env.OPENSSL_VERSION }}"
 
       - name: Build OpenSSL
         if: steps.cache.outputs.cache-hit != 'true'
         run: make
-        working-directory: "./openssl-1.1.1j/"
+        working-directory: "./openssl-${{ env.OPENSSL_VERSION }}"
 
       - name: Install OpenSSL
         if: steps.cache.outputs.cache-hit != 'true'
         run: make install
-        working-directory: "./openssl-1.1.1j/"
+        working-directory: "./openssl-${{ env.OPENSSL_VERSION }}"
 
       - name: autoreconf pkcs11-helper
         if: steps.cache.outputs.cache-hit != 'true'
         run: autoreconf -iv
-        working-directory: "./pkcs11-helper-pkcs11-helper-1.26"
+        working-directory: "./pkcs11-helper-${{ env.PKCS11_HELPER_VERSION }}"
 
       - name: configure pkcs11-helper
         if: steps.cache.outputs.cache-hit != 'true'
         run: OPENSSL_LIBS="-L${HOME}/mingw/opt/lib -lssl -lcrypto" OPENSSL_CFLAGS=-I$HOME/mingw/opt/include PKG_CONFIG_PATH=${HOME}/mingw/opt/lib/pkgconfig ./configure --host=${CHOST} --program-prefix='' --libdir=${HOME}/mingw/opt/lib --prefix=${HOME}/mingw/opt --build=x86_64-pc-linux-gnu --disable-crypto-engine-gnutls --disable-crypto-engine-nss --disable-crypto-engine-polarssl --disable-crypto-engine-mbedtls
-        working-directory: "./pkcs11-helper-pkcs11-helper-1.26"
+        working-directory: "./pkcs11-helper-${{ env.PKCS11_HELPER_VERSION }}"
 
       - name: build pkcs11-helper
         if: steps.cache.outputs.cache-hit != 'true'
         run: make all
-        working-directory: "./pkcs11-helper-pkcs11-helper-1.26"
+        working-directory: "./pkcs11-helper-${{ env.PKCS11_HELPER_VERSION }}"
 
       - name: install pkcs11-helper
         if: steps.cache.outputs.cache-hit != 'true'
         run: make install
-        working-directory: "./pkcs11-helper-pkcs11-helper-1.26"
+        working-directory: "./pkcs11-helper-${{ env.PKCS11_HELPER_VERSION }}"
 
       - name: Configure lzo
         if: steps.cache.outputs.cache-hit != 'true'
         run: ./configure --host=${CHOST} --program-prefix='' --libdir=${HOME}/mingw/opt/lib --prefix=${HOME}/mingw/opt --build=x86_64-pc-linux-gnu
-        working-directory: "./lzo-2.10"
+        working-directory: "./lzo-${{ env.LZO_VERSION }}"
 
       - name: build lzo
         if: steps.cache.outputs.cache-hit != 'true'
-        working-directory: "./lzo-2.10"
+        working-directory: "./lzo-${{ env.LZO_VERSION }}"
         run: make
 
       - name: install lzo
         if: steps.cache.outputs.cache-hit != 'true'
-        working-directory: "./lzo-2.10"
+        working-directory: "./lzo-${{ env.LZO_VERSION }}"
         run: make install
 
       - name: copy tap-windows.h header
         if: steps.cache.outputs.cache-hit != 'true'
-        run: cp ./tap-windows-9.23.3/include/tap-windows.h ${HOME}/mingw/opt/include/
+        run: cp ./tap-windows-${TAP_WINDOWS_VERSION}/include/tap-windows.h ${HOME}/mingw/opt/include/
 
       - name: configure OpenVPN
         run: PKG_CONFIG_PATH=${HOME}/mingw/opt/lib/pkgconfig LDFLAGS=-L$HOME/mingw/opt/lib CFLAGS=-I$HOME/mingw/opt/include OPENSSL_LIBS="-L${HOME}/opt/lib -lssl -lcrypto" OPENSSL_CFLAGS=-I$HOME/mingw/opt/include PREFIX=$HOME/mingw/opt LZO_CFLAGS=-I$HOME/mingw/opt/include LZO_LIBS="-L${HOME}/mingw/opt/lib -llzo2" ./configure  --host=${CHOST} --disable-lz4 --enable-dco
@@ -125,7 +154,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-18.04, ubuntu-20.04]
+        os: [ubuntu-18.04, ubuntu-20.04, ubuntu-22.04]
         sslpkg: [libmbedtls-dev]
         ssllib: [mbedtls]
         libname: [mbed TLS]
@@ -142,6 +171,10 @@ jobs:
           - os: ubuntu-20.04
             sslpkg: "libssl-dev"
             libname: OpenSSL 1.1.1
+            ssllib: openssl
+          - os: ubuntu-22.04
+            sslpkg: "libssl-dev"
+            libname: OpenSSL 3.0.2
             ssllib: openssl
           - os: ubuntu-20.04
             sslpkg: "libssl-dev"
@@ -292,19 +325,17 @@ jobs:
       - name: Install rst2html
         run: python -m pip install --upgrade pip rst2html
 
-      - name: Restore artifacts, or run vcpkg, build and cache artifacts
-        uses: lukka/run-vcpkg@v7.4
+      - name: Restore artifacts, or setup vcpkg (do not install any package)
+        uses: lukka/run-vcpkg@v10
         with:
-          vcpkgGitCommitId: 'a69b65229b3956b7f45abd81671b7330114bcaad'
-          vcpkgArguments: 'openssl3 lz4 lzo pkcs11-helper tap-windows6'
-          vcpkgTriplet: '${{ matrix.triplet }}-windows-ovpn'
-          cleanAfterBuild: false
+          vcpkgGitCommitId: '4b766c1cd17205e1b768c4fadfd5f867c1d0510e'
+          appendedCacheKey: '${{matrix.triplet}}'
 
-      - name: Build
+      - name: Run MSBuild consuming vcpkg.json
         working-directory: ${{env.GITHUB_WORKSPACE}}
         run: |
-          vcpkg integrate install
-          msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform="${{ matrix.plat }}" .
+            vcpkg integrate install
+            msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform="${{ matrix.plat }}" .
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v2

@@ -42,6 +42,7 @@
 #include "pushlist.h"
 #include "clinat.h"
 #include "crypto_backend.h"
+#include "dns.h"
 
 
 /*
@@ -76,8 +77,10 @@ struct options_pre_connect
     bool client_nat_defined;
     struct client_nat_option_list *client_nat;
 
-    const char* ciphername;
-    const char* authname;
+    struct dns_options dns_options;
+
+    const char *ciphername;
+    const char *authname;
 
     int ping_send_timeout;
     int ping_rec_timeout;
@@ -131,6 +134,7 @@ struct connection_entry
     bool mssfix_default; /* true if --mssfix should use the default parameters */
     bool mssfix_encap;   /* true if --mssfix had the "mtu" parameter to include
                           * overhead from IP and TCP/UDP encapsulation */
+    bool mssfix_fixed;   /* use the mssfix value without any encapsulation adjustments */
 
     int explicit_exit_notification; /* Explicitly tell peer when we are exiting via OCC_EXIT or [RESTART] message */
 
@@ -158,6 +162,9 @@ struct connection_entry
      * authenticated encryption v2 */
     const char *tls_crypt_v2_file;
     bool tls_crypt_v2_file_inline;
+
+    /* Allow only client that support resending the wrapped client key */
+    bool tls_crypt_v2_force_cookie;
 };
 
 struct remote_entry
@@ -238,7 +245,7 @@ struct options
     /* enable forward compatibility for post-2.1 features */
     bool forward_compatible;
     /** What version we should try to be compatible with as major * 10000 +
-      * minor * 100 + patch, e.g. 2.4.7 => 20407 */
+     * minor * 100 + patch, e.g. 2.4.7 => 20407 */
     unsigned int backwards_compatible;
 
     /* list of options that should be ignored even if unknown */
@@ -275,6 +282,8 @@ struct options
 #endif
 
     struct remote_host_store *rh_store;
+
+    struct dns_options dns_options;
 
     bool remote_random;
     const char *ipchange;
@@ -527,7 +536,7 @@ struct options
     int key_direction;
     const char *ciphername;
     bool enable_ncp_fallback;      /**< If defined fall back to
-                                    * ciphername if NCP fails */
+                                   * ciphername if NCP fails */
     const char *ncp_ciphers;
     const char *authname;
     const char *engine;
@@ -805,6 +814,8 @@ char *options_string_extract_option(const char *options_string,
 
 
 void options_postprocess(struct options *options);
+
+bool options_postprocess_pull(struct options *o, struct env_set *es);
 
 void pre_connect_save(struct options *o);
 

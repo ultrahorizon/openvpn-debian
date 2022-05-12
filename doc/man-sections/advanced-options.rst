@@ -92,7 +92,7 @@ used when debugging or testing out special usage scenarios.
   Currently defaults to operating system default.
 
 --disable-dco
-  Disables the opportunistic use the data channel offloading if available.
+  Disables the opportunistic use of data channel offloading if available.
   Without this option, OpenVPN will opportunistically use DCO mode if
   the config options and the running kernel supports using DCO.
 
@@ -100,7 +100,7 @@ used when debugging or testing out special usage scenarios.
   AEAD ciphers (AES-GCM and Chacha20-Poly1305) and Linux with the
   ovpn-dco module.
 
-  Note that some options have no effect or not available when
-  DCO mode is enabled.
+  Note that some options have no effect or cannot be used when DCO mode
+  is enabled.
 
-  A platforms that do not support DCO ``disable-dco`` has no effect.
+  On platforms that do not support DCO ``disable-dco`` has no effect.

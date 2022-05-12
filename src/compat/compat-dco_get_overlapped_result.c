@@ -32,7 +32,9 @@
 #include "compat.h"
 
 #if defined(__MINGW32__) && !defined(__MINGW64__)
-BOOL dco_get_overlapped_result(HANDLE handle, OVERLAPPED* ov, DWORD* transferred, DWORD delay_millisec, BOOL unused)
+BOOL
+dco_get_overlapped_result(HANDLE handle, OVERLAPPED *ov, DWORD *transferred,
+                          DWORD delay_millisec, BOOL unused)
 {
     BOOL res = GetOverlappedResult(handle, ov, transferred, FALSE);
     if ((res == 0) && (GetLastError() == ERROR_IO_INCOMPLETE))

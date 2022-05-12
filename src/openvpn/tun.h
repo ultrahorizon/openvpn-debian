@@ -248,7 +248,7 @@ tuntap_ring_empty(struct tuntap *tt)
 
 /* Low level function to open tun handle, used by DCO to create a handle for DCO*/
 void
-tun_open_device(struct tuntap* tt, const char* dev_node, const char** device_guid, struct gc_arena* gc);
+tun_open_device(struct tuntap *tt, const char *dev_node, const char **device_guid, struct gc_arena *gc);
 #endif
 
 /*
@@ -260,7 +260,7 @@ void open_tun(const char *dev, const char *dev_type, const char *dev_node,
 
 void close_tun(struct tuntap *tt, openvpn_net_ctx_t *ctx);
 
-void close_tun_handle(struct tuntap* tt);
+void close_tun_handle(struct tuntap *tt);
 
 int write_tun(struct tuntap *tt, uint8_t *buf, int len);
 
@@ -634,7 +634,8 @@ write_tun_buffered(struct tuntap *tt, struct buffer *buf)
     }
 }
 
-static inline bool is_windco(struct tuntap *tt)
+static inline bool
+is_windco(struct tuntap *tt)
 {
     return tt->windows_driver == WINDOWS_DRIVER_WINDCO;
 }
@@ -665,7 +666,8 @@ tun_standby(struct tuntap *tt)
 }
 
 
-static inline bool is_windco(struct tuntap *tt)
+static inline bool
+is_windco(struct tuntap *tt)
 {
     return false;
 }

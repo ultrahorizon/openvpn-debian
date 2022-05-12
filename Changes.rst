@@ -69,11 +69,23 @@ Improved ``--mssfix`` and ``--fragment`` calculation
     account and the resulting size is specified as the total size of the VPN packets
     including IP and UDP headers.
 
+Cookie based handshake for UDP server
+    Instead of allocating a connection for each client on the initial packet
+    OpenVPN server will now use an HMAC based cookie as its session id. This
+    way the server can verify it on completing the handshake without keeping
+    state. This eliminates the amplification and resource exhaustion attacks.
+    For tls-crypt-v2 clients, this requires OpenVPN 2.6 clients or later
+    because the client needs to resend its client key on completing the hand
+    shake. The tls-crypt-v2 option allows controlling if older clients are
+    accepted.
+
 Data channel offloading with ovpn-dco
     2.6.0+ implements support for data-channel offloading where the data packets
     are directly processed and forwarded in kernel space thanks to the ovpn-dco
     kernel module. The userspace openvpn program acts purely as a control plane
-    application.
+    application. Note that DCO will use DATA_V2 packets in P2P mode, therefore,
+    this implies that peers must be running 2.6.0+ in order to have P2P-NCP
+    which brings DATA_V2 packet support.
 
 
 Deprecated features

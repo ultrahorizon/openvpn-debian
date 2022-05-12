@@ -39,6 +39,9 @@
     <ClCompile Include="dhcp.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="dns.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="dco.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -246,6 +249,9 @@
     <ClCompile Include="ssl_ncp.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ssl_pkt.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ssl_util.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -303,6 +309,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="dhcp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dns.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="errlevel.h">
@@ -533,11 +542,10 @@
     <ClInclude Include="win32-util.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-<<<<<<< HEAD
     <ClInclude Include="xkey_common.h">
-=======
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="dco_win.h">
->>>>>>> 41ca9de8 (ovpn-dco-win: introduce windows data-channel offload support)
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

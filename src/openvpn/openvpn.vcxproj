@@ -124,26 +124,35 @@
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <VcpkgEnabled>true</VcpkgEnabled>
     <VcpkgTriplet>arm64-windows-ovpn</VcpkgTriplet>
+    <VcpkgAdditionalInstallOptions>--overlay-triplets=$(SolutionDir)contrib\vcpkg-triplets --overlay-ports=$(SolutionDir)contrib\vcpkg-ports</VcpkgAdditionalInstallOptions>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <VcpkgEnabled>true</VcpkgEnabled>
     <VcpkgTriplet>arm64-windows-ovpn</VcpkgTriplet>
+    <VcpkgAdditionalInstallOptions>--overlay-triplets=$(SolutionDir)contrib\vcpkg-triplets --overlay-ports=$(SolutionDir)contrib\vcpkg-ports</VcpkgAdditionalInstallOptions>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <VcpkgEnabled>true</VcpkgEnabled>
     <VcpkgTriplet>x86-windows-ovpn</VcpkgTriplet>
+    <VcpkgAdditionalInstallOptions>--overlay-triplets=$(SolutionDir)contrib\vcpkg-triplets --overlay-ports=$(SolutionDir)contrib\vcpkg-ports</VcpkgAdditionalInstallOptions>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <VcpkgEnabled>true</VcpkgEnabled>
     <VcpkgTriplet>x86-windows-ovpn</VcpkgTriplet>
+    <VcpkgAdditionalInstallOptions>--overlay-triplets=$(SolutionDir)contrib\vcpkg-triplets --overlay-ports=$(SolutionDir)contrib\vcpkg-ports</VcpkgAdditionalInstallOptions>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <VcpkgEnabled>true</VcpkgEnabled>
     <VcpkgTriplet>x64-windows-ovpn</VcpkgTriplet>
+    <VcpkgAdditionalInstallOptions>--overlay-triplets=$(SolutionDir)contrib\vcpkg-triplets --overlay-ports=$(SolutionDir)contrib\vcpkg-ports</VcpkgAdditionalInstallOptions>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <VcpkgEnabled>true</VcpkgEnabled>
     <VcpkgTriplet>x64-windows-ovpn</VcpkgTriplet>
+    <VcpkgAdditionalInstallOptions>--overlay-triplets=$(SolutionDir)contrib\vcpkg-triplets --overlay-ports=$(SolutionDir)contrib\vcpkg-ports</VcpkgAdditionalInstallOptions>
+  </PropertyGroup>
+  <PropertyGroup Label="Vcpkg">
+    <VcpkgEnableManifest>true</VcpkgEnableManifest>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -270,6 +279,7 @@
     <ClCompile Include="dco.c" />
     <ClCompile Include="dco_win.c" />
     <ClCompile Include="dhcp.c" />
+    <ClCompile Include="dns.c" />
     <ClCompile Include="env_set.c" />
     <ClCompile Include="error.c" />
     <ClCompile Include="event.c" />
@@ -323,6 +333,7 @@
     <ClCompile Include="ssl.c" />
     <ClCompile Include="ssl_openssl.c" />
     <ClCompile Include="ssl_ncp.c" />
+    <ClCompile Include="ssl_pkt.c" />
     <ClCompile Include="ssl_util.c" />
     <ClCompile Include="ssl_verify.c" />
     <ClCompile Include="ssl_verify_openssl.c" />
@@ -356,6 +367,7 @@
     <ClInclude Include="dco.h" />
     <ClInclude Include="dco_win.h" />
     <ClInclude Include="dhcp.h" />
+    <ClInclude Include="dns.h" />
     <ClInclude Include="env_set.h" />
     <ClInclude Include="errlevel.h" />
     <ClInclude Include="error.h" />
@@ -416,6 +428,7 @@
     <ClInclude Include="ssl_common.h" />
     <ClInclude Include="ssl_ncp.h" />
     <ClInclude Include="ssl_openssl.h" />
+    <ClInclude Include="ssl_pkt.h" />
     <ClInclude Include="ssl_util.h" />
     <ClInclude Include="ssl_verify.h" />
     <ClInclude Include="ssl_verify_backend.h" />

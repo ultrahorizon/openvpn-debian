@@ -93,7 +93,7 @@ dco_start_tun(struct tuntap *tt)
 
     DWORD bytes_returned = 0;
     if (!DeviceIoControl(tt->hand, OVPN_IOCTL_START_VPN, NULL, 0, NULL, 0,
-        &bytes_returned, NULL))
+                         &bytes_returned, NULL))
     {
         msg(M_ERR, "DeviceIoControl(OVPN_IOCTL_START_VPN) failed with code %lu",
             GetLastError());
@@ -106,7 +106,7 @@ dco_start_tun(struct tuntap *tt)
 }
 
 static int
-dco_connect_wait(HANDLE handle, OVERLAPPED* ov, int timeout, volatile int* signal_received)
+dco_connect_wait(HANDLE handle, OVERLAPPED *ov, int timeout, volatile int *signal_received)
 {
     DWORD timeout_msec = timeout * 1000;
     const int poll_interval_ms = 50;
@@ -151,8 +151,8 @@ dco_connect_wait(HANDLE handle, OVERLAPPED* ov, int timeout, volatile int* signa
 
 struct tuntap
 dco_create_socket(struct addrinfo *remoteaddr, bool bind_local,
-                  struct addrinfo *bind, const char* devname,
-                  struct gc_arena *gc, int timeout, volatile int* signal_received)
+                  struct addrinfo *bind, const char *devname,
+                  struct gc_arena *gc, int timeout, volatile int *signal_received)
 {
     msg(D_DCO_DEBUG, "%s", __func__);
 
@@ -174,7 +174,7 @@ dco_create_socket(struct addrinfo *remoteaddr, bool bind_local,
     if (bind_local)
     {
         /* Use first local address with correct address family */
-        while(bind && !local)
+        while (bind && !local)
         {
             if (bind->ai_family == remote->sa_family)
             {
@@ -187,7 +187,7 @@ dco_create_socket(struct addrinfo *remoteaddr, bool bind_local,
     if (bind_local && !local)
     {
         msg(M_FATAL, "DCO: Socket bind failed: Address to bind lacks %s record",
-           addr_family_name(remote->sa_family));
+            addr_family_name(remote->sa_family));
     }
 
     if (remote->sa_family == AF_INET6)
@@ -244,31 +244,34 @@ dco_create_socket(struct addrinfo *remoteaddr, bool bind_local,
     return tt;
 }
 
-int dco_new_peer(dco_context_t *dco, unsigned int peerid, int sd,
-                 struct sockaddr *localaddr, struct sockaddr *remoteaddr,
-                 struct in_addr *remote_in4, struct in6_addr *remote_in6)
+int
+dco_new_peer(dco_context_t *dco, unsigned int peerid, int sd,
+             struct sockaddr *localaddr, struct sockaddr *remoteaddr,
+             struct in_addr *remote_in4, struct in6_addr *remote_in6)
 {
     msg(D_DCO_DEBUG, "%s: peer-id %d, fd %d", __func__, peerid, sd);
     return 0;
 }
 
-int dco_del_peer(dco_context_t *dco, unsigned int peerid)
+int
+dco_del_peer(dco_context_t *dco, unsigned int peerid)
 {
     msg(D_DCO_DEBUG, "%s: peer-id %d - not implemented", __func__, peerid);
     return 0;
 }
 
-int ovpn_set_peer(dco_context_t *dco, unsigned int peerid,
-                  unsigned int keepalive_interval,
-                  unsigned int keepalive_timeout)
+int
+dco_set_peer(dco_context_t *dco, unsigned int peerid,
+             int keepalive_interval, int keepalive_timeout, int mss)
 {
-    msg(D_DCO_DEBUG, "%s: peer-id %d, keepalive %d/%d", __func__, peerid,
-        keepalive_interval, keepalive_timeout);
+    msg(D_DCO_DEBUG, "%s: peer-id %d, keepalive %d/%d, mss %d", __func__,
+        peerid, keepalive_interval, keepalive_timeout, mss);
 
     OVPN_SET_PEER peer;
 
     peer.KeepaliveInterval =  keepalive_interval;
     peer.KeepaliveTimeout = keepalive_timeout;
+    peer.MSS = mss;
 
     DWORD bytes_returned = 0;
     if (!DeviceIoControl(dco->tt->hand, OVPN_IOCTL_SET_PEER, &peer,
@@ -288,7 +291,7 @@ dco_new_key(dco_context_t *dco, unsigned int peerid, int keyid,
             const char *ciphername)
 {
     msg(D_DCO_DEBUG, "%s: slot %d, key-id %d, peer-id %d, cipher %s",
-       __func__, slot, keyid, peerid, ciphername);
+        __func__, slot, keyid, peerid, ciphername);
 
     const int nonce_len = 8;
     size_t key_len = cipher_kt_key_size(ciphername);
@@ -331,7 +334,8 @@ dco_del_key(dco_context_t *dco, unsigned int peerid, dco_key_slot_t slot)
     return 0;
 }
 
-int dco_swap_keys(dco_context_t *dco, unsigned int peer_id)
+int
+dco_swap_keys(dco_context_t *dco, unsigned int peer_id)
 {
     msg(D_DCO_DEBUG, "%s: peer-id %d", __func__, peer_id);
 
@@ -372,7 +376,8 @@ dco_event_set(dco_context_t *dco, struct event_set *es, void *arg)
     /* no-op on windows */
 }
 
-const char* dco_get_supported_ciphers()
+const char *
+dco_get_supported_ciphers()
 {
     /*
      * this API can be called either from user mode or kernel mode,

@@ -1235,8 +1235,11 @@ multi_learn_in_addr_t(struct multi_context *m,
         management_learn_addr(management, &mi->context.c2.mda_context, &addr, primary);
     }
 #endif
-
-    dco_install_iroute(m, mi, &addr, primary);
+    if (!primary)
+    {
+        /* We do not want to install IP -> IP dev ovpn-dco0 */
+        dco_install_iroute(m, mi, &addr);
+    }
 
     return owner;
 }
@@ -1272,7 +1275,7 @@ multi_learn_in6_addr(struct multi_context *m,
     if (!primary)
     {
         /* We do not want to install IP -> IP dev ovpn-dco0 */
-        dco_install_iroute(m, mi, &addr, primary);
+        dco_install_iroute(m, mi, &addr);
     }
 
     return owner;
@@ -1777,9 +1780,9 @@ multi_client_set_protocol_options(struct context *c)
     else if (dco_enabled(o))
     {
         msg(M_INFO, "Client does not support DATA_V2. Data channel offloaing "
-                    "requires DATA_V2. Dropping client.");
+            "requires DATA_V2. Dropping client.");
         auth_set_client_reason(tls_multi, "Data channel negotiation "
-                                          "failed (missing DATA_V2)");
+                               "failed (missing DATA_V2)");
         return false;
     }
 
@@ -1864,7 +1867,7 @@ multi_client_set_protocol_options(struct context *c)
     if (!ret)
     {
         auth_set_client_reason(tls_multi, "Data channel cipher negotiation "
-                                          "failed (no shared cipher)");
+                               "failed (no shared cipher)");
     }
 
     gc_free(&gc);
@@ -2324,6 +2327,20 @@ multi_client_generate_tls_keys(struct multi_context *m, struct multi_instance *m
         return false;
     }
 
+    if (dco_enabled(&c->options)
+        && (c->options.ping_send_timeout || c->c2.frame.mss_fix))
+    {
+        int ret = dco_set_peer(&c->c1.tuntap->dco, c->c2.tls_multi->peer_id,
+                               c->options.ping_send_timeout,
+                               c->options.ping_rec_timeout,
+                               c->c2.frame.mss_fix);
+        if (ret < 0)
+        {
+            msg(D_DCO, "Cannot set DCO peer: %s", strerror(-ret));
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -2492,7 +2509,7 @@ multi_client_connect_compress_migrate(struct multi_context *m,
 
     if (o->comp.flags & COMP_F_MIGRATE && mi->context.c2.tls_multi->remote_usescomp)
     {
-        if(peer_info && strstr(peer_info, "IV_COMP_STUBv2=1"))
+        if (peer_info && strstr(peer_info, "IV_COMP_STUBv2=1"))
         {
             push_option(o, "compress stub-v2", M_USAGE);
         }
@@ -3153,7 +3170,7 @@ process_incoming_dco_packet(struct multi_context *m, struct multi_instance *mi, 
     mi->context.c2.buf = orig_buf;
     if (BLEN(&dco->dco_packet_in) < 1)
     {
-        msg(D_DCO, "Received too short packet for peer %d" , peer_id);
+        msg(D_DCO, "Received too short packet for peer %d", peer_id);
         goto done;
     }
 
@@ -3161,10 +3178,10 @@ process_incoming_dco_packet(struct multi_context *m, struct multi_instance *mi, 
     uint8_t op = ptr[0] >> P_OPCODE_SHIFT;
     if (op == P_DATA_V2 || op == P_DATA_V2)
     {
-        msg(D_DCO, "DCO: received data channel packet for peer %d" , peer_id);
+        msg(D_DCO, "DCO: received data channel packet for peer %d", peer_id);
         goto done;
     }
-    done:
+done:
     buf_init(&dco->dco_packet_in, 0);
 }
 
@@ -3174,17 +3191,19 @@ process_incoming_del_peer(struct multi_context *m, struct multi_instance *mi, dc
     const char *reason = "(unknown reason by ovpn-dco)";
     switch (dco->dco_del_peer_reason)
     {
-    case OVPN_DEL_PEER_REASON_EXPIRED:
-        reason = "ovpn-dco: ping expired";
-        break;
-    case OVPN_DEL_PEER_REASON_TRANSPORT_ERROR:
-        reason = "ovpn-dco: transport error";
-        break;
-    case OVPN_DEL_PEER_REASON_USERSPACE:
-        /* This very likely ourselves but might be another process, so
-         * still process it */
-        reason = "ovpn-dco: userspace request";
-        break;
+        case OVPN_DEL_PEER_REASON_EXPIRED:
+            reason = "ovpn-dco: ping expired";
+            break;
+
+        case OVPN_DEL_PEER_REASON_TRANSPORT_ERROR:
+            reason = "ovpn-dco: transport error";
+            break;
+
+        case OVPN_DEL_PEER_REASON_USERSPACE:
+            /* This very likely ourselves but might be another process, so
+             * still process it */
+            reason = "ovpn-dco: userspace request";
+            break;
     }
 
     /* When kernel already deleted the peer, the socket is no longer
@@ -3219,14 +3238,14 @@ multi_process_incoming_dco(struct multi_context *m)
     }
     else
     {
-        msg(D_DCO, "Received packet for peer-id unknown to OpenVPN: %d" , peer_id);
+        msg(D_DCO, "Received packet for peer-id unknown to OpenVPN: %d", peer_id);
     }
 
     dco->dco_message_type = 0;
     dco->dco_message_peer_id = -1;
     return ret > 0;
 }
-#endif
+#endif /* if defined(ENABLE_DCO) && defined(TARGET_LINUX) */
 
 /*
  * Process packets in the TCP/UDP socket -> TUN/TAP interface direction,
@@ -4018,7 +4037,8 @@ init_management_callback_multi(struct multi_context *m)
 #endif /* ifdef ENABLE_MANAGEMENT */
 }
 
-void multi_assign_peer_id(struct multi_context *m, struct multi_instance *mi)
+void
+multi_assign_peer_id(struct multi_context *m, struct multi_instance *mi)
 {
     /* max_clients must be less then max peer-id value */
     ASSERT(m->max_clients < MAX_PEER_ID);

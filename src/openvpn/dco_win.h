@@ -22,7 +22,7 @@
 #ifndef DCO_WIN_H
 #define DCO_WIN_H
 
-#if defined(_WIN32)
+#if defined(ENABLE_DCO) && defined(_WIN32)
 
 #include "buffer.h"
 #include "ovpn-dco-win.h"
@@ -46,9 +46,10 @@ dco_create_socket(struct addrinfo *remoteaddr, bool bind_local,
 void
 dco_start_tun(struct tuntap *tt);
 
-#else
+#else /* if defined(ENABLE_DCO) && defined(_WIN32) */
 
-static inline void dco_start_tun(struct tuntap *tt)
+static inline void
+dco_start_tun(struct tuntap *tt)
 {
     ASSERT(false);
 }

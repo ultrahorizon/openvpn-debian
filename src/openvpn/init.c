@@ -54,6 +54,7 @@
 #include "forward.h"
 #include "auth_token.h"
 #include "mss.h"
+#include "mudp.h"
 #include "dco.h"
 
 #include "memdbg.h"
@@ -792,11 +793,6 @@ init_static(void)
 
     init_ssl_lib();
 
-#ifdef PID_TEST
-    packet_id_interactive_test();       /* test the sequence number code */
-    return false;
-#endif
-
 #ifdef SCHEDULE_TEST
     schedule_test();
     return false;
@@ -1398,6 +1394,11 @@ do_init_route_list(const struct options *options,
     int dev = dev_type_enum(options->dev, options->dev_type);
     int metric = 0;
 
+    if (dco_enabled(options))
+    {
+        metric = DCO_DEFAULT_METRIC;
+    }
+
     if (dev == DEV_TYPE_TUN && (options->topology == TOP_NET30 || options->topology == TOP_P2P))
     {
         gw = options->ifconfig_remote_netmask;
@@ -1433,6 +1434,11 @@ do_init_route_ipv6_list(const struct options *options,
 {
     const char *gw = NULL;
     int metric = -1;            /* no metric set */
+
+    if (dco_enabled(options))
+    {
+        metric = DCO_DEFAULT_METRIC;
+    }
 
     gw = options->ifconfig_ipv6_remote;         /* default GW = remote end */
     if (options->route_ipv6_default_gateway)
@@ -2042,7 +2048,6 @@ tun_abort(void)
  * Handle delayed tun/tap interface bringup due to --up-delay or --pull
  */
 
-
 /**
  * Helper for do_up().  Take two option hashes and return true if they are not
  * equal, or either one is all-zeroes.
@@ -2085,6 +2090,17 @@ do_up(struct context *c, bool pulled_options, unsigned int option_types_found)
                 management_sleep(1);
                 c->c2.did_open_tun = do_open_tun(c);
                 update_time();
+            }
+        }
+
+        if ((c->mode == MODE_POINT_TO_POINT) && c->c2.did_open_tun)
+        {
+            /* ovpn-dco requires adding the peer now, before any option can be set */
+            int ret = dco_p2p_add_new_peer(c);
+            if (ret < 0)
+            {
+                msg(D_DCO, "Cannot add peer to DCO: %s", strerror(-ret));
+                return false;
             }
         }
 
@@ -2189,8 +2205,8 @@ do_deferred_p2p_ncp(struct context *c)
     else if (!c->options.enable_ncp_fallback)
     {
         msg(D_TLS_ERRORS, "ERROR: failed to negotiate cipher with peer and "
-                          "--data-ciphers-fallback not enabled. No usable "
-                          "data channel cipher");
+            "--data-ciphers-fallback not enabled. No usable "
+            "data channel cipher");
         return false;
     }
 
@@ -2213,12 +2229,13 @@ do_deferred_p2p_ncp(struct context *c)
 }
 
 
-static bool check_dco_pull_options(struct options *o)
+static bool
+check_dco_pull_options(struct options *o)
 {
     if (!o->use_peer_id)
     {
         msg(D_TLS_ERRORS, "OPTIONS IMPORT: Server did not request DATA_V2 packet "
-                          "format required for data channel offload");
+            "format required for data channel offload");
         return false;
     }
     return true;
@@ -2328,17 +2345,6 @@ do_deferred_options(struct context *c, const unsigned int found)
         }
 #endif
 
-        if (c->c2.did_open_tun)
-        {
-            /* If we are in DCO mode we need to set the new peer options now */
-            int ret = dco_p2p_add_new_peer(c);
-            if (ret < 0)
-            {
-                msg(D_DCO, "Cannot add peer to DCO: %s", strerror(-ret));
-                return false;
-            }
-        }
-
         struct tls_session *session = &c->c2.tls_multi->session[TM_ACTIVE];
         if (!tls_session_update_crypto_params(c->c2.tls_multi, session,
                                               &c->options, &c->c2.frame,
@@ -2349,14 +2355,31 @@ do_deferred_options(struct context *c, const unsigned int found)
             return false;
         }
 
-        /* Check if the pushed options are compatible with DCO if we have DCO
-         * enabled */
-        if (dco_enabled(&c->options) && !check_dco_pull_options(&c->options))
+        if (dco_enabled(&c->options))
         {
-            msg(D_TLS_ERRORS, "OPTIONS ERROR: pushed options are incompatible with "
-                              "data channel offload. Use --disable-dco to connect"
-                              "to this server");
-            return false;
+            /* Check if the pushed options are compatible with DCO if we have
+             * DCO enabled */
+            if (!check_dco_pull_options(&c->options))
+            {
+                msg(D_TLS_ERRORS, "OPTIONS ERROR: pushed options are incompatible with "
+                    "data channel offload. Use --disable-dco to connect"
+                    "to this server");
+                return false;
+            }
+
+            if (c->options.ping_send_timeout || c->c2.frame.mss_fix)
+            {
+                int ret = dco_set_peer(&c->c1.tuntap->dco,
+                                       c->c2.tls_multi->peer_id,
+                                       c->options.ping_send_timeout,
+                                       c->options.ping_rec_timeout,
+                                       c->c2.frame.mss_fix);
+                if (ret < 0)
+                {
+                    msg(D_DCO, "Cannot set DCO peer: %s", strerror(-ret));
+                    return false;
+                }
+            }
         }
     }
     return true;
@@ -2494,7 +2517,7 @@ get_frame_mtu(struct context *c, const struct options *o)
 
     if (mtu < TUN_MTU_MIN)
     {
-        msg(M_WARN, "TUN MTU value (%lu) must be at least %d", mtu, TUN_MTU_MIN);
+        msg(M_WARN, "TUN MTU value (%zu) must be at least %d", mtu, TUN_MTU_MIN);
         frame_print(&c->c2.frame, M_FATAL, "MTU is too small");
     }
     return mtu;
@@ -2531,7 +2554,7 @@ frame_finalize_options(struct context *c, const struct options *o)
 
 
     /* the space that is reserved before the payload to add extra headers to it
-    * we always reserve the space for the worst case */
+     * we always reserve the space for the worst case */
     size_t headroom = 0;
 
     /* includes IV and packet ID */
@@ -2560,8 +2583,8 @@ frame_finalize_options(struct context *c, const struct options *o)
 
 #ifdef USE_COMP
     msg(D_MTU_DEBUG, "MTU: adding %lu buffer tailroom for compression for %lu "
-                     "bytes of payload",
-                     COMP_EXTRA_BUFFER(payload_size), payload_size);
+        "bytes of payload",
+        COMP_EXTRA_BUFFER(payload_size), payload_size);
     tailroom += COMP_EXTRA_BUFFER(payload_size);
 #endif
 
@@ -2762,25 +2785,25 @@ do_init_crypto_tls_c1(struct context *c)
             return;
         }
 
-       /*
-        * BF-CBC is allowed to be used only when explicitly configured
-        * as NCP-fallback or when NCP has been disabled or explicitly
-        * allowed in the in ncp_ciphers list.
-        * In all other cases do not attempt to initialize BF-CBC as it
-        * may not even be supported by the underlying SSL library.
-        *
-        * Therefore, the key structure has to be initialized when:
-        * - any non-BF-CBC cipher was selected; or
-        * - BF-CBC is selected, NCP is enabled and fallback is enabled
-        *   (BF-CBC will be the fallback).
-        * - BF-CBC is in data-ciphers and we negotiate to use BF-CBC:
-        *   If the negotiated cipher and options->ciphername are the
-        *   same we do not reinit the cipher
-        *
-        * Note that BF-CBC will still be part of the OCC string to retain
-        * backwards compatibility with older clients.
-        */
-        const char* ciphername = options->ciphername;
+        /*
+         * BF-CBC is allowed to be used only when explicitly configured
+         * as NCP-fallback or when NCP has been disabled or explicitly
+         * allowed in the in ncp_ciphers list.
+         * In all other cases do not attempt to initialize BF-CBC as it
+         * may not even be supported by the underlying SSL library.
+         *
+         * Therefore, the key structure has to be initialized when:
+         * - any non-BF-CBC cipher was selected; or
+         * - BF-CBC is selected, NCP is enabled and fallback is enabled
+         *   (BF-CBC will be the fallback).
+         * - BF-CBC is in data-ciphers and we negotiate to use BF-CBC:
+         *   If the negotiated cipher and options->ciphername are the
+         *   same we do not reinit the cipher
+         *
+         * Note that BF-CBC will still be part of the OCC string to retain
+         * backwards compatibility with older clients.
+         */
+        const char *ciphername = options->ciphername;
         if (streq(options->ciphername, "BF-CBC")
             && !tls_item_in_cipher_list("BF-CBC", options->ncp_ciphers)
             && !options->enable_ncp_fallback)
@@ -3028,6 +3051,10 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
         {
             to.tls_wrap.tls_crypt_v2_server_key = c->c1.ks.tls_crypt_v2_server_key;
             to.tls_crypt_v2_verify_script = c->options.tls_crypt_v2_verify_script;
+            if (options->ce.tls_crypt_v2_force_cookie)
+            {
+                to.tls_wrap.opt.flags |= CO_FORCE_TLSCRYPTV2_COOKIE;
+            }
         }
     }
 
@@ -3050,6 +3077,7 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
     if (flags & CF_INIT_TLS_AUTH_STANDALONE)
     {
         c->c2.tls_auth_standalone = tls_auth_standalone_init(&to, &c->c2.gc);
+        c->c2.session_id_hmac = session_id_hmac_init();
     }
 }
 
@@ -3066,9 +3094,10 @@ do_init_frame_tls(struct context *c)
     }
     if (c->c2.tls_auth_standalone)
     {
-        tls_auth_standalone_finalize(c->c2.tls_auth_standalone, &c->c2.frame);
+        tls_init_control_channel_frame_parameters(&c->c2.frame, &c->c2.tls_auth_standalone->frame);
         frame_print(&c->c2.tls_auth_standalone->frame, D_MTU_INFO,
                     "TLS-Auth MTU parms");
+        c->c2.tls_auth_standalone->tls_wrap.work = alloc_buf_gc(BUF_SIZE(&c->c2.frame), &c->c2.gc);
     }
 }
 
@@ -3151,14 +3180,14 @@ do_init_frame(struct context *c)
     if (c->options.ce.fragment > 0 && c->options.ce.mssfix > c->options.ce.fragment)
     {
         msg(M_WARN, "WARNING: if you use --mssfix and --fragment, you should "
-                    "set --fragment (%d) larger or equal than --mssfix (%d)",
-                    c->options.ce.fragment, c->options.ce.mssfix);
+            "set --fragment (%d) larger or equal than --mssfix (%d)",
+            c->options.ce.fragment, c->options.ce.mssfix);
     }
     if (c->options.ce.fragment > 0 && c->options.ce.mssfix > 0
         && c->options.ce.fragment_encap != c->options.ce.mssfix_encap)
     {
         msg(M_WARN, "WARNING: if you use --mssfix and --fragment, you should "
-                    "use the \"mtu\" flag for both or none of of them.");
+            "use the \"mtu\" flag for both or none of of them.");
     }
 #endif
 }

@@ -17,9 +17,9 @@ net__iface_up(bool up)
 }
 
 static int
-net__iface_new(const char *name, enum iface_type type, char *type_str)
+net__iface_new(const char *name, const char *type)
 {
-    printf("CMD: ip link add %s type %s\n", name, type_str);
+    printf("CMD: ip link add %s type %s\n", name, type);
     return net_iface_new(NULL, name, type, NULL);
 }
 
@@ -261,7 +261,7 @@ main(int argc, char *argv[])
             return net__route_v6_add_gw("2001:cafe:babe::", 48, "2001::2", 600);
 
         case 8:
-            return net__iface_new("dummy0815", IFACE_DUMMY, "dummy");
+            return net__iface_new("dummy0815", "dummy");
 
         case 9:
             return net__iface_del("dummy0815");
