@@ -2121,10 +2121,10 @@ phase2_socks_client(struct link_socket *sock, struct signal_info *sig_info)
 
 #if defined(_WIN32)
 static void
-create_socket_windco(struct context* c, struct link_socket* sock,
+create_socket_windco(struct context *c, struct link_socket *sock,
                      volatile int *signal_received)
 {
-    struct tuntap* tt;
+    struct tuntap *tt;
     /* In this case persist-tun is enabled, which we don't support yet */
     ASSERT(!c->c1.tuntap);
 
@@ -2149,7 +2149,7 @@ create_socket_windco(struct context* c, struct link_socket* sock,
     static_assert(sizeof(sock->sd) == sizeof(tt->hand), "HANDLE and SOCKET size differs");
     sock->sd = (SOCKET)tt->hand;
 }
-#endif
+#endif /* if defined(_WIN32) */
 
 /* finalize socket initialization */
 void
@@ -2925,6 +2925,17 @@ print_in6_addr(struct in6_addr a6, unsigned int flags, struct gc_arena *gc)
     return BSTR(&out);
 }
 
+/*
+ * Convert an in_port_t in host byte order to a string
+ */
+const char *
+print_in_port_t(in_port_t port, struct gc_arena *gc)
+{
+    struct buffer buffer = alloc_buf_gc(8, gc);
+    buf_printf(&buffer, "%hu", port);
+    return BSTR(&buffer);
+}
+
 #ifndef UINT8_MAX
 #define UINT8_MAX 0xff
 #endif
@@ -3501,12 +3512,12 @@ socket_recv_queue(struct link_socket *sock, int maxsize)
         if (sock->info.dco_installed)
         {
             status = ReadFile(
-                    (HANDLE) sock->sd,
+                (HANDLE) sock->sd,
                 wsabuf[0].buf,
                 wsabuf[0].len,
                 &sock->reads.size,
                 &sock->reads.overlapped
-            );
+                );
             /* Readfile status is inverted from WSARecv */
             status = !status;
         }
@@ -3618,12 +3629,12 @@ socket_send_queue(struct link_socket *sock, struct buffer *buf, const struct lin
         if (sock->info.dco_installed)
         {
             status = WriteFile(
-                    (HANDLE)sock->sd,
-                    wsabuf[0].buf,
-                    wsabuf[0].len,
-                    &sock->writes.size,
-                    &sock->writes.overlapped
-            );
+                (HANDLE)sock->sd,
+                wsabuf[0].buf,
+                wsabuf[0].len,
+                &sock->writes.size,
+                &sock->writes.overlapped
+                );
 
             /* WriteFile status is inverted from WSASendTo */
             status = !status;

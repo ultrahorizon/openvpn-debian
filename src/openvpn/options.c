@@ -506,6 +506,16 @@ static const char usage_message[] =
     "                  ignore or reject causes the option to be allowed, removed or\n"
     "                  rejected with error. May be specified multiple times, and\n"
     "                  each filter is applied in the order of appearance.\n"
+    "--dns server <n> <option> <value> [value ...] : Configure option for DNS server #n\n"
+    "                  Valid options are :\n"
+    "                  address <addr[:port]> [addr[:port]] : server address 4/6\n"
+    "                  resolve-domains <domain> [domain ...] : split domains\n"
+    "                  exclude-domains <domain> [domain ...] : domains not to resolve\n"
+    "                  dnssec <yes|no|optional> : option to use DNSSEC\n"
+    "                  type <DoH|DoT> : query server over HTTPS / TLS\n"
+    "                  sni <domain> : DNS server name indication\n"
+    "--dns search-domains <domain> [domain ...]:\n"
+    "                  Add domains to DNS domain search list\n"
     "--auth-retry t  : How to handle auth failures.  Set t to\n"
     "                  none (default), interact, or nointeract.\n"
     "--static-challenge t e : Enable static challenge/response protocol using\n"
@@ -793,6 +803,7 @@ init_options(struct options *o, const bool init_gc)
     if (init_gc)
     {
         gc_init(&o->gc);
+        gc_init(&o->dns_options.gc);
         o->gc_owned = true;
     }
     o->mode = MODE_POINT_TO_POINT;
@@ -898,6 +909,7 @@ uninit_options(struct options *o)
     if (o->gc_owned)
     {
         gc_free(&o->gc);
+        gc_free(&o->dns_options.gc);
     }
 }
 
@@ -954,7 +966,7 @@ pull_filter_type_name(int type)
 #define SHOW_UNSIGNED(var)  SHOW_PARM(var, o->var, "0x%08x")
 #define SHOW_BOOL(var)      SHOW_PARM(var, (o->var ? "ENABLED" : "DISABLED"), "%s");
 
-#endif
+#endif /* ifndef ENABLE_SMALL */
 
 static void
 setenv_connection_entry(struct env_set *es,
@@ -1000,6 +1012,11 @@ setenv_settings(struct env_set *es, const struct options *o)
     else
     {
         setenv_connection_entry(es, &o->ce, 1);
+    }
+
+    if (!o->pull)
+    {
+        setenv_dns_options(&o->dns_options, es);
     }
 }
 
@@ -1151,7 +1168,7 @@ parse_hash_fingerprint_multiline(const char *str, int nbytes, int msglevel,
     while ((line = strsep(&lines, "\n")))
     {
         /* ignore leading whitespace */
-        while(isspace(*line))
+        while (isspace(*line))
         {
             line++;
         }
@@ -1182,7 +1199,7 @@ parse_hash_fingerprint_multiline(const char *str, int nbytes, int msglevel,
 #ifndef ENABLE_SMALL
 
 static void
-show_dhcp_option_list(const char *name, const char * const*array, int len)
+show_dhcp_option_list(const char *name, const char *const *array, int len)
 {
     int i;
     for (i = 0; i < len; ++i)
@@ -1275,6 +1292,64 @@ dhcp_option_address_parse(const char *name, const char *parm, in_addr_t *array, 
     }
 }
 
+/*
+ * If DNS options are set use these for TUN/TAP options as well.
+ * Applies to DNS, DNS6 and DOMAIN-SEARCH.
+ * Existing options will be discarded.
+ */
+static void
+tuntap_options_copy_dns(struct options *o)
+{
+    struct tuntap_options *tt = &o->tuntap_options;
+    struct dns_options *dns = &o->dns_options;
+
+    if (dns->search_domains)
+    {
+        tt->domain_search_list_len = 0;
+        const struct dns_domain *domain = dns->search_domains;
+        while (domain && tt->domain_search_list_len < N_SEARCH_LIST_LEN)
+        {
+            tt->domain_search_list[tt->domain_search_list_len++] = domain->name;
+            domain = domain->next;
+        }
+        if (domain)
+        {
+            msg(M_WARN, "WARNING: couldn't copy all --dns search-domains to --dhcp-option");
+        }
+    }
+
+    if (dns->servers)
+    {
+        tt->dns_len = 0;
+        tt->dns6_len = 0;
+        bool overflow = false;
+        const struct dns_server *server = dns->servers;
+        while (server)
+        {
+            if (server->addr4_defined && tt->dns_len < N_DHCP_ADDR)
+            {
+                tt->dns[tt->dns_len++] = server->addr4.s_addr;
+            }
+            else
+            {
+                overflow = true;
+            }
+            if (server->addr6_defined && tt->dns6_len < N_DHCP_ADDR)
+            {
+                tt->dns6[tt->dns6_len++] = server->addr6;
+            }
+            else
+            {
+                overflow = true;
+            }
+            server = server->next;
+        }
+        if (overflow)
+        {
+            msg(M_WARN, "WARNING: couldn't copy all --dns server addresses to --dhcp-option");
+        }
+    }
+}
 #endif /* if defined(_WIN32) || defined(TARGET_ANDROID) */
 
 #ifndef ENABLE_SMALL
@@ -1522,6 +1597,7 @@ show_connection_entry(const struct connection_entry *o)
 #endif
     SHOW_INT(mssfix);
     SHOW_BOOL(mssfix_encap);
+    SHOW_BOOL(mssfix_fixed);
 
     SHOW_INT(explicit_exit_notification);
 
@@ -1706,6 +1782,8 @@ show_settings(const struct options *o)
     {
         print_client_nat_list(o->client_nat, D_SHOW_PARMS);
     }
+
+    show_dns_options(&o->dns_options);
 
 #ifdef ENABLE_MANAGEMENT
     SHOW_STR(management_addr);
@@ -2070,16 +2148,16 @@ check_ca_required(const struct options *options)
 #ifndef ENABLE_CRYPTO_MBEDTLS
         || options->ca_path
 #endif
-       )
+        )
     {
         return;
     }
 
-    const char* const str = "You must define CA file (--ca)"
+    const char *const str = "You must define CA file (--ca)"
 #ifndef ENABLE_CRYPTO_MBEDTLS
-        " or CA path (--capath)"
+                            " or CA path (--capath)"
 #endif
-        " and/or peer fingerprint verification (--peer-fingerprint)";
+                            " and/or peer fingerprint verification (--peer-fingerprint)";
     msg(M_USAGE, str);
 }
 
@@ -2318,7 +2396,7 @@ options_postprocess_verify_ce(const struct options *options,
     if (options->mode == MODE_SERVER)
     {
 #define USAGE_VALID_SERVER_PROTOS "--mode server currently only supports " \
-      "--proto values of udp, tcp-server, tcp4-server, or tcp6-server"
+    "--proto values of udp, tcp-server, tcp4-server, or tcp6-server"
 #ifdef TARGET_ANDROID
         msg(M_FATAL, "--mode server not supported on Android");
 #endif
@@ -2589,10 +2667,10 @@ options_postprocess_verify_ce(const struct options *options,
     if (!options->tls_server && !options->tls_client)
     {
         msg(M_INFO, "DEPRECATION: No tls-client or tls-server option in "
-                    "configuration detected. OpenVPN 2.7 will remove the "
-                    "functionality to run a VPN without TLS. "
-                    "See the examples section in the manual page for "
-                    "examples of a similar quick setup with peer-fingerprint.");
+            "configuration detected. OpenVPN 2.7 will remove the "
+            "functionality to run a VPN without TLS. "
+            "See the examples section in the manual page for "
+            "examples of a similar quick setup with peer-fingerprint.");
     }
 
     if (options->ssl_flags & (SSLF_CLIENT_CERT_NOT_REQUIRED|SSLF_CLIENT_CERT_OPTIONAL))
@@ -2758,9 +2836,9 @@ options_postprocess_verify_ce(const struct options *options,
                     if (!options->auth_user_pass_file)
                     {
                         msg(M_USAGE, "No client-side authentication method is "
-                                     "specified.  You must use either "
-                                     "--cert/--key, --pkcs12, or "
-                                     "--auth-user-pass");
+                            "specified.  You must use either "
+                            "--cert/--key, --pkcs12, or "
+                            "--auth-user-pass");
                     }
                 }
                 else if (sum == 2)
@@ -2952,19 +3030,24 @@ options_postprocess_mutate_ce(struct options *o, struct connection_entry *ce)
         }
         else
 #endif
-        if (ce->tun_mtu_defined && o->ce.tun_mtu == TUN_MTU_DEFAULT)
+        if (ce->tun_mtu_defined)
         {
-            /* We want to only set mssfix default value if we use a default
-             * MTU Size, otherwise the different size of tun should either
-             * already solve the problem or mssfix might artifically make the
-             * payload packets smaller without mssfix 0 */
-            ce->mssfix = MSSFIX_DEFAULT;
-            ce->mssfix_encap = true;
-        }
-        else
-        {
-            msg(D_MTU_INFO, "Note: not enabling mssfix for non-default value "
-                            "of --tun-mtu");
+            if (o->ce.tun_mtu == TUN_MTU_DEFAULT)
+            {
+                /* We want to only set mssfix default value if we use a default
+                 * MTU Size, otherwise the different size of tun should either
+                 * already solve the problem or mssfix might artifically make the
+                 * payload packets smaller without mssfix 0 */
+                ce->mssfix = MSSFIX_DEFAULT;
+                ce->mssfix_encap = true;
+            }
+            else
+            {
+                /* We still apply the mssfix value but only adjust it to the
+                 * size of the tun interface. */
+                ce->mssfix = ce->tun_mtu;
+                ce->mssfix_fixed = true;
+            }
         }
     }
 
@@ -3102,6 +3185,16 @@ options_postprocess_verify(const struct options *o)
     {
         options_postprocess_verify_ce(o, &o->ce);
     }
+
+    dns_options_verify(M_FATAL, &o->dns_options);
+
+    if (dco_enabled(o) && o->enable_c2c)
+    {
+        msg(M_WARN, "Note: --client-to-client has no effect when using data "
+            "channel offload: packets are always sent to the VPN "
+            "interface and then routed based on the system routing "
+            "table");
+    }
 }
 
 /**
@@ -3156,10 +3249,10 @@ options_postprocess_cipher(struct options *o)
         o->ciphername = "BF-CBC";
 
         msg(M_INFO, "Note: --cipher is not set. OpenVPN versions before 2.5 "
-                    "defaulted to BF-CBC as fallback when cipher negotiation "
-                    "failed in this case. If you need this fallback please add "
-                    "'--data-ciphers-fallback 'BF-CBC' to your configuration "
-                    "and/or add BF-CBC to --data-ciphers.");
+            "defaulted to BF-CBC as fallback when cipher negotiation "
+            "failed in this case. If you need this fallback please add "
+            "'--data-ciphers-fallback 'BF-CBC' to your configuration "
+            "and/or add BF-CBC to --data-ciphers.");
     }
     else if (!o->enable_ncp_fallback
              && !tls_item_in_cipher_list(o->ciphername, o->ncp_ciphers))
@@ -3172,13 +3265,13 @@ options_postprocess_cipher(struct options *o)
 }
 
 /**
- * The option --compat-mode is used to set up default settings to values 
+ * The option --compat-mode is used to set up default settings to values
  * used on the specified openvpn version and earlier.
  *
  * This function is used in various "default option" paths to test if the
  * user requested compatibility with a version before the one specified
- * as argument. This way some default settings can be automatically 
- * altered to guarantee compatibility with the version specified by the 
+ * as argument. This way some default settings can be automatically
+ * altered to guarantee compatibility with the version specified by the
  * user via --compat-mode.
  *
  * @param version   need compatibility with openvpn versions before the
@@ -3200,7 +3293,7 @@ options_set_backwards_compatible_options(struct options *o)
 {
     /* TLS min version is not set */
     int tls_ver_min = (o->ssl_flags >> SSLF_TLS_VERSION_MIN_SHIFT)
-                          & SSLF_TLS_VERSION_MIN_MASK;
+                      & SSLF_TLS_VERSION_MIN_MASK;
     if (tls_ver_min == 0)
     {
         int tls_ver_max = (o->ssl_flags >> SSLF_TLS_VERSION_MAX_SHIFT)
@@ -3357,6 +3450,16 @@ options_postprocess_mutate(struct options *o)
      * Save certain parms before modifying options during connect, especially
      * when using --pull
      */
+    if (o->pull)
+    {
+        dns_options_preprocess_pull(&o->dns_options);
+    }
+#if defined(_WIN32) || defined(TARGET_ANDROID)
+    else
+    {
+        tuntap_options_copy_dns(o);
+    }
+#endif
     pre_connect_save(o);
 }
 
@@ -3702,6 +3805,25 @@ options_postprocess(struct options *options)
 }
 
 /*
+ * Sanity check on options after more options were pulled from server.
+ * Also time to modify some options based on other options.
+ */
+bool
+options_postprocess_pull(struct options *o, struct env_set *es)
+{
+    bool success = dns_options_verify(D_PUSH_ERRORS, &o->dns_options);
+    if (success)
+    {
+        dns_options_postprocess_pull(&o->dns_options);
+        setenv_dns_options(&o->dns_options, es);
+#if defined(_WIN32) || defined(TARGET_ANDROID)
+        tuntap_options_copy_dns(o);
+#endif
+    }
+    return success;
+}
+
+/*
  * Save/Restore certain option defaults before --pull is applied.
  */
 
@@ -3731,6 +3853,8 @@ pre_connect_save(struct options *o)
 
     o->pre_connect->route_default_gateway = o->route_default_gateway;
     o->pre_connect->route_ipv6_default_gateway = o->route_ipv6_default_gateway;
+
+    o->pre_connect->dns_options = clone_dns_options(o->dns_options, &o->gc);
 
     /* NCP related options that can be overwritten by a push */
     o->pre_connect->ciphername = o->ciphername;
@@ -3781,6 +3905,12 @@ pre_connect_restore(struct options *o, struct gc_arena *gc)
 
         o->route_default_gateway = pp->route_default_gateway;
         o->route_ipv6_default_gateway = pp->route_ipv6_default_gateway;
+
+        /* Free DNS options and reset them to pre-pull state */
+        gc_free(&o->dns_options.gc);
+        struct gc_arena dns_gc = gc_new();
+        o->dns_options = clone_dns_options(pp->dns_options, &dns_gc);
+        o->dns_options.gc = dns_gc;
 
         if (pp->client_nat_defined)
         {
@@ -4344,11 +4474,11 @@ parse_windows_driver(const char *str, const int msglevel)
     else
     {
         msg(msglevel, "--windows-driver must be tap-windows6, wintun "
-                      "or ovpn-dco-win");
+            "or ovpn-dco-win");
         return WINDOWS_DRIVER_UNSPECIFIED;
     }
 }
-#endif
+#endif /* ifdef _WIN32 */
 
 /*
  * parse/print topology coding
@@ -5339,7 +5469,8 @@ show_compression_warning(struct compress_options *info)
 }
 #endif
 
-bool key_is_external(const struct options *options)
+bool
+key_is_external(const struct options *options)
 {
     bool ret = false;
 #ifdef ENABLE_MANAGEMENT
@@ -6214,7 +6345,7 @@ add_option(struct options *options,
             msg(msglevel, "Unknown parameter to --fragment: %s", p[2]);
         }
     }
-#endif
+#endif /* ifdef ENABLE_FRAGMENT */
     else if (streq(p[0], "mtu-disc") && p[1] && !p[2])
     {
         VERIFY_PERMISSION(OPT_P_MTU|OPT_P_CONNECTION);
@@ -6264,9 +6395,9 @@ add_option(struct options *options,
         }
     }
 #ifdef TARGET_LINUX
-    else if (streq (p[0], "bind-dev") && p[1])
+    else if (streq(p[0], "bind-dev") && p[1])
     {
-        VERIFY_PERMISSION (OPT_P_SOCKFLAGS);
+        VERIFY_PERMISSION(OPT_P_SOCKFLAGS);
         options->bind_dev = p[1];
     }
 #endif
@@ -6338,7 +6469,7 @@ add_option(struct options *options,
         {
             int64_t val = atoll(p[2]);
             options->inactivity_minimum_bytes = (val < 0) ? 0 : val;
-            if ( options->inactivity_minimum_bytes > INT_MAX )
+            if (options->inactivity_minimum_bytes > INT_MAX)
             {
                 msg(M_WARN, "WARNING: '--inactive' with a 'bytes' value"
                     " >2 Gbyte was silently ignored in older versions.  If "
@@ -6879,7 +7010,7 @@ add_option(struct options *options,
         if (p[1])
         {
             /* value specified, assume encapsulation is not
-             * included unles "mtu" follows later */
+             * included unless "mtu" follows later */
             options->ce.mssfix = positive_atoi(p[1]);
             options->ce.mssfix_encap = false;
             options->ce.mssfix_default = false;
@@ -6889,11 +7020,16 @@ add_option(struct options *options,
             /* Set MTU to default values */
             options->ce.mssfix_default = true;
             options->ce.mssfix_encap = true;
+            options->ce.mssfix_fixed = false;
         }
 
         if (p[2] && streq(p[2], "mtu"))
         {
             options->ce.mssfix_encap = true;
+        }
+        else if (p[2] && streq(p[2], "fixed"))
+        {
+            options->ce.mssfix_fixed = true;
         }
         else if (p[2])
         {
@@ -7593,6 +7729,112 @@ add_option(struct options *options,
         to->ip_win32_defined = true;
     }
 #endif /* ifdef _WIN32 */
+    else if (streq(p[0], "dns") && p[1])
+    {
+        VERIFY_PERMISSION(OPT_P_DEFAULT);
+
+        if (streq(p[1], "search-domains") && p[2])
+        {
+            dns_domain_list_append(&options->dns_options.search_domains, &p[2], &options->dns_options.gc);
+        }
+        else if (streq(p[1], "server") && p[2] && p[3] && p[4])
+        {
+            long priority;
+            if (!dns_server_priority_parse(&priority, p[2], pull_mode))
+            {
+                msg(msglevel, "--dns server: invalid priority value '%s'", p[2]);
+                goto err;
+            }
+
+            struct dns_server *server = dns_server_get(&options->dns_options.servers, priority, &options->dns_options.gc);
+
+            if (streq(p[3], "address") && !p[6])
+            {
+                for (int i = 4; p[i]; i++)
+                {
+                    if (!dns_server_addr_parse(server, p[i]))
+                    {
+                        msg(msglevel, "--dns server %ld: malformed or duplicate address '%s'", priority, p[i]);
+                        goto err;
+                    }
+                }
+            }
+            else if (streq(p[3], "resolve-domains"))
+            {
+                if (server->domain_type == DNS_EXCLUDE_DOMAINS)
+                {
+                    msg(msglevel, "--dns server %ld: cannot use resolve-domains and exclude-domains", priority);
+                    goto err;
+                }
+                server->domain_type = DNS_RESOLVE_DOMAINS;
+                dns_domain_list_append(&server->domains, &p[4], &options->dns_options.gc);
+            }
+            else if (streq(p[3], "exclude-domains"))
+            {
+                if (server->domain_type == DNS_RESOLVE_DOMAINS)
+                {
+                    msg(msglevel, "--dns server %ld: cannot use exclude-domains and resolve-domains", priority);
+                    goto err;
+                }
+                server->domain_type = DNS_EXCLUDE_DOMAINS;
+                dns_domain_list_append(&server->domains, &p[4], &options->dns_options.gc);
+            }
+            else if (streq(p[3], "dnssec") && !p[5])
+            {
+                if (streq(p[4], "yes"))
+                {
+                    server->dnssec = DNS_SECURITY_YES;
+                }
+                else if (streq(p[4], "no"))
+                {
+                    server->dnssec = DNS_SECURITY_NO;
+                }
+                else if (streq(p[4], "optional"))
+                {
+                    server->dnssec = DNS_SECURITY_OPTIONAL;
+                }
+                else
+                {
+                    msg(msglevel, "--dns server %ld: malformed dnssec value '%s'", priority, p[4]);
+                    goto err;
+                }
+            }
+            else if (streq(p[3], "transport") && !p[5])
+            {
+                if (streq(p[4], "plain"))
+                {
+                    server->transport = DNS_TRANSPORT_PLAIN;
+                }
+                else if (streq(p[4], "DoH"))
+                {
+                    server->transport = DNS_TRANSPORT_HTTPS;
+                }
+                else if (streq(p[4], "DoT"))
+                {
+                    server->transport = DNS_TRANSPORT_TLS;
+                }
+                else
+                {
+                    msg(msglevel, "--dns server %ld: malformed transport value '%s'", priority, p[4]);
+                    goto err;
+                }
+            }
+            else if (streq(p[3], "sni") && !p[5])
+            {
+                server->sni = p[4];
+            }
+            else
+            {
+                msg(msglevel, "--dns server %ld: unknown option type '%s' or missing or unknown parameter", priority, p[3]);
+                goto err;
+            }
+        }
+        else
+        {
+            msg(msglevel, "--dns: unknown option type '%s' or missing or unknown parameter", p[1]);
+            goto err;
+        }
+    }
 #if defined(_WIN32) || defined(TARGET_ANDROID)
     else if (streq(p[0], "dhcp-option") && p[1])
     {
@@ -7621,7 +7863,7 @@ add_option(struct options *options,
             o->netbios_node_type = t;
         }
         else if ((streq(p[1], "DNS") || streq(p[1], "DNS6")) && p[2] && !p[3]
-                && (!strstr(p[2], ":") || ipv6_addr_safe(p[2])))
+                 && (!strstr(p[2], ":") || ipv6_addr_safe(p[2])))
         {
             if (strstr(p[2], ":"))
             {
@@ -8219,7 +8461,7 @@ add_option(struct options *options,
 #endif /* ENABLE_CRYPTO_MBEDTLS */
     else if (streq(p[0], "providers") && p[1])
     {
-        for (size_t j = 1; j < MAX_PARMS && p[j] != NULL;j++)
+        for (size_t j = 1; j < MAX_PARMS && p[j] != NULL; j++)
         {
             options->providers.names[j] = p[j];
         }
@@ -8299,8 +8541,8 @@ add_option(struct options *options,
         if (streq(p[0], "verify-hash"))
         {
             msg(M_WARN, "DEPRECATED OPTION: The option --verify-hash is deprecated. "
-            "You should switch to the either use the level 1 certificate as "
-            "--ca option, use --tls-verify or use --peer-fingerprint");
+                "You should switch to the either use the level 1 certificate as "
+                "--ca option, use --tls-verify or use --peer-fingerprint");
             /* verify level 1 cert, i.e. the CA that signed the leaf cert */
             verify_hash_depth = 1;
         }
@@ -8312,7 +8554,7 @@ add_option(struct options *options,
         if (options->verify_hash && options->verify_hash_depth != verify_hash_depth)
         {
             msg(msglevel, "ERROR: Setting %s not allowed. --verify-hash and"
-                          " --peer-fingerprint are mutually exclusive", p[0]);
+                " --peer-fingerprint are mutually exclusive", p[0]);
             goto err;
         }
 
@@ -8326,7 +8568,7 @@ add_option(struct options *options,
             else if (p[2] && !streq(p[2], "SHA256"))
             {
                 msg(msglevel, "invalid or unsupported hashing algorithm: %s "
-                              "(only SHA1 and SHA256 are supported)", p[2]);
+                    "(only SHA1 and SHA256 are supported)", p[2]);
                 goto err;
             }
         }
@@ -8696,6 +8938,19 @@ add_option(struct options *options,
         {
             options->ce.tls_crypt_v2_file = p[1];
             options->ce.tls_crypt_v2_file_inline = is_inline;
+        }
+
+        if (p[2] && streq(p[2], "force-cookie"))
+        {
+            options->ce.tls_crypt_v2_force_cookie = true;
+        }
+        else if (p[2] && streq(p[2], "allow-noncookie"))
+        {
+            options->ce.tls_crypt_v2_force_cookie = false;
+        }
+        else if (p[2])
+        {
+            msg(msglevel, "Unsupported tls-crypt-v2 argument: %s", p[2]);
         }
     }
     else if (streq(p[0], "tls-crypt-v2-verify") && p[1] && !p[2])

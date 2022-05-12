@@ -1,9 +1,9 @@
 /*
  *  Interface to linux dco networking code
  *
- *  Copyright (C) 2020-2021 Antonio Quartulli <a@unstable.cc>
- *  Copyright (C) 2020-2021 Arne Schwabe <arne@rfc2549.org>
- *  Copyright (C) 2020-2021 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2020-2022 Antonio Quartulli <a@unstable.cc>
+ *  Copyright (C) 2020-2022 Arne Schwabe <arne@rfc2549.org>
+ *  Copyright (C) 2020-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -35,6 +35,7 @@ typedef enum ovpn_key_slot dco_key_slot_t;
 typedef enum ovpn_cipher_alg dco_cipher_t;
 
 #define DCO_IROUTE_METRIC   100
+#define DCO_DEFAULT_METRIC  200
 
 typedef struct
 {

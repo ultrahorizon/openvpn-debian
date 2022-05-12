@@ -38,12 +38,6 @@
 #include <stdbool.h>
 #include <netinet/in.h>
 
-static const char *iface_type_str[] = {
-    [IFACE_DUMMY] = "dummy",
-    [IFACE_TUN] = "tun",
-    [IFACE_OVPN_DCO] = "ovpn-dco",
-};
-
 int
 net_ctx_init(struct context *c, openvpn_net_ctx_t *ctx)
 {
@@ -70,13 +64,12 @@ net_ctx_free(openvpn_net_ctx_t *ctx)
 }
 
 int
-net_iface_new(openvpn_net_ctx_t *ctx, const char *iface, enum iface_type type,
+net_iface_new(openvpn_net_ctx_t *ctx, const char *iface, const char *type,
               void *arg)
 {
     struct argv argv = argv_new();
 
-    argv_printf(&argv, "%s link add %s type %s", iproute_path, iface,
-                iface_type_str[type]);
+    argv_printf(&argv, "%s link add %s type %s", iproute_path, iface, type);
     argv_msg(M_INFO, &argv);
     openvpn_execve_check(&argv, ctx->es, S_FATAL, "Linux ip link add failed");
 
@@ -91,7 +84,7 @@ net_iface_del(openvpn_net_ctx_t *ctx, const char *iface)
     struct argv argv = argv_new();
 
     argv_printf(&argv, "%s link del %s", iproute_path, iface);
-    openvpn_execve_check(&argv, ctx->es, S_FATAL, "Linux ip link del failed");
+    openvpn_execve_check(&argv, ctx->es, 0, "Linux ip link del failed");
 
     argv_free(&argv);
 
@@ -140,7 +133,7 @@ net_addr_ll_set(openvpn_net_ctx_t *ctx, const openvpn_net_iface_t *iface,
                 iproute_path, MAC_PRINT_ARG(addr), iface);
 
     argv_msg(M_INFO, &argv);
-    if (!openvpn_execve_check(&argv, ctx->es, M_WARN,
+    if (!openvpn_execve_check(&argv, ctx->es, 0,
                               "Linux ip link set addr failed"))
     {
         ret = -1;

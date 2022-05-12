@@ -41,8 +41,6 @@
  *  @{ */
 
 
-#define EXPONENTIAL_BACKOFF
-
 #define RELIABLE_ACK_SIZE 8     /**< The maximum number of packet IDs
                                  *   waiting to be acknowledged which can
                                  *   be stored in one \c reliable_ack
@@ -125,6 +123,28 @@ struct reliable
  */
 bool reliable_ack_read(struct reliable_ack *ack,
                        struct buffer *buf, const struct session_id *sid);
+
+
+/**
+ * Parse an acknowledgment record from a received packet.
+ *
+ * This function parses the packet ID acknowledgment record from the packet
+ * contained in \a buf.  If the record contains acknowledgments, these are
+ * stored in \a ack.  This function also extracts packet's session ID
+ * and returns it in \a session_id_remote
+ *
+ * @param ack The acknowledgment structure in which received
+ *     acknowledgments are to be stored.
+ * @param buf The buffer containing the packet.
+ * @param session_id_remote The parsed remote session id. This field is
+ *                          is only filled if ack->len >= 1
+ * @return
+ * @li True, if processing was successful.
+ * @li False, if an error occurs during processing.
+ */
+bool
+reliable_ack_parse(struct buffer *buf, struct reliable_ack *ack,
+                   struct session_id *session_id_remote);
 
 /**
  * Remove acknowledged packets from a reliable structure.
@@ -331,21 +351,18 @@ bool reliable_ack_acknowledge_packet_id(struct reliable_ack *ack, packet_id_type
  * @param rel The reliable structure from which to retrieve the
  *     buffer.
  *
- * @return A pointer to the buffer of the entry with the next
- *     sequential key ID.  If no such entry is present, this function
- *     returns NULL.
+ * @return A pointer to the entry with the next sequential key ID.
+ *     If no such entry is present, this function  returns NULL.
  */
-struct buffer *reliable_get_buf_sequenced(struct reliable *rel);
+struct reliable_entry *reliable_get_entry_sequenced(struct reliable *rel);
 
 /**
  * Remove an entry from a reliable structure.
  *
  * @param rel The reliable structure associated with the given buffer.
  * @param buf The buffer of the reliable entry which is to be removed.
- * @param inc_pid If true, the reliable structure's packet ID counter
- *     will be incremented.
  */
-void reliable_mark_deleted(struct reliable *rel, struct buffer *buf, bool inc_pid);
+void reliable_mark_deleted(struct reliable *rel, struct buffer *buf);
 
 /** @} name Functions for extracting incoming packets */
 

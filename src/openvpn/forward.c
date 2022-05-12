@@ -353,7 +353,8 @@ send_control_channel_string_dowork(struct tls_multi *multi,
     return stat;
 }
 
-void reschedule_multi_process(struct context *c)
+void
+reschedule_multi_process(struct context *c)
 {
     interval_action(&c->c2.tmp_int);
     context_immediate_reschedule(c); /* ZERO-TIMEOUT */
@@ -858,6 +859,13 @@ read_incoming_link(struct context *c)
     /* check recvfrom status */
     check_status(status, "read", c->c2.link_socket, NULL);
 
+#ifdef _WIN32
+    if (dco_enabled(&c->options) && (status < 0) && (openvpn_errno() == ERROR_NETNAME_DELETED))
+    {
+        trigger_ping_timeout_signal(c);
+    }
+#endif
+
     /* Remove socks header if applicable */
     socks_postprocess_incoming_link(c);
 
@@ -1110,6 +1118,12 @@ process_incoming_dco(struct context *c)
 
     dco_do_read(dco);
 
+    if (dco->dco_message_type == OVPN_CMD_DEL_PEER)
+    {
+        trigger_ping_timeout_signal(c);
+        return;
+    }
+
     if (dco->dco_message_type != OVPN_CMD_PACKET)
     {
         msg(D_DCO_DEBUG, "%s: received message of type %u - ignoring", __func__,
@@ -1125,7 +1139,7 @@ process_incoming_dco(struct context *c)
 
     c->c2.buf = orig_buff;
     buf_init(&dco->dco_packet_in, 0);
-#endif
+#endif /* if defined(ENABLE_DCO) && defined(TARGET_LINUX) */
 }
 
 /*
@@ -2166,7 +2180,7 @@ process_io(struct context *c)
     }
     else if (status & DCO_READ)
     {
-        if(!IS_SIG(c))
+        if (!IS_SIG(c))
         {
             process_incoming_dco(c);
         }

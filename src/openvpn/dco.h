@@ -41,15 +41,21 @@ struct tls_multi;
 struct tuntap;
 struct event_set;
 
+#if defined(TARGET_LINUX)
+#define DCO_DEFAULT_METRIC  200
+#else
+#define DCO_DEFAULT_METRIC  0
+#endif
+
 #if defined(ENABLE_DCO)
 
 /**
  * Check whether the options struct has any option that is not supported by
- * our current dco implementation. If so it print a warning at warning level
+ * our current dco implementation. If so print a warning at warning level
  * for the first conflicting option found and return true.
  *
  * @param msglevel  the msg level to use to print the warnings
- * @param o         the optiions struct that hold the options
+ * @param o         the options struct that hold the options
  * @return          true if a conflict was detected, false otherwise
  */
 bool dco_check_option_conflict(int msglevel, const struct options *o);
@@ -129,10 +135,9 @@ int dco_do_write(dco_context_t *dco, int peer_id, struct buffer *buf);
  * @param m         the server context
  * @param mi        the client instance acting as nexthop for the route
  * @param addr      the route to add
- * @param primary
  */
 void dco_install_iroute(struct multi_context *m, struct multi_instance *mi,
-                        struct mroute_addr *addr, bool primary);
+                        struct mroute_addr *addr);
 
 /**
  * Remove all routes added through the specified client
@@ -159,7 +164,7 @@ int init_key_dco_bi(struct tls_multi *multi, struct key_state *ks,
                     const char *ciphername, bool server);
 
 /**
- * Possibly swaps or wipes keys from DCO
+ * Possibly swap or wipe keys from DCO
  *
  * @param dco           DCO device context
  * @param multi         TLS multi instance
@@ -176,16 +181,31 @@ void dco_update_keys(dco_context_t *dco, struct tls_multi *multi);
 bool dco_available(int msglevel);
 
 /**
- * Returns list of colon-separated ciphers supported by platform
+ * Return list of colon-separated ciphers supported by platform
  */
-const char* dco_get_supported_ciphers();
+const char *dco_get_supported_ciphers();
 
 /**
- * Installs a DCO in the main event loop
+ * Install a DCO in the main event loop
  */
 void dco_event_set(dco_context_t *dco, struct event_set *es, void *arg);
 
-#else
+/**
+ * Modify DCO peer options. Special values are 0 (disable)
+ * and -1 (do not touch).
+ *
+ * @param dco                DCO device context
+ * @param peer_id            the ID of the peer to be modified
+ * @param keepalive_interval keepalive interval in seconds
+ * @param keepalive_timeout  keepalive timeout in seconds
+ * @param mss                TCP MSS value
+ *
+ * @return                   0 on success or a negative error code otherwise
+ */
+int dco_set_peer(dco_context_t *dco, unsigned int peerid,
+                 int keepalive_interval, int keepalive_timeout, int mss);
+
+#else /* if defined(ENABLE_DCO) */
 
 typedef void *dco_context_t;
 
@@ -203,7 +223,7 @@ ovpn_dco_init(int mode, dco_context_t *dco)
 
 static inline void
 dco_install_iroute(struct multi_context *m, struct multi_instance *mi,
-                   struct mroute_addr *addr, bool primary)
+                   struct mroute_addr *addr)
 {
 }
 
@@ -213,7 +233,7 @@ dco_delete_iroutes(struct multi_context *m, struct multi_instance *mi)
 }
 
 static inline int
-open_tun_dco(struct tuntap *tt, openvpn_net_ctx_t *ctx, const char* dev)
+open_tun_dco(struct tuntap *tt, openvpn_net_ctx_t *ctx, const char *dev)
 {
     return 0;
 }
@@ -225,8 +245,8 @@ close_tun_dco(struct tuntap *tt, openvpn_net_ctx_t *ctx)
 
 static inline int
 init_key_dco_bi(struct tls_multi *multi, struct key_state *ks,
-                    const struct key2 *key2, int key_direction,
-                    const char *ciphername, bool server)
+                const struct key2 *key2, int key_direction,
+                const char *ciphername, bool server)
 {
     ASSERT(false);
 }
@@ -247,6 +267,13 @@ static inline bool
 dco_p2p_add_new_peer(struct context *c)
 {
     return true;
+}
+
+static inline int
+dco_set_peer(dco_context_t *dco, unsigned int peerid,
+             int keepalive_interval, int keepalive_timeout, int mss)
+{
+    return 0;
 }
 
 static inline void

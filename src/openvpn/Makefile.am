@@ -57,6 +57,7 @@ openvpn_SOURCES = \
 	dco_linux.c dco_linux.h \
 	dco_win.c dco_win.h \
 	dhcp.c dhcp.h \
+	dns.c dns.h \
 	env_set.c env_set.h \
 	errlevel.h \
 	error.c error.h \
@@ -121,6 +122,7 @@ openvpn_SOURCES = \
 	ssl_openssl.c ssl_openssl.h \
 	ssl_mbedtls.c ssl_mbedtls.h \
 	ssl_ncp.c ssl_ncp.h \
+	ssl_pkt.c ssl_pkt.h \
 	ssl_util.c ssl_util.h \
 	ssl_common.h \
 	ssl_verify.c ssl_verify.h ssl_verify_backend.h \

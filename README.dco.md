@@ -15,8 +15,8 @@ Overview of current release
 Getting started (Linux)
 -----------------------
 
-- Use a recent Linux kernel. Ubuntu 20.04 (Linux 5.4.0) and Ubuntu 20.10
-  (Linux 5.8.0) are known to work with ovpn-dco.
+- Use a recent Linux kernel. Linux 5.4.0 and newer are known to work with
+  ovpn-dco.
 
 Get the ovpn-dco module from one these urls and build it:
 
@@ -64,13 +64,14 @@ Getting started under windows is currently for brave people having experience
 with windows development. You need to compile openvpn yourself and also need 
 to get the test driver installed on your system.
 
+
 DCO and P2P mode
 ----------------
 DCO is also available when running OpenVPN in P2P mode without --pull/--client option.
 The P2P mode is useful for scenarios when the OpenVPN tunnel should not interfere with
 overall routing and behave more like a "dumb" tunnel like GRE.
 
-However, DCO requires DATA_V2 to be enabled this requires P2P with NCP capability, which
+However, DCO requires DATA_V2 to be enabled. This requires P2P with NCP capability, which
 is only available in OpenVPN 2.6 and later.
 
 OpenVPN prints a diagnostic message for the P2P NCP result when running in P2P mode:
@@ -80,18 +81,24 @@ OpenVPN prints a diagnostic message for the P2P NCP result when running in P2P m
 Double check that your have `DATA_v2=1` in your output and a supported AEAD cipher
 (AES-XXX-GCM or CHACHA20POLY1305).
 
+
 Routing with ovpn-dco
 ---------------------
 The ovpn-dco kernel module implements a more transparent approach to
 configuring routes to clients (aka 'iroutes') and consults the kernel
 routing tables for forwarding decisions.
 
-- Each client has an IPv4 VPN IP and/or an IPv6 assigned to it
+- Each client has an IPv4 and/or an IPv6 VPN IP assigned to it.
 - Additional IP ranges can be routed to a client by adding a route with
-  a client VPN IP as the gateway/nexthop.
-- No internal routing (iroutes) is available. If you need truly internal
-  routes, this can be achieved either with filtering using `iptables` or
-  using `ip rule`.
+  a client VPN IP as the gateway/nexthop (i.e. ip route add a.b.c.d/24 via $VPNIP).
+- Due to the point above, there is no real need to add a companion --route for
+  each --iroute directive, unless you want to blackhole traffic when the specific
+  client is not connected.
+- No internal routing is available. If you need truly internal routes, this can be
+  achieved either with filtering using `iptables` or using `ip rule`.
+- client-to-client behaviour, as implemented in userspace, does not exist: packets
+  always reach the tunnel interface and are then re-routed to the destination peer
+  based on the system routing table.
 
 
 Limitations by design
@@ -100,32 +107,26 @@ Limitations by design
 - only AEAD ciphers are supported and currently only
   Chacha20-Poly1305 and AES-GCM-128/192/256
 - no support for compression or compression framing
-  - see also `--compress migrate` option to move to a setup with compression
-- various features not implemented since have better replacements
+  - see also `--compress migrate` option to move to a setup without compression
+- various features not implemented since they have better replacements
   - --shaper, use tc instead
   - packet manipulation, use nftables/iptables instead
 - OpenVPN 2.4.0 is the minimum peer version.
-  - older version are missing support for the AEAD ciphers
+  - older versions are missing support for the AEAD ciphers
 - topology subnet is the only supported `--topology` for servers
 - iroute directives install routes on the host operating system, see also
-  routing with ovpn-dco
+  Routing with ovpn-dco
 - (ovpn-dco-win) client and p2p mode only
-- (ovpn-dco-win) only AES-GCM-128/192/256 cipher support
+- (ovpn-dco-win) Chacha20-Poly1305 support available starting with Windows 11
 
 
 Current implementation limitations
 -------------------
 - --persistent-tun not tested/supported
 - fallback to non-dco in client mode missing
-- IPv6 mapped IPv4 addresses need Linux 5.12 to properly work
+- IPv6 mapped IPv4 addresses need Linux 5.4.189+/5.10.110+/5.12+ to work
 - Some incompatible options may not properly fallback to non-dco
 - TCP performance with ovpn-dco can still exhibit bad behaviour and drop to a
-  few megabits per seconds.
-- Not all options that should trigger disabling DCO as they are incompatible
-  are currently identified. Some options that do not trigger disabling DCO
-  are ignored while other might yield unexpected results.
-- ovpn-dco currently does not implement RPF checks and will accept any source
-  IP from any client.
-- If a peer VPN IP is outside the default device subnet, the route needs to be
-  added manually.
-- No per client statistics. Only total statistics available on the interface.
+  few megabits per seconds
+- Not all incompatible options are currently identified
+- No per client statistics. Only total statistics available on the interface

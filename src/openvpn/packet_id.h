@@ -35,11 +35,6 @@
 #include "error.h"
 #include "otime.h"
 
-/*
- * Enables OpenVPN to be compiled in special packet_id test mode.
- */
-/*#define PID_TEST*/
-
 #if 1
 /*
  * These are the types that members of
@@ -294,12 +289,22 @@ packet_id_persist_save_obj(struct packet_id_persist *p, const struct packet_id *
     }
 }
 
+/**
+ * Reset the current send packet id to its initial state.
+ * Use very carefully (e.g. in the standalone reset packet context) to
+ * avoid sending more than one packet with the same packet id (that is not
+ * also a resend like the reset packet)
+ *
+ * @param p the packet structure to modify
+ */
+static inline void
+reset_packet_id_send(struct packet_id_send *p)
+{
+    p->time = 0;
+    p->id = 0;
+}
+
 const char *packet_id_net_print(const struct packet_id_net *pin, bool print_timestamp, struct gc_arena *gc);
-
-#ifdef PID_TEST
-void packet_id_interactive_test(void);
-
-#endif
 
 static inline int
 packet_id_size(bool long_form)

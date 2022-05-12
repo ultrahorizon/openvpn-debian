@@ -610,12 +610,6 @@ net_route_v6_best_gw(openvpn_net_ctx_t *ctx, const struct in6_addr *dst,
 
 #ifdef ENABLE_SITNL
 
-static const char *iface_type_str[] = {
-    [IFACE_DUMMY] = "dummy",
-    [IFACE_TUN] = "tun",
-    [IFACE_OVPN_DCO] = "ovpn-dco",
-};
-
 int
 net_route_v4_best_gw(openvpn_net_ctx_t *ctx, const in_addr_t *dst,
                      in_addr_t *best_gw, char *best_iface)
@@ -1335,7 +1329,7 @@ net_route_v6_del(openvpn_net_ctx_t *ctx, const struct in6_addr *dst,
 
 
 int
-net_iface_new(openvpn_net_ctx_t *ctx, const char *iface, enum iface_type type,
+net_iface_new(openvpn_net_ctx_t *ctx, const char *iface, const char *type,
               void *arg)
 {
     struct sitnl_link_req req = { };
@@ -1350,10 +1344,9 @@ net_iface_new(openvpn_net_ctx_t *ctx, const char *iface, enum iface_type type,
     SITNL_ADDATTR(&req.n, sizeof(req), IFLA_IFNAME, iface, strlen(iface) + 1);
 
     struct rtattr *linkinfo = SITNL_NEST(&req.n, sizeof(req), IFLA_LINKINFO);
-    SITNL_ADDATTR(&req.n, sizeof(req), IFLA_INFO_KIND, iface_type_str[type],
-                  strlen(iface_type_str[type]) + 1);
+    SITNL_ADDATTR(&req.n, sizeof(req), IFLA_INFO_KIND, type, strlen(type) + 1);
 #if defined(ENABLE_DCO)
-    if (arg && type == IFACE_OVPN_DCO)
+    if (arg && (strcmp(type, "ovpn-dco") == 0))
     {
         dco_context_t *dco = arg;
         struct rtattr *data = SITNL_NEST(&req.n, sizeof(req), IFLA_INFO_DATA);
@@ -1365,9 +1358,8 @@ net_iface_new(openvpn_net_ctx_t *ctx, const char *iface, enum iface_type type,
     SITNL_NEST_END(&req.n, linkinfo);
 
     req.i.ifi_family = AF_PACKET;
-    req.i.ifi_change = 0xFFFFFFFF;
 
-    msg(D_ROUTE, "%s: add %s type %s", __func__,  iface, iface_type_str[type]);
+    msg(D_ROUTE, "%s: add %s type %s", __func__,  iface, type);
 
     ret = sitnl_send(&req.n, 0, 0, NULL, NULL);
 err:
@@ -1381,7 +1373,9 @@ net_iface_del(openvpn_net_ctx_t *ctx, const char *iface)
     int ifindex = if_nametoindex(iface);
 
     if (!ifindex)
+    {
         return errno;
+    }
 
     req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.i));
     req.n.nlmsg_flags = NLM_F_REQUEST;

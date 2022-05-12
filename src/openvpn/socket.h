@@ -281,8 +281,8 @@ static inline BOOL
 SocketHandleGetOverlappedResult(sockethandle_t sh, struct overlapped_io *io)
 {
     return sh.is_handle ?
-        GetOverlappedResult(sh.h, &io->overlapped, &io->size, FALSE) :
-        WSAGetOverlappedResult(sh.s, &io->overlapped, &io->size, FALSE, &io->flags);
+           GetOverlappedResult(sh.h, &io->overlapped, &io->size, FALSE) :
+           WSAGetOverlappedResult(sh.s, &io->overlapped, &io->size, FALSE, &io->flags);
 }
 
 static inline int
@@ -307,7 +307,7 @@ SocketHandleSetInvalError(sockethandle_t sh)
 
 #define openvpn_close_socket(s) close(s)
 
-#endif
+#endif /* ifdef _WIN32 */
 
 struct link_socket *link_socket_new(void);
 
@@ -390,6 +390,8 @@ const char *print_link_socket_actual(const struct link_socket_actual *act,
 const char *print_in_addr_t(in_addr_t addr, unsigned int flags, struct gc_arena *gc);
 
 const char *print_in6_addr(struct in6_addr addr6, unsigned int flags, struct gc_arena *gc);
+
+const char *print_in_port_t(in_port_t port, struct gc_arena *gc);
 
 struct in6_addr add_in6_addr( struct in6_addr base, uint32_t add );
 
@@ -585,7 +587,7 @@ proto_is_dgram(int proto)
 }
 
 /**
-  * @brief returns if the proto is a TCP variant (tcp-server, tcp-client or tcp)
+ * @brief returns if the proto is a TCP variant (tcp-server, tcp-client or tcp)
  */
 static inline bool
 proto_is_tcp(int proto)
@@ -1061,7 +1063,7 @@ int link_socket_read_udp_posix(struct link_socket *sock,
                                struct buffer *buf,
                                struct link_socket_actual *from);
 
-#endif
+#endif /* ifdef _WIN32 */
 
 /* read a TCP or UDP packet from link */
 static inline int
@@ -1071,8 +1073,8 @@ link_socket_read(struct link_socket *sock,
 {
     if (proto_is_udp(sock->info.proto)
         || sock->info.dco_installed)
-        /* unified UDPv4 and UDPv6, for DCO the kernel
-         * will strip the length header */
+    /* unified UDPv4 and UDPv6, for DCO the kernel
+     * will strip the length header */
     {
         int res;
 
