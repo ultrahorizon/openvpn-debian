@@ -1,3 +1,13 @@
+openvpn (2.6.0~git20220510+dco-1) experimental; urgency=medium
+
+  * New upstream version 2.6.0~git20220510+dco
+  * Suggest openvpn-dco-dkms
+  * Drop iproute2, linux builds use netlink
+  * Limit libnl-genl-3-dev build-dep (for dco) to linux-any
+  * Build against OpenSSL 3.0
+
+ -- Bernhard Schmidt <berni@debian.org>  Fri, 13 May 2022 00:01:35 +0200
+
 openvpn (2.6.0~git20220317+dco-1) experimental; urgency=medium
 
   * New upstream version 2.6.0~git20220317+dco
