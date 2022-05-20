@@ -124,13 +124,14 @@ multi_create_instance_tcp(struct multi_context *m)
     struct hash *hash = m->hash;
 
     mi = multi_create_instance(m, NULL);
-    multi_assign_peer_id(m, mi);
 
     if (mi)
     {
         struct hash_element *he;
         const uint32_t hv = hash_value(hash, &mi->real);
         struct hash_bucket *bucket = hash_bucket(hash, hv);
+
+        multi_assign_peer_id(m, mi);
 
         he = hash_lookup_fast(hash, bucket, &mi->real, hv);
 

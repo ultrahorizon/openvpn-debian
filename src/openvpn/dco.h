@@ -41,11 +41,7 @@ struct tls_multi;
 struct tuntap;
 struct event_set;
 
-#if defined(TARGET_LINUX)
 #define DCO_DEFAULT_METRIC  200
-#else
-#define DCO_DEFAULT_METRIC  0
-#endif
 
 #if defined(ENABLE_DCO)
 
