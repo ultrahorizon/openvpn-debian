@@ -1,3 +1,11 @@
+openvpn (2.6.0~git20220518+dco-1) unstable; urgency=medium
+
+  * New upstream version 2.6.0~git20220518+dco
+  * Release to unstable
+  * Revert "Build against OpenSSL 3.0", OpenSSL 3.0 has landed in unstable
+
+ -- Bernhard Schmidt <berni@debian.org>  Fri, 20 May 2022 08:35:29 +0200
+
 openvpn (2.6.0~git20220510+dco-1) experimental; urgency=medium
 
   * New upstream version 2.6.0~git20220510+dco
