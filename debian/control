@@ -12,7 +12,7 @@ Build-Depends:
  libp11-kit-dev,
  libpam0g-dev,
  libpkcs11-helper1-dev,
- libssl-dev (>= 3.0~),
+ libssl-dev,
  libsystemd-dev [linux-any],
  net-tools [!linux-any],
  pkg-config,
