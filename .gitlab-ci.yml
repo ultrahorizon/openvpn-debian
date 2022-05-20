@@ -102,11 +102,11 @@ ossl-1_0_2:
     - .gitlab/build-check.sh
 
 
-ossl-sanitizeaddr:
-  variables:
-    CFLAGS: "-fsanitize=address"
-  script:
-    - .gitlab/build-check.sh
+#ossl-sanitizeaddr:
+#  variables:
+#    CFLAGS: "-fsanitize=address"
+#  script:
+#    - .gitlab/build-check.sh
 
 ossl-sanitizeleak:
   variables:

@@ -278,6 +278,14 @@ ovpn_nl_cb_finish(struct nl_msg (*msg) __attribute__ ((unused)), void *arg)
     return NL_SKIP;
 }
 
+/* This function is used as error callback on the netlink socket.
+ * When something goes wrong and the kernel returns an error, this function is
+ * invoked.
+ *
+ * We pass the error code to the user by means of a variable pointed by *arg
+ * (supplied by the user when setting this callback) and we parse the kernel
+ * reply to see if it contains a human readable error. If found, it is printed.
+ */
 static int
 ovpn_nl_cb_error(struct sockaddr_nl (*nla) __attribute__ ((unused)),
                  struct nlmsgerr *err, void *arg)
@@ -409,13 +417,18 @@ ovpn_dco_register(dco_context_t *dco)
         msg(M_ERR, "cannot get mcast group: %s",  nl_geterror(dco->ovpn_dco_mcast_id));
     }
 
-    /* Register for Ovpn dco specific messages */
+    /* Register for ovpn-dco specific multicast messages that the kernel may
+     * send
+     */
     int ret = nl_socket_add_membership(dco->nl_sock, dco->ovpn_dco_mcast_id);
     if (ret)
     {
         msg(M_ERR, "%s: failed to join groups: %d", __func__, ret);
     }
 
+    /* Register for non-data packets that ovpn-dco may receive. They will be
+     * forwarded to userspace
+     */
     struct nl_msg *nl_msg = ovpn_dco_nlmsg_create(dco, OVPN_CMD_REGISTER_PACKET);
     if (!nl_msg)
     {
@@ -630,6 +643,13 @@ nla_put_failure:
     return ret;
 }
 
+/* This function parses the reply provided by the kernel to the CTRL_CMD_GETFAMILY
+ * message. We parse the reply and we retrieve the multicast group ID associated
+ * with the "ovpn-dco" netlink family.
+ *
+ * The ID is later used to subscribe to the multicast group and be notified
+ * about any multicast message sent by the ovpn-dco kernel module.
+ */
 static int
 mcast_family_handler(struct nl_msg *msg, void *arg)
 {
@@ -704,6 +724,7 @@ nla_put_failure:
     return ret;
 }
 
+/* This function parses any netlink message sent by ovpn-dco to userspace */
 static int
 ovpn_handle_msg(struct nl_msg *msg, void *arg)
 {
@@ -726,6 +747,9 @@ ovpn_handle_msg(struct nl_msg *msg, void *arg)
         return NL_SKIP;
     }
 
+    /* we must know which interface this message is referring to in order to
+     * avoid mixing messages for other instances
+     */
     if (!attrs[OVPN_ATTR_IFINDEX])
     {
         msg(D_DCO, "ovpn-dco: Received message without ifindex");
@@ -740,6 +764,13 @@ ovpn_handle_msg(struct nl_msg *msg, void *arg)
         return NL_SKIP;
     }
 
+    /* based on the message type, we parse the subobject contained in the
+     * message, that stores the type-specific attributes.
+     *
+     * the "dco" object is then filled accordingly with the information
+     * retrieved from the message, so that the rest of the OpenVPN code can
+     * react as need be.
+     */
     switch (gnlh->cmd)
     {
         case OVPN_CMD_DEL_PEER:

@@ -2093,17 +2093,6 @@ do_up(struct context *c, bool pulled_options, unsigned int option_types_found)
             }
         }
 
-        if ((c->mode == MODE_POINT_TO_POINT) && c->c2.did_open_tun)
-        {
-            /* ovpn-dco requires adding the peer now, before any option can be set */
-            int ret = dco_p2p_add_new_peer(c);
-            if (ret < 0)
-            {
-                msg(D_DCO, "Cannot add peer to DCO: %s", strerror(-ret));
-                return false;
-            }
-        }
-
         if (pulled_options)
         {
             if (!do_deferred_options(c, option_types_found))
@@ -2112,13 +2101,34 @@ do_up(struct context *c, bool pulled_options, unsigned int option_types_found)
                 return false;
             }
         }
-        else if (c->mode == MODE_POINT_TO_POINT)
+
+        if (c->mode == MODE_POINT_TO_POINT)
+        {
+            /* ovpn-dco requires adding the peer now, before any option can be set,
+             * but *after* having parsed the pushed peer-id
+             */
+            int ret = dco_p2p_add_new_peer(c);
+            if (ret < 0)
+            {
+                msg(D_DCO, "Cannot add peer to DCO: %s", strerror(-ret));
+                return false;
+            }
+        }
+
+        if (!pulled_options && c->mode == MODE_POINT_TO_POINT)
         {
             if (!do_deferred_p2p_ncp(c))
             {
                 msg(D_TLS_ERRORS, "ERROR: Failed to apply P2P negotiated protocol options");
                 return false;
             }
+        }
+
+
+        if (!finish_options(c))
+        {
+            msg(D_TLS_ERRORS, "ERROR: Failed to finish option processing");
+            return false;
         }
 
         if (c->c2.did_open_tun)
@@ -2337,51 +2347,58 @@ do_deferred_options(struct context *c, const unsigned int found)
         {
             return false;
         }
-        struct frame *frame_fragment = NULL;
+    }
+
+    return true;
+}
+
+bool
+finish_options(struct context *c)
+{
+    struct frame *frame_fragment = NULL;
 #ifdef ENABLE_FRAGMENT
-        if (c->options.ce.fragment)
-        {
-            frame_fragment = &c->c2.frame_fragment;
-        }
+    if (c->options.ce.fragment)
+    {
+        frame_fragment = &c->c2.frame_fragment;
+    }
 #endif
 
-        struct tls_session *session = &c->c2.tls_multi->session[TM_ACTIVE];
-        if (!tls_session_update_crypto_params(c->c2.tls_multi, session,
-                                              &c->options, &c->c2.frame,
-                                              frame_fragment,
-                                              get_link_socket_info(c)))
+    struct tls_session *session = &c->c2.tls_multi->session[TM_ACTIVE];
+    if (!tls_session_update_crypto_params(c->c2.tls_multi, session,
+                                          &c->options, &c->c2.frame,
+                                          frame_fragment,
+                                          get_link_socket_info(c)))
+    {
+        msg(D_TLS_ERRORS, "OPTIONS ERROR: failed to import crypto options");
+        return false;
+    }
+
+    /* Check if the pushed options are compatible with DCO if we have
+     * DCO enabled */
+    if (dco_enabled(&c->options) && !check_dco_pull_options(&c->options))
+    {
+        msg(D_TLS_ERRORS, "OPTIONS ERROR: pushed options are incompatible with "
+            "data channel offload. Use --disable-dco to connect"
+            "to this server");
+        return false;
+    }
+
+    if (dco_enabled(&c->options)
+        && (c->options.ping_send_timeout || c->c2.frame.mss_fix))
+    {
+        int ret = dco_set_peer(&c->c1.tuntap->dco,
+                               c->c2.tls_multi->peer_id,
+                               c->options.ping_send_timeout,
+                               c->options.ping_rec_timeout,
+                               c->c2.frame.mss_fix);
+        if (ret < 0)
         {
-            msg(D_TLS_ERRORS, "OPTIONS ERROR: failed to import crypto options");
+            msg(D_DCO, "Cannot set parameters for DCO peer (id=%u): %s",
+                c->c2.tls_multi->peer_id, strerror(-ret));
             return false;
         }
-
-        if (dco_enabled(&c->options))
-        {
-            /* Check if the pushed options are compatible with DCO if we have
-             * DCO enabled */
-            if (!check_dco_pull_options(&c->options))
-            {
-                msg(D_TLS_ERRORS, "OPTIONS ERROR: pushed options are incompatible with "
-                    "data channel offload. Use --disable-dco to connect"
-                    "to this server");
-                return false;
-            }
-
-            if (c->options.ping_send_timeout || c->c2.frame.mss_fix)
-            {
-                int ret = dco_set_peer(&c->c1.tuntap->dco,
-                                       c->c2.tls_multi->peer_id,
-                                       c->options.ping_send_timeout,
-                                       c->options.ping_rec_timeout,
-                                       c->c2.frame.mss_fix);
-                if (ret < 0)
-                {
-                    msg(D_DCO, "Cannot set DCO peer: %s", strerror(-ret));
-                    return false;
-                }
-            }
-        }
     }
+
     return true;
 }
 
