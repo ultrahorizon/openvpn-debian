@@ -4,7 +4,7 @@
 # Test an OpenVPN server setup with a static key
 # ----------------------------------------------
 
-set -e
+set -ex
 
 CONFIG_DIR=/etc/openvpn
 STATIC_KEY=static.key
