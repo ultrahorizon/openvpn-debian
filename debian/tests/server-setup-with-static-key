@@ -27,6 +27,7 @@ cat << EOF > $CONFIG_DIR/$DEVICE.conf
 dev $DEVICE
 ifconfig $IP_SERVER $IP_CLIENT
 secret $CONFIG_DIR/$STATIC_KEY
+cipher DES-EDE3-CBC
 EOF
 
 info "Start an OpenVPN process in background and redirect its output to a file"
