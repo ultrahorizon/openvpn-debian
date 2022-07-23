@@ -4,7 +4,7 @@
 # Test an OpenVPN server setup with CA
 # ----------------------------------------------
 
-set -e
+set -ex
 
 CONFIG_DIR=/etc/openvpn
 CA_DIR=easy-rsa

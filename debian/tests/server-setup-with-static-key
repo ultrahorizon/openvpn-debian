@@ -4,7 +4,7 @@
 # Test an OpenVPN server setup with a static key
 # ----------------------------------------------
 
-set -e
+set -ex
 
 CONFIG_DIR=/etc/openvpn
 STATIC_KEY=static.key
@@ -20,13 +20,14 @@ info() {
 
 info "Generate the static key inside the config directory"
 cd $CONFIG_DIR
-openvpn --genkey --secret $STATIC_KEY
+openvpn --genkey secret $STATIC_KEY
 
 info "Create the config file"
 cat << EOF > $CONFIG_DIR/$DEVICE.conf
 dev $DEVICE
 ifconfig $IP_SERVER $IP_CLIENT
 secret $CONFIG_DIR/$STATIC_KEY
+cipher DES-EDE3-CBC
 EOF
 
 info "Start an OpenVPN process in background and redirect its output to a file"
