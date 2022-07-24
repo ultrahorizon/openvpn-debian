@@ -1,3 +1,17 @@
+openvpn (2.6.0~git20220518+dco-3) unstable; urgency=medium
+
+  [ Lucas Kanashiro ]
+  * d/t/server-setup-with-static-key: set cipher to be DES-EDE3-CBC
+  * d/t/server-setup-with-static-key: use 'secret' to generate key
+  * d/t/server-setup-with-*: use 'set -x' in the test scripts
+  * d/t/control: add allow-stderr restriction
+
+  [ Bernhard Schmidt ]
+  * Import Ubuntu patch cherry-picked from upstream to translate OpenSSL 3.0
+    digest names into OpenSSL 1.1 digest names (Closes: #1012129)
+
+ -- Bernhard Schmidt <berni@debian.org>  Sun, 24 Jul 2022 17:13:47 +0200
+
 openvpn (2.6.0~git20220518+dco-2) unstable; urgency=medium
 
   * Add d/NEWS entry about the release notes and DCO (Closes: #1011372)
