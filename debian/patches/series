@@ -5,3 +5,4 @@ openvpn-pkcs11warn.patch
 #kfreebsd_support.patch
 match-manpage-and-command-help.patch
 systemd.patch
+openssl-3-support.patch
