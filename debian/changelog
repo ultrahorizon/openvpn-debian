@@ -1,3 +1,11 @@
+openvpn (2.6.0~git20220518+dco-4) UNRELEASED; urgency=medium
+
+  * d/t/server-setup-with-ca:
+    - cherry-pick change in easy-rsa autopkgtests to remove conflicting
+      "vars" file.
+
+ -- Gianfranco Costamagna <locutusofborg@debian.org>  Thu, 28 Jul 2022 08:58:35 +0200
+
 openvpn (2.6.0~git20220518+dco-3) unstable; urgency=medium
 
   [ Lucas Kanashiro ]
