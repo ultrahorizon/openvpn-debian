@@ -34,7 +34,6 @@
 #include "proxy.h"
 #include "socks.h"
 #include "misc.h"
-#include "tun.h"
 
 /*
  * OpenVPN's default port number as assigned by IANA.
@@ -875,7 +874,7 @@ addr_inet4or6(struct sockaddr *addr)
     return addr->sa_family == AF_INET || addr->sa_family == AF_INET6;
 }
 
-int addr_guess_family(sa_family_t af,const char *name);
+int addr_guess_family(sa_family_t af, const char *name);
 
 static inline int
 af_addr_size(sa_family_t af)
@@ -1049,11 +1048,6 @@ link_socket_read_udp_win32(struct link_socket *sock,
                            struct link_socket_actual *from)
 {
     sockethandle_t sh = { .s = sock->sd };
-    if (sock->info.dco_installed)
-    {
-        addr_copy_sa(&from->dest, &sock->info.lsa->actual.dest);
-        sh.is_handle = true;
-    }
     return sockethandle_finalize(sh, &sock->reads, buf, from);
 }
 
@@ -1063,7 +1057,7 @@ int link_socket_read_udp_posix(struct link_socket *sock,
                                struct buffer *buf,
                                struct link_socket_actual *from);
 
-#endif /* ifdef _WIN32 */
+#endif
 
 /* read a TCP or UDP packet from link */
 static inline int
@@ -1071,10 +1065,7 @@ link_socket_read(struct link_socket *sock,
                  struct buffer *buf,
                  struct link_socket_actual *from)
 {
-    if (proto_is_udp(sock->info.proto)
-        || sock->info.dco_installed)
-    /* unified UDPv4 and UDPv6, for DCO the kernel
-     * will strip the length header */
+    if (proto_is_udp(sock->info.proto)) /* unified UDPv4 and UDPv6 */
     {
         int res;
 
@@ -1115,19 +1106,19 @@ link_socket_write_win32(struct link_socket *sock,
 {
     int err = 0;
     int status = 0;
-    sockethandle_t sh = { .s = sock->sd, .is_handle = sock->info.dco_installed };
+    sockethandle_t sh = { .s = sock->sd };
     if (overlapped_io_active(&sock->writes))
     {
         status = sockethandle_finalize(sh, &sock->writes, NULL, NULL);
         if (status < 0)
         {
-            err = SocketHandleGetLastError(sh);
+            err = WSAGetLastError();
         }
     }
     socket_send_queue(sock, buf, to);
     if (status < 0)
     {
-        SocketHandleSetLastError(sh, err);
+        WSASetLastError(err);
         return status;
     }
     else
@@ -1189,9 +1180,8 @@ link_socket_write(struct link_socket *sock,
                   struct buffer *buf,
                   struct link_socket_actual *to)
 {
-    if (proto_is_udp(sock->info.proto) || sock->info.dco_installed)
+    if (proto_is_udp(sock->info.proto)) /* unified UDPv4 and UDPv6 */
     {
-        /* unified UDPv4 and UDPv6 and DCO (kernel adds size header) */
         return link_socket_write_udp(sock, buf, to);
     }
     else if (proto_is_tcp(sock->info.proto)) /* unified TCPv4 and TCPv6 */

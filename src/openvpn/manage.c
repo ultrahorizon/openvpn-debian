@@ -312,8 +312,7 @@ virtual_output_callback_func(void *arg, const unsigned int flags, const char *st
 
 #define AF_DID_PUSH  (1<<0)
 #define AF_DID_RESET (1<<1)
-
-    if (!recursive_level) /* don't allow recursion */
+    if (recursive_level < 5) /* limit recursion */
     {
         struct gc_arena gc = gc_new();
         struct log_entry e;
@@ -380,6 +379,12 @@ virtual_output_callback_func(void *arg, const unsigned int flags, const char *st
 
         --recursive_level;
     }
+    else
+    {
+        /* cannot use msg here */
+        printf("virtual_output: message to management interface "
+               "dropped due to recursion: <%s>\n", str);
+    }
 }
 
 /*
@@ -426,13 +431,10 @@ man_signal(struct management *man, const char *name)
         }
         else
         {
+            msg(M_CLIENT, "ERROR: signal '%s' is currently ignored", name);
             if (man->persist.special_state_msg)
             {
                 msg(M_CLIENT, "%s", man->persist.special_state_msg);
-            }
-            else
-            {
-                msg(M_CLIENT, "ERROR: signal '%s' is currently ignored", name);
             }
         }
     }
@@ -989,8 +991,8 @@ man_client_pending_auth(struct management *man, const char *cid_str,
             }
             else
             {
-                msg(M_CLIENT, "SUCCESS: client-pending-auth command failed."
-                    " Extra paramter might be too long");
+                msg(M_CLIENT, "ERROR: client-pending-auth command failed."
+                    " Extra parameter might be too long");
             }
         }
         else
@@ -1615,48 +1617,6 @@ man_stop_ne32(struct management *man)
 #endif /* ifdef _WIN32 */
 
 static void
-man_record_peer_info(struct management *man)
-{
-    struct gc_arena gc = gc_new();
-    if (man->settings.write_peer_info_file)
-    {
-        bool success = false;
-#ifdef HAVE_GETSOCKNAME
-        if (socket_defined(man->connection.sd_cli))
-        {
-            struct sockaddr_in addr;
-            socklen_t addrlen = sizeof(addr);
-            int status;
-
-            CLEAR(addr);
-            status = getsockname(man->connection.sd_cli, (struct sockaddr *)&addr, &addrlen);
-            if (!status && addrlen == sizeof(addr))
-            {
-                const in_addr_t a = ntohl(addr.sin_addr.s_addr);
-                const int p = ntohs(addr.sin_port);
-                FILE *fp = platform_fopen(man->settings.write_peer_info_file, "w");
-                if (fp)
-                {
-                    fprintf(fp, "%s\n%d\n", print_in_addr_t(a, 0, &gc), p);
-                    if (!fclose(fp))
-                    {
-                        success = true;
-                    }
-                }
-            }
-        }
-#endif /* ifdef HAVE_GETSOCKNAME */
-        if (!success)
-        {
-            msg(D_MANAGEMENT, "MANAGEMENT: failed to write peer info to file %s",
-                man->settings.write_peer_info_file);
-            throw_signal_soft(SIGTERM, "management-connect-failed");
-        }
-    }
-    gc_free(&gc);
-}
-
-static void
 man_connection_settings_reset(struct management *man)
 {
     man->connection.state_realtime = false;
@@ -1691,9 +1651,27 @@ man_new_connection_post(struct management *man, const char *description)
     }
     else
 #endif
-    msg(D_MANAGEMENT, "MANAGEMENT: %s %s",
-        description,
-        print_sockaddr(man->settings.local->ai_addr, &gc));
+    if (man->settings.flags & MF_CONNECT_AS_CLIENT)
+    {
+        msg(D_MANAGEMENT, "MANAGEMENT: %s %s",
+            description,
+            print_sockaddr(man->settings.local->ai_addr, &gc));
+    }
+    else
+    {
+        struct sockaddr_storage addr;
+        socklen_t addrlen = sizeof(addr);
+        if (!getpeername(man->connection.sd_cli, (struct sockaddr *) &addr,
+                         &addrlen))
+        {
+            msg(D_MANAGEMENT, "MANAGEMENT: %s %s", description,
+                print_sockaddr((struct sockaddr *) &addr, &gc));
+        }
+        else
+        {
+            msg(D_MANAGEMENT, "MANAGEMENT: %s %s", description, "unknown");
+        }
+    }
 
     buffer_list_reset(man->connection.out);
 
@@ -1830,8 +1808,22 @@ man_listen(struct management *man)
         }
         else
 #endif
-        msg(D_MANAGEMENT, "MANAGEMENT: TCP Socket listening on %s",
-            print_sockaddr(man->settings.local->ai_addr, &gc));
+        {
+            const struct sockaddr *man_addr = man->settings.local->ai_addr;
+            struct sockaddr_storage addr;
+            socklen_t addrlen = sizeof(addr);
+            if (!getsockname(man->connection.sd_top, (struct sockaddr *) &addr, &addrlen))
+            {
+                man_addr = (struct sockaddr *) &addr;
+            }
+            else
+            {
+                msg(M_WARN|M_ERRNO,
+                    "Failed to get the management socket address");
+            }
+            msg(D_MANAGEMENT, "MANAGEMENT: TCP Socket listening on %s",
+                print_sockaddr(man_addr, &gc));
+        }
     }
 
 #ifdef _WIN32
@@ -1903,7 +1895,6 @@ man_connect(struct management *man)
         goto done;
     }
 
-    man_record_peer_info(man);
     man_new_connection_post(man, "Connected to management server at");
 
 done:
@@ -2119,7 +2110,7 @@ management_android_control(struct management *man, const char *command, const ch
     CLEAR(up);
     strncpy(up.username, msg, sizeof(up.username)-1);
 
-    management_query_user_pass(management, &up, command, GET_USER_PASS_NEED_OK,(void *) 0);
+    management_query_user_pass(management, &up, command, GET_USER_PASS_NEED_OK, (void *) 0);
     return strcmp("ok", up.password)==0;
 }
 
@@ -2134,9 +2125,9 @@ managment_android_persisttun_action(struct management *man)
 {
     struct user_pass up;
     CLEAR(up);
-    strcpy(up.username,"tunmethod");
+    strcpy(up.username, "tunmethod");
     management_query_user_pass(management, &up, "PERSIST_TUN_ACTION",
-                               GET_USER_PASS_NEED_OK,(void *) 0);
+                               GET_USER_PASS_NEED_OK, (void *) 0);
     if (!strcmp("NOACTION", up.password))
     {
         return ANDROID_KEEP_OLD_TUN;
@@ -2266,7 +2257,7 @@ man_write(struct management *man)
 #ifdef TARGET_ANDROID
         if (man->connection.fdtosend > 0)
         {
-            sent = man_send_with_fd(man->connection.sd_cli, BPTR(buf), len, MSG_NOSIGNAL,man->connection.fdtosend);
+            sent = man_send_with_fd(man->connection.sd_cli, BPTR(buf), len, MSG_NOSIGNAL, man->connection.fdtosend);
             man->connection.fdtosend = -1;
         }
         else
@@ -2376,7 +2367,6 @@ man_settings_init(struct man_settings *ms,
                   const int log_history_cache,
                   const int echo_buffer_size,
                   const int state_buffer_size,
-                  const char *write_peer_info_file,
                   const int remap_sigusr1,
                   const unsigned int flags)
 {
@@ -2415,8 +2405,6 @@ man_settings_init(struct man_settings *ms,
             msg(D_MANAGEMENT, "MANAGEMENT: client_gid=%d", ms->client_gid);
             ASSERT(ms->client_gid >= 0);
         }
-
-        ms->write_peer_info_file = string_alloc(write_peer_info_file, NULL);
 
 #if UNIX_SOCK_SUPPORT
         if (ms->flags & MF_UNIX_SOCK)
@@ -2481,7 +2469,6 @@ man_settings_close(struct man_settings *ms)
     {
         freeaddrinfo(ms->local);
     }
-    free(ms->write_peer_info_file);
     CLEAR(*ms);
 }
 
@@ -2584,7 +2571,6 @@ management_open(struct management *man,
                 const int log_history_cache,
                 const int echo_buffer_size,
                 const int state_buffer_size,
-                const char *write_peer_info_file,
                 const int remap_sigusr1,
                 const unsigned int flags)
 {
@@ -2603,7 +2589,6 @@ management_open(struct management *man,
                       log_history_cache,
                       echo_buffer_size,
                       state_buffer_size,
-                      write_peer_info_file,
                       remap_sigusr1,
                       flags);
 
@@ -2883,17 +2868,14 @@ management_notify_client_cr_response(unsigned mda_key_id,
     {
         gc = gc_new();
 
-        struct buffer out = alloc_buf_gc(256, &gc);
         msg(M_CLIENT, ">CLIENT:CR_RESPONSE,%lu,%u,%s",
             mdac->cid, mda_key_id, response);
         man_output_extra_env(management, "CLIENT");
-        if (management->connection.env_filter_level>0)
+        if (management->connection.env_filter_level > 0)
         {
             man_output_peer_info_env(management, mdac);
         }
         man_output_env(es, true, management->connection.env_filter_level, "CLIENT");
-        management_notify_generic(management, BSTR(&out));
-
         gc_free(&gc);
     }
 }

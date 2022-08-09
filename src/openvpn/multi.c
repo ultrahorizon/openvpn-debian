@@ -1237,7 +1237,9 @@ multi_learn_in_addr_t(struct multi_context *m,
 #endif
     if (!primary)
     {
-        /* We do not want to install IP -> IP dev ovpn-dco0 */
+        /* "primary" is the VPN ifconfig address of the peer and already
+         * known to DCO, so only install "extra" iroutes (primary = false)
+         */
         dco_install_iroute(m, mi, &addr);
     }
 
@@ -1274,7 +1276,9 @@ multi_learn_in6_addr(struct multi_context *m,
 #endif
     if (!primary)
     {
-        /* We do not want to install IP -> IP dev ovpn-dco0 */
+        /* "primary" is the VPN ifconfig address of the peer and already
+         * known to DCO, so only install "extra" iroutes (primary = false)
+         */
         dco_install_iroute(m, mi, &addr);
     }
 
@@ -1797,6 +1801,7 @@ multi_client_set_protocol_options(struct context *c)
         o->data_channel_crypto_flags |= CO_USE_TLS_KEY_MATERIAL_EXPORT;
     }
 #endif
+
     /* Select cipher if client supports Negotiable Crypto Parameters */
 
     /* if we have already created our key, we cannot *change* our own
@@ -2296,9 +2301,8 @@ cleanup:
  * Generates the data channel keys
  */
 static bool
-multi_client_generate_tls_keys(struct multi_context *m, struct multi_instance *mi)
+multi_client_generate_tls_keys(struct context *c)
 {
-    struct context *c = &mi->context;
     struct frame *frame_fragment = NULL;
 #ifdef ENABLE_FRAGMENT
     if (c->options.ce.fragment)
@@ -2306,17 +2310,6 @@ multi_client_generate_tls_keys(struct multi_context *m, struct multi_instance *m
         frame_fragment = &c->c2.frame_fragment;
     }
 #endif
-
-    if (dco_enabled(&c->options))
-    {
-        int ret = dco_multi_add_new_peer(m, mi);
-        if (ret < 0)
-        {
-            msg(D_DCO, "Cannot add peer to DCO: %s", strerror(-ret));
-            return false;
-        }
-    }
-
     struct tls_session *session = &c->c2.tls_multi->session[TM_ACTIVE];
     if (!tls_session_update_crypto_params(c->c2.tls_multi, session, &c->options,
                                           &c->c2.frame, frame_fragment,
@@ -2433,12 +2426,38 @@ multi_client_connect_late_setup(struct multi_context *m,
     }
     /* Generate data channel keys only if setting protocol options
      * has not failed */
-    else if (!multi_client_generate_tls_keys(m, mi))
+    else
     {
-        mi->context.c2.tls_multi->multi_state = CAS_FAILED;
-    }
+        if (dco_enabled(&mi->context.options))
+        {
+            int ret = dco_multi_add_new_peer(m, mi);
+            if (ret < 0)
+            {
+                msg(D_DCO, "Cannot add peer to DCO: %s (%d)", strerror(-ret), ret);
+                mi->context.c2.tls_multi->multi_state = CAS_FAILED;
+            }
 
-    finish_options(&mi->context);
+            if (mi->context.options.ping_send_timeout || mi->context.c2.frame.mss_fix)
+            {
+                int ret = dco_set_peer(&mi->context.c1.tuntap->dco,
+                                       mi->context.c2.tls_multi->peer_id,
+                                       mi->context.options.ping_send_timeout,
+                                       mi->context.options.ping_rec_timeout,
+                                       mi->context.c2.frame.mss_fix);
+                if (ret < 0)
+                {
+                    msg(D_DCO, "Cannot set parameters for DCO peer (id=%u): %s",
+                        mi->context.c2.tls_multi->peer_id, strerror(-ret));
+                    mi->context.c2.tls_multi->multi_state = CAS_FAILED;
+                }
+            }
+        }
+
+        if (!multi_client_generate_tls_keys(&mi->context))
+        {
+            mi->context.c2.tls_multi->multi_state = CAS_FAILED;
+        }
+    }
 
     /* send push reply if ready */
     if (mi->context.c2.push_request_received)
@@ -2697,7 +2716,7 @@ multi_connection_established(struct multi_context *m, struct multi_instance *mi)
 
     /* Check if we have forbidding options in the current mode */
     if (dco_enabled(&mi->context.options)
-        && dco_check_option_conflict(D_MULTI_ERRORS, &mi->context.options))
+        && !dco_check_option_conflict(D_MULTI_ERRORS, &mi->context.options))
     {
         msg(D_MULTI_ERRORS, "MULTI: client has been rejected due to incompatible DCO options");
         cc_succeeded = false;
@@ -3146,37 +3165,41 @@ multi_signal_instance(struct multi_context *m, struct multi_instance *mi, const 
 
 #if defined(ENABLE_DCO) && defined(TARGET_LINUX)
 static void
-process_incoming_dco_packet(struct multi_context *m, struct multi_instance *mi,  dco_context_t *dco)
+process_incoming_dco_packet(struct multi_context *m, struct multi_instance *mi,
+                            dco_context_t *dco)
 {
-    struct buffer orig_buf = mi->context.c2.buf;
-    int peer_id = dco->dco_message_peer_id;
-
-    mi->context.c2.buf = dco->dco_packet_in;
-
-    multi_process_incoming_link(m, mi, 0);
-
-    mi->context.c2.buf = orig_buf;
     if (BLEN(&dco->dco_packet_in) < 1)
     {
-        msg(D_DCO, "Received too short packet for peer %d", peer_id);
+        msg(D_DCO, "Received too short packet for peer %d",
+            dco->dco_message_peer_id);
         goto done;
     }
 
     uint8_t *ptr = BPTR(&dco->dco_packet_in);
     uint8_t op = ptr[0] >> P_OPCODE_SHIFT;
-    if (op == P_DATA_V2 || op == P_DATA_V2)
+    if ((op == P_DATA_V1) || (op == P_DATA_V2))
     {
-        msg(D_DCO, "DCO: received data channel packet for peer %d", peer_id);
+        msg(D_DCO, "DCO: received data channel packet for peer %d",
+            dco->dco_message_peer_id);
         goto done;
     }
+
+    struct buffer orig_buf = mi->context.c2.buf;
+    mi->context.c2.buf = dco->dco_packet_in;
+
+    multi_process_incoming_link(m, mi, 0);
+
+    mi->context.c2.buf = orig_buf;
+
 done:
     buf_init(&dco->dco_packet_in, 0);
 }
 
 static void
-process_incoming_del_peer(struct multi_context *m, struct multi_instance *mi, dco_context_t *dco)
+process_incoming_del_peer(struct multi_context *m, struct multi_instance *mi,
+                          dco_context_t *dco)
 {
-    const char *reason = "(unknown reason by ovpn-dco)";
+    const char *reason = "ovpn-dco: unknown reason";
     switch (dco->dco_del_peer_reason)
     {
         case OVPN_DEL_PEER_REASON_EXPIRED:

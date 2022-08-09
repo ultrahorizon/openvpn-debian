@@ -51,6 +51,7 @@ counter_type link_read_bytes_global;  /* GLOBAL */
 counter_type link_write_bytes_global; /* GLOBAL */
 
 /* show event wait debugging info */
+
 #ifdef ENABLE_DEBUG
 
 static const char *
@@ -194,9 +195,9 @@ check_tls(struct context *c)
 
     interval_schedule_wakeup(&c->c2.tmp_int, &wakeup);
 
-    /* Our current code has no good hooks in the TLS machinery to install
-     * the keys to DCO. So we check/install keys after the whole TLS
-     * machinery has been completed
+    /* Our current code has no good hooks in the TLS machinery to update
+     * DCO keys. So we check the key status after the whole TLS machinery
+     * has been completed and potentially update them
      */
     check_dco_key_status(c);
 
@@ -548,6 +549,13 @@ encrypt_sign(struct context *c, bool comp_frag)
     const uint8_t *orig_buf = c->c2.buf.data;
     struct crypto_options *co = NULL;
 
+    if (dco_enabled(&c->options))
+    {
+        msg(M_WARN, "Attempting to send data packet while data channel offload is in use. "
+            "Dropping packet");
+        c->c2.buf.len = 0;
+    }
+
     /*
      * Drop non-TLS outgoing packet if client-connect script/plugin
      * has not yet succeeded. In non-TLS tls_multi mode is not defined
@@ -858,13 +866,6 @@ read_incoming_link(struct context *c)
 
     /* check recvfrom status */
     check_status(status, "read", c->c2.link_socket, NULL);
-
-#ifdef _WIN32
-    if (dco_enabled(&c->options) && (status < 0) && (openvpn_errno() == ERROR_NETNAME_DELETED))
-    {
-        trigger_ping_timeout_signal(c);
-    }
-#endif
 
     /* Remove socks header if applicable */
     socks_postprocess_incoming_link(c);
@@ -1665,7 +1666,6 @@ process_outgoing_link(struct context *c)
                 socks_preprocess_outgoing_link(c, &to_addr, &size_delta);
 
                 /* Send packet */
-#ifdef TARGET_LINUX
                 if (c->c2.link_socket->info.dco_installed)
                 {
                     size = dco_do_write(&c->c1.tuntap->dco,
@@ -1673,7 +1673,6 @@ process_outgoing_link(struct context *c)
                                         &c->c2.to_link);
                 }
                 else
-#endif
                 {
                     size = link_socket_write(c->c2.link_socket, &c->c2.to_link,
                                              to_addr);

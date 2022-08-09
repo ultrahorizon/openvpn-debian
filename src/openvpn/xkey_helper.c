@@ -85,6 +85,7 @@ xkey_digest(const unsigned char *src, size_t srclen, unsigned char *buf,
     return 1;
 }
 
+#ifdef ENABLE_MANAGEMENT
 /**
  * Load external key for signing via management interface.
  * The public key must be passed in by the caller as we may not
@@ -107,6 +108,7 @@ xkey_load_management_key(OSSL_LIB_CTX *libctx, EVP_PKEY *pubkey)
 
     return xkey_load_generic_key(libctx, dummy, pubkey, sign_op, NULL);
 }
+#endif
 
 /**
  * Load a generic key into the xkey provider.
@@ -115,7 +117,7 @@ xkey_load_management_key(OSSL_LIB_CTX *libctx, EVP_PKEY *pubkey)
  */
 EVP_PKEY *
 xkey_load_generic_key(OSSL_LIB_CTX *libctx, void *handle, EVP_PKEY *pubkey,
-                      XKEY_EXTERNAL_SIGN_fn sign_op, XKEY_PRIVKEY_FREE_fn free_op)
+                      XKEY_EXTERNAL_SIGN_fn *sign_op, XKEY_PRIVKEY_FREE_fn *free_op)
 {
     EVP_PKEY *pkey = NULL;
     const char *origin = "external";
@@ -125,8 +127,8 @@ xkey_load_generic_key(OSSL_LIB_CTX *libctx, void *handle, EVP_PKEY *pubkey,
         {"xkey-origin", OSSL_PARAM_UTF8_STRING, (char *) origin, 0, 0},
         {"pubkey", OSSL_PARAM_OCTET_STRING, &pubkey, sizeof(pubkey), 0},
         {"handle", OSSL_PARAM_OCTET_PTR, &handle, sizeof(handle), 0},
-        {"sign_op", OSSL_PARAM_OCTET_PTR, (void **) &sign_op, sizeof(void *), 0},
-        {"free_op", OSSL_PARAM_OCTET_PTR, (void **) &free_op, sizeof(void *), 0},
+        {"sign_op", OSSL_PARAM_OCTET_PTR, (void **) &sign_op, sizeof(sign_op), 0},
+        {"free_op", OSSL_PARAM_OCTET_PTR, (void **) &free_op, sizeof(free_op), 0},
         {NULL, 0, NULL, 0, 0}
     };
 
@@ -147,6 +149,7 @@ xkey_load_generic_key(OSSL_LIB_CTX *libctx, void *handle, EVP_PKEY *pubkey,
     return pkey;
 }
 
+#ifdef ENABLE_MANAGEMENT
 /**
  * Signature callback for xkey_provider with management-external-key
  *
@@ -179,7 +182,8 @@ xkey_management_sign(void *unused, unsigned char *sig, size_t *siglen,
     bool is_message = !strcmp(alg.op, "DigestSign"); /* tbs is message, not digest */
 
     /* if management client cannot do digest -- we do it here */
-    if (!strcmp(alg.op, "DigestSign") && !(flags & MF_EXTERNAL_KEY_DIGEST))
+    if (!strcmp(alg.op, "DigestSign") && !(flags & MF_EXTERNAL_KEY_DIGEST)
+        && strcmp(alg.mdname, "none"))
     {
         dmsg(D_XKEY, "xkey_management_sign: computing digest");
         if (xkey_digest(tbs, tbslen, buf, &buflen, alg.mdname))
@@ -205,6 +209,10 @@ xkey_management_sign(void *unused, unsigned char *sig, size_t *siglen,
         {
             openvpn_snprintf(alg_str, sizeof(alg_str), "ECDSA,hashalg=%s", alg.mdname);
         }
+    }
+    else if (!strcmp(alg.keytype, "ED448") || !strcmp(alg.keytype, "ED25519"))
+    {
+        strncpynt(alg_str, alg.keytype, sizeof(alg_str));
     }
     /* else assume RSA key */
     else if (!strcmp(alg.padmode, "pkcs1") && (flags & MF_EXTERNAL_KEY_PKCS1PAD))
@@ -235,7 +243,7 @@ xkey_management_sign(void *unused, unsigned char *sig, size_t *siglen,
     else if (!strcmp(alg.padmode, "pss") && (flags & MF_EXTERNAL_KEY_PSSPAD))
     {
         openvpn_snprintf(alg_str, sizeof(alg_str), "%s,hashalg=%s,saltlen=%s",
-                         "RSA_PKCS1_PSS_PADDING", alg.mdname,alg.saltlen);
+                         "RSA_PKCS1_PSS_PADDING", alg.mdname, alg.saltlen);
     }
     else
     {
@@ -272,6 +280,7 @@ xkey_management_sign(void *unused, unsigned char *sig, size_t *siglen,
 
     return (*siglen > 0);
 }
+#endif /* ENABLE MANAGEMENT */
 
 /**
  * Add PKCS1 DigestInfo to tbs and return the result in *enc.
@@ -328,7 +337,7 @@ encode_pkcs1(unsigned char *enc, size_t *enc_len, const char *mdname,
 
     DIG_INFO dinfo[] = {MAKE_DI(sha1), MAKE_DI(sha256), MAKE_DI(sha384),
                         MAKE_DI(sha512), MAKE_DI(sha224), MAKE_DI(sha512_224),
-                        MAKE_DI(sha512_256), {0,NULL,0}};
+                        MAKE_DI(sha512_256), {0, NULL, 0}};
 
     int out_len = 0;
     int ret = 0;

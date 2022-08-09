@@ -56,7 +56,7 @@ bool print_openssl_info(const struct options *options);
 
 bool do_genkey(const struct options *options);
 
-bool do_persist_tuntap(const struct options *options, openvpn_net_ctx_t *ctx);
+bool do_persist_tuntap(struct options *options, openvpn_net_ctx_t *ctx);
 
 bool possibly_become_daemon(const struct options *options);
 
@@ -96,8 +96,6 @@ const char *format_common_name(struct context *c, struct gc_arena *gc);
 void reset_coarse_timers(struct context *c);
 
 bool do_deferred_options(struct context *c, const unsigned int found);
-
-bool finish_options(struct context *c);
 
 void inherit_context_child(struct context *dest,
                            const struct context *src);

@@ -1055,7 +1055,7 @@ do_genkey(const struct options *options)
  * Persistent TUN/TAP device management mode?
  */
 bool
-do_persist_tuntap(const struct options *options, openvpn_net_ctx_t *ctx)
+do_persist_tuntap(struct options *options, openvpn_net_ctx_t *ctx)
 {
     if (options->persist_config)
     {
@@ -1070,6 +1070,26 @@ do_persist_tuntap(const struct options *options, openvpn_net_ctx_t *ctx)
             msg(M_FATAL|M_OPTERR,
                 "options --mktun or --rmtun should only be used together with --dev");
         }
+
+#if defined(ENABLE_DCO)
+        if (dco_enabled(options))
+        {
+            /* creating a DCO interface via --mktun is not supported as it does not
+             * make much sense. Since DCO is enabled by default, people may run into
+             * this without knowing, therefore this case should be properly handled.
+             *
+             * Disable DCO if --mktun was provided and print a message to let
+             * user know.
+             */
+            if (dev_type_enum(options->dev, options->dev_type) == DEV_TYPE_TUN)
+            {
+                msg(M_WARN, "Note: --mktun does not support DCO. Creating TUN interface.");
+            }
+
+            options->tuntap_options.disable_dco = true;
+        }
+#endif
+
 #ifdef ENABLE_FEATURE_TUN_PERSIST
         tuncfg(options->dev, options->dev_type, options->dev_node,
                options->persist_mode,
@@ -1394,6 +1414,10 @@ do_init_route_list(const struct options *options,
     int dev = dev_type_enum(options->dev, options->dev_type);
     int metric = 0;
 
+    /* if DCO is enabled we have both regular routes and iroutes in the system
+     * routing table, and normal routes must have a higher metric for that to
+     * work so that iroutes are always matched first
+     */
     if (dco_enabled(options))
     {
         metric = DCO_DEFAULT_METRIC;
@@ -1435,6 +1459,7 @@ do_init_route_ipv6_list(const struct options *options,
     const char *gw = NULL;
     int metric = -1;            /* no metric set */
 
+    /* see explanation in do_init_route_list() */
     if (dco_enabled(options))
     {
         metric = DCO_DEFAULT_METRIC;
@@ -1673,8 +1698,7 @@ do_init_tun(struct context *c)
                             c->c1.link_socket_addr.remote_list,
                             !c->options.ifconfig_nowarn,
                             c->c2.es,
-                            &c->net_ctx,
-                            c->c1.tuntap);
+                            &c->net_ctx);
 
 #ifdef _WIN32
     c->c1.tuntap->windows_driver = c->options.windows_driver;
@@ -1698,11 +1722,7 @@ do_open_tun(struct context *c)
     bool ret = false;
 
 #ifndef TARGET_ANDROID
-    if (!c->c1.tuntap
-#ifdef _WIN32
-        || (c->c1.tuntap && !c->c1.tuntap->dco.real_tun_init)
-#endif
-        )
+    if (!c->c1.tuntap)
     {
 #endif
 
@@ -1781,12 +1801,9 @@ do_open_tun(struct context *c)
         ovpn_dco_init(c->mode, &c->c1.tuntap->dco);
     }
 
-    /* open the tun device. ovpn-dco-win already opend the device for the socket */
-    if (!is_windco(c->c1.tuntap))
-    {
-        open_tun(c->options.dev, c->options.dev_type, c->options.dev_node,
-                 c->c1.tuntap, &c->net_ctx);
-    }
+    /* open the tun device */
+    open_tun(c->options.dev, c->options.dev_type, c->options.dev_node,
+             c->c1.tuntap, &c->net_ctx);
 
     /* set the hardware address */
     if (c->options.lladdr)
@@ -2061,12 +2078,68 @@ options_hash_changed_or_zero(const struct sha256_digest *a,
            || !memcmp(a, &zero, sizeof(struct sha256_digest));
 }
 
+/**
+ * This function is expected to be invoked after open_tun() was performed.
+ *
+ * This kind of behaviour is required by DCO, because the following operations
+ * can be done only after the DCO device was created and the new peer was
+ * properly added.
+ */
+static bool
+do_deferred_options_part2(struct context *c)
+{
+    struct frame *frame_fragment = NULL;
+#ifdef ENABLE_FRAGMENT
+    if (c->options.ce.fragment)
+    {
+        frame_fragment = &c->c2.frame_fragment;
+    }
+#endif
+
+    struct tls_session *session = &c->c2.tls_multi->session[TM_ACTIVE];
+    if (!tls_session_update_crypto_params(c->c2.tls_multi, session,
+                                          &c->options, &c->c2.frame,
+                                          frame_fragment,
+                                          get_link_socket_info(c)))
+    {
+        msg(D_TLS_ERRORS, "OPTIONS ERROR: failed to import crypto options");
+        return false;
+    }
+
+    if (dco_enabled(&c->options)
+        && (c->options.ping_send_timeout || c->c2.frame.mss_fix))
+    {
+        int ret = dco_set_peer(&c->c1.tuntap->dco,
+                               c->c2.tls_multi->peer_id,
+                               c->options.ping_send_timeout,
+                               c->options.ping_rec_timeout,
+                               c->c2.frame.mss_fix);
+        if (ret < 0)
+        {
+            msg(D_DCO, "Cannot set parameters for DCO peer (id=%u): %s",
+                c->c2.tls_multi->peer_id, strerror(-ret));
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool
 do_up(struct context *c, bool pulled_options, unsigned int option_types_found)
 {
     if (!c->c2.do_up_ran)
     {
         reset_coarse_timers(c);
+
+        if (pulled_options)
+        {
+            if (!do_deferred_options(c, option_types_found))
+            {
+                msg(D_PUSH_ERRORS, "ERROR: Failed to apply push options");
+                return false;
+            }
+        }
 
         /* if --up-delay specified, open tun, do ifconfig, and run up script now */
         if (c->options.up_delay || PULL_DEFINED(&c->options))
@@ -2093,42 +2166,42 @@ do_up(struct context *c, bool pulled_options, unsigned int option_types_found)
             }
         }
 
-        if (pulled_options)
-        {
-            if (!do_deferred_options(c, option_types_found))
-            {
-                msg(D_PUSH_ERRORS, "ERROR: Failed to apply push options");
-                return false;
-            }
-        }
-
         if (c->mode == MODE_POINT_TO_POINT)
         {
             /* ovpn-dco requires adding the peer now, before any option can be set,
-             * but *after* having parsed the pushed peer-id
+             * but *after* having parsed the pushed peer-id in do_deferred_options()
              */
             int ret = dco_p2p_add_new_peer(c);
             if (ret < 0)
             {
-                msg(D_DCO, "Cannot add peer to DCO: %s", strerror(-ret));
+                msg(D_DCO, "Cannot add peer to DCO: %s (%d)", strerror(-ret), ret);
                 return false;
             }
         }
 
-        if (!pulled_options && c->mode == MODE_POINT_TO_POINT)
+        /* do_deferred_options_part2() and do_deferred_p2p_ncp() *must* be
+         * invoked after open_tun().
+         * This is required by DCO because we must have created the interface
+         * and added the peer before we can fiddle with the keys or any other
+         * data channel per-peer setting.
+         */
+        if (pulled_options)
         {
-            if (!do_deferred_p2p_ncp(c))
+            if (!do_deferred_options_part2(c))
             {
-                msg(D_TLS_ERRORS, "ERROR: Failed to apply P2P negotiated protocol options");
                 return false;
             }
         }
-
-
-        if (!finish_options(c))
+        else
         {
-            msg(D_TLS_ERRORS, "ERROR: Failed to finish option processing");
-            return false;
+            if (c->mode == MODE_POINT_TO_POINT)
+            {
+                if (!do_deferred_p2p_ncp(c))
+                {
+                    msg(D_TLS_ERRORS, "ERROR: Failed to apply P2P negotiated protocol options");
+                    return false;
+                }
+            }
         }
 
         if (c->c2.did_open_tun)
@@ -2203,6 +2276,8 @@ do_deferred_p2p_ncp(struct context *c)
         return true;
     }
 
+    c->options.use_peer_id = c->c2.tls_multi->use_peer_id;
+
     struct tls_session *session = &c->c2.tls_multi->session[TM_ACTIVE];
 
     const char *ncp_cipher = get_p2p_ncp_cipher(session, c->c2.tls_multi->peer_info,
@@ -2233,19 +2308,6 @@ do_deferred_p2p_ncp(struct context *c)
                                           get_link_socket_info(c)))
     {
         msg(D_TLS_ERRORS, "ERROR: failed to set crypto cipher");
-        return false;
-    }
-    return true;
-}
-
-
-static bool
-check_dco_pull_options(struct options *o)
-{
-    if (!o->use_peer_id)
-    {
-        msg(D_TLS_ERRORS, "OPTIONS IMPORT: Server did not request DATA_V2 packet "
-            "format required for data channel offload");
         return false;
     }
     return true;
@@ -2340,61 +2402,21 @@ do_deferred_options(struct context *c, const unsigned int found)
         c->c2.tls_multi->peer_id = c->options.peer_id;
     }
 
-    /* process (potentially pushed) crypto options */
+    /* process (potentially) pushed options */
     if (c->options.pull)
     {
         if (!check_pull_client_ncp(c, found))
         {
             return false;
         }
-    }
 
-    return true;
-}
-
-bool
-finish_options(struct context *c)
-{
-    struct frame *frame_fragment = NULL;
-#ifdef ENABLE_FRAGMENT
-    if (c->options.ce.fragment)
-    {
-        frame_fragment = &c->c2.frame_fragment;
-    }
-#endif
-
-    struct tls_session *session = &c->c2.tls_multi->session[TM_ACTIVE];
-    if (!tls_session_update_crypto_params(c->c2.tls_multi, session,
-                                          &c->options, &c->c2.frame,
-                                          frame_fragment,
-                                          get_link_socket_info(c)))
-    {
-        msg(D_TLS_ERRORS, "OPTIONS ERROR: failed to import crypto options");
-        return false;
-    }
-
-    /* Check if the pushed options are compatible with DCO if we have
-     * DCO enabled */
-    if (dco_enabled(&c->options) && !check_dco_pull_options(&c->options))
-    {
-        msg(D_TLS_ERRORS, "OPTIONS ERROR: pushed options are incompatible with "
-            "data channel offload. Use --disable-dco to connect"
-            "to this server");
-        return false;
-    }
-
-    if (dco_enabled(&c->options)
-        && (c->options.ping_send_timeout || c->c2.frame.mss_fix))
-    {
-        int ret = dco_set_peer(&c->c1.tuntap->dco,
-                               c->c2.tls_multi->peer_id,
-                               c->options.ping_send_timeout,
-                               c->options.ping_rec_timeout,
-                               c->c2.frame.mss_fix);
-        if (ret < 0)
+        /* Check if pushed options are compatible with DCO, if enabled */
+        if (dco_enabled(&c->options)
+            && !dco_check_pull_options(D_PUSH_ERRORS, &c->options))
         {
-            msg(D_DCO, "Cannot set parameters for DCO peer (id=%u): %s",
-                c->c2.tls_multi->peer_id, strerror(-ret));
+            msg(D_PUSH_ERRORS, "OPTIONS ERROR: pushed options are incompatible "
+                "with data channel offload. Use --disable-dco to connect to "
+                "this server");
             return false;
         }
     }
@@ -2599,7 +2621,7 @@ frame_finalize_options(struct context *c, const struct options *o)
     size_t tailroom = headroom;
 
 #ifdef USE_COMP
-    msg(D_MTU_DEBUG, "MTU: adding %lu buffer tailroom for compression for %lu "
+    msg(D_MTU_DEBUG, "MTU: adding %zu buffer tailroom for compression for %zu "
         "bytes of payload",
         COMP_EXTRA_BUFFER(payload_size), payload_size);
     tailroom += COMP_EXTRA_BUFFER(payload_size);
@@ -3076,7 +3098,7 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
     }
 
     /* let the TLS engine know if keys have to be installed in DCO or not */
-    to.disable_dco = !dco_enabled(options);
+    to.dco_enabled = dco_enabled(options);
 
     /*
      * Initialize OpenVPN's master TLS-mode object.
@@ -3163,7 +3185,7 @@ do_init_frame(struct context *c)
      */
     if (c->options.ce.tun_mtu_extra_defined)
     {
-        frame_add_to_extra_tun(&c->c2.frame, c->options.ce.tun_mtu_extra);
+        c->c2.frame.extra_tun += c->options.ce.tun_mtu_extra;
     }
 
     /*
@@ -3539,22 +3561,6 @@ do_close_free_key_schedule(struct context *c, bool free_ssl_ctx)
 static void
 do_close_link_socket(struct context *c)
 {
-#ifdef _WIN32
-    if (c->c2.link_socket && c->c2.link_socket->info.dco_installed && is_windco(c->c1.tuntap))
-    {
-        ASSERT(c->c2.link_socket_owned);
-        ASSERT(c->c1.tuntap);
-
-        /* We rely on the tun close to the handle if also setup
-         * routes etc, since they cannot be delete when the interface
-         * handle has been closed */
-        if (true && !c->c1.tuntap->dco.real_tun_init)
-        {
-            do_close_tun_simple(c);
-        }
-        c->c2.link_socket->sd = SOCKET_UNDEFINED;
-    }
-#endif
     if (c->c2.link_socket && c->c2.link_socket_owned)
     {
         link_socket_close(c->c2.link_socket);
@@ -3977,7 +3983,6 @@ open_management(struct context *c)
                                 c->options.management_log_history_cache,
                                 c->options.management_echo_buffer_size,
                                 c->options.management_state_buffer_size,
-                                c->options.management_write_peer_info_file,
                                 c->options.remap_sigusr1,
                                 flags))
             {

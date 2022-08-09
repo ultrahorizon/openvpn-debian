@@ -43,7 +43,7 @@ OSSL_provider_init_fn xkey_provider_init;
 #define XKEY_PROV_PROPS "provider=ovpn.xkey"
 
 /**
- * Stuct to encapsulate signature algorithm parameters to pass
+ * Struct to encapsulate signature algorithm parameters to pass
  * to sign operation.
  */
 typedef struct {
@@ -152,7 +152,7 @@ xkey_digest(const unsigned char *src, size_t srclen, unsigned char *buf,
  */
 EVP_PKEY *
 xkey_load_generic_key(OSSL_LIB_CTX *libctx, void *handle, EVP_PKEY *pubkey,
-                      XKEY_EXTERNAL_SIGN_fn sign_op, XKEY_PRIVKEY_FREE_fn free_op);
+                      XKEY_EXTERNAL_SIGN_fn *sign_op, XKEY_PRIVKEY_FREE_fn *free_op);
 
 extern OSSL_LIB_CTX *tls_libctx; /* Global */
 

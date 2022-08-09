@@ -221,7 +221,7 @@ const char *
 tls_peer_ncp_list(const char *peer_info, struct gc_arena *gc)
 {
     /* Check if the peer sends the IV_CIPHERS list */
-    const char *iv_ciphers = extract_var_peer_info(peer_info,"IV_CIPHERS=", gc);
+    const char *iv_ciphers = extract_var_peer_info(peer_info, "IV_CIPHERS=", gc);
     if (iv_ciphers)
     {
         return iv_ciphers;
@@ -489,4 +489,26 @@ p2p_mode_ncp(struct tls_multi *multi, struct tls_session *session)
         multi->use_peer_id, multi->peer_id, common_cipher);
 
     gc_free(&gc);
+}
+
+
+bool
+check_session_cipher(struct tls_session *session, struct options *options)
+{
+    bool cipher_allowed_as_fallback = options->enable_ncp_fallback
+                                      && streq(options->ciphername, session->opt->config_ciphername);
+
+    if (!session->opt->server && !cipher_allowed_as_fallback
+        && !tls_item_in_cipher_list(options->ciphername, options->ncp_ciphers))
+    {
+        msg(D_TLS_ERRORS, "Error: negotiated cipher not allowed - %s not in %s",
+            options->ciphername, options->ncp_ciphers);
+        /* undo cipher push, abort connection setup */
+        options->ciphername = session->opt->config_ciphername;
+        return false;
+    }
+    else
+    {
+        return true;
+    }
 }

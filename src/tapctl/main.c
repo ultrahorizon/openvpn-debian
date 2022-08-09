@@ -24,9 +24,6 @@
 #elif defined(_MSC_VER)
 #include <config-msvc.h>
 #endif
-#ifdef HAVE_CONFIG_VERSION_H
-#include <config-version.h>
-#endif
 
 #include "tap.h"
 #include "error.h"
@@ -44,7 +41,6 @@
 
 const TCHAR title_string[] =
     TEXT(PACKAGE_NAME) TEXT(" ") TEXT(PACKAGE_VERSION)
-    TEXT(" built on ") TEXT(__DATE__)
 ;
 
 static const TCHAR usage_message[] =

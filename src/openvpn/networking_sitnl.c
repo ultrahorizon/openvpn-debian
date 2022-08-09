@@ -1035,7 +1035,7 @@ net_addr_v4_add(openvpn_net_ctx_t *ctx, const char *iface,
     addr_v4.ipv4 = htonl(*addr);
 
     msg(M_INFO, "%s: %s/%d dev %s", __func__,
-        inet_ntop(AF_INET, &addr_v4.ipv4, buf, sizeof(buf)), prefixlen,iface);
+        inet_ntop(AF_INET, &addr_v4.ipv4, buf, sizeof(buf)), prefixlen, iface);
 
     return sitnl_addr_add(AF_INET, iface, &addr_v4, prefixlen);
 }
@@ -1366,6 +1366,115 @@ err:
     return ret;
 }
 
+static int
+sitnl_parse_rtattr_flags(struct rtattr *tb[], int max, struct rtattr *rta,
+                         int len, unsigned short flags)
+{
+    unsigned short type;
+
+    memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
+
+    while (RTA_OK(rta, len))
+    {
+        type = rta->rta_type & ~flags;
+
+        if ((type <= max) && (!tb[type]))
+        {
+            tb[type] = rta;
+        }
+
+        rta = RTA_NEXT(rta, len);
+    }
+
+    if (len)
+    {
+        msg(D_ROUTE, "%s: %d bytes not parsed! (rta_len=%d)", __func__, len,
+            rta->rta_len);
+    }
+
+    return 0;
+}
+
+static int
+sitnl_parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
+{
+    return sitnl_parse_rtattr_flags(tb, max, rta, len, 0);
+}
+
+#define sitnl_parse_rtattr_nested(tb, max, rta) \
+    (sitnl_parse_rtattr_flags(tb, max, RTA_DATA(rta), RTA_PAYLOAD(rta), \
+                              NLA_F_NESTED))
+
+static int
+sitnl_type_save(struct nlmsghdr *n, void *arg)
+{
+    char *type = arg;
+    struct ifinfomsg *ifi = NLMSG_DATA(n);
+    struct rtattr *tb[IFLA_MAX + 1];
+    int ret;
+
+    ret = sitnl_parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), IFLA_PAYLOAD(n));
+    if (ret < 0)
+    {
+        return ret;
+    }
+
+    if (tb[IFLA_LINKINFO])
+    {
+        struct rtattr *tb_link[IFLA_INFO_MAX + 1];
+
+        ret = sitnl_parse_rtattr_nested(tb_link, IFLA_INFO_MAX,
+                                        tb[IFLA_LINKINFO]);
+        if (ret < 0)
+        {
+            return ret;
+        }
+
+        if (!tb_link[IFLA_INFO_KIND])
+        {
+            return -ENOENT;
+        }
+
+        strncpynt(type, RTA_DATA(tb_link[IFLA_INFO_KIND]), IFACE_TYPE_LEN_MAX);
+    }
+
+    return 0;
+}
+
+int
+net_iface_type(openvpn_net_ctx_t *ctx, const char *iface,
+               char type[IFACE_TYPE_LEN_MAX])
+{
+    struct sitnl_link_req req = { };
+    int ifindex = if_nametoindex(iface);
+
+    if (!ifindex)
+    {
+        return -errno;
+    }
+
+    req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.i));
+    req.n.nlmsg_flags = NLM_F_REQUEST;
+    req.n.nlmsg_type = RTM_GETLINK;
+
+    req.i.ifi_family = AF_PACKET;
+    req.i.ifi_index = ifindex;
+
+    memset(type, 0, IFACE_TYPE_LEN_MAX);
+
+    int ret = sitnl_send(&req.n, 0, 0, sitnl_type_save, type);
+    if (ret < 0)
+    {
+        msg(D_ROUTE, "%s: cannot retrieve iface %s: %s (%d)", __func__, iface,
+            strerror(-ret), ret);
+        return ret;
+    }
+
+    msg(D_ROUTE, "%s: type of %s: %s", __func__, iface, type);
+
+    return 0;
+}
+
 int
 net_iface_del(openvpn_net_ctx_t *ctx, const char *iface)
 {
@@ -1374,7 +1483,7 @@ net_iface_del(openvpn_net_ctx_t *ctx, const char *iface)
 
     if (!ifindex)
     {
-        return errno;
+        return -errno;
     }
 
     req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.i));

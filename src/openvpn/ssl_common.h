@@ -204,7 +204,7 @@ struct key_state
     int key_id;
 
     /**
-     * Key id for this key_state,  inherited from struct tls_session.
+     * Key id for this key_state, inherited from struct tls_session.
      * @see tls_multi::peer_id.
      */
     uint32_t peer_id;
@@ -419,7 +419,7 @@ struct tls_options
     size_t ekm_label_size;
     size_t ekm_size;
 
-    bool disable_dco; /**< Whether keys have to be installed in DCO or not */
+    bool dco_enabled; /**< Whether keys have to be installed in DCO or not */
 };
 
 /** @addtogroup control_processor

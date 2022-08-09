@@ -1435,25 +1435,14 @@ init_key_contexts(struct key_state *ks,
                   const struct key_type *key_type,
                   bool server,
                   struct key2 *key2,
-                  bool dco_disabled)
+                  bool dco_enabled)
 {
     struct key_ctx_bi *key = &ks->crypto_options.key_ctx_bi;
 
     /* Initialize key contexts */
     int key_direction = server ? KEY_DIRECTION_INVERSE : KEY_DIRECTION_NORMAL;
 
-    if (dco_disabled)
-    {
-        init_key_ctx_bi(key, key2, key_direction, key_type, "Data Channel");
-        /* Initialize implicit IVs */
-        key_ctx_update_implicit_iv(&key->encrypt, key2->keys[(int)server].hmac,
-                                   MAX_HMAC_KEY_LENGTH);
-        key_ctx_update_implicit_iv(&key->decrypt,
-                                   key2->keys[1 - (int)server].hmac,
-                                   MAX_HMAC_KEY_LENGTH);
-    }
-
-    if (!dco_disabled)
+    if (dco_enabled)
     {
         if (key->encrypt.hmac)
         {
@@ -1472,6 +1461,16 @@ init_key_contexts(struct key_state *ks,
         CLEAR(key->encrypt);
         CLEAR(key->decrypt);
         key->initialized = true;
+    }
+    else
+    {
+        init_key_ctx_bi(key, key2, key_direction, key_type, "Data Channel");
+        /* Initialize implicit IVs */
+        key_ctx_update_implicit_iv(&key->encrypt, key2->keys[(int)server].hmac,
+                                   MAX_HMAC_KEY_LENGTH);
+        key_ctx_update_implicit_iv(&key->decrypt,
+                                   key2->keys[1 - (int)server].hmac,
+                                   MAX_HMAC_KEY_LENGTH);
     }
 }
 
@@ -1594,7 +1593,7 @@ generate_key_expansion(struct tls_multi *multi, struct key_state *ks,
     }
 
     init_key_contexts(ks, multi, &session->opt->key_type, server, &key2,
-                      session->opt->disable_dco);
+                      session->opt->dco_enabled);
     ret = true;
 
 exit:
@@ -1714,17 +1713,8 @@ tls_session_update_crypto_params(struct tls_multi *multi,
                                  struct frame *frame_fragment,
                                  struct link_socket_info *lsi)
 {
-
-    bool cipher_allowed_as_fallback = options->enable_ncp_fallback
-                                      && streq(options->ciphername, session->opt->config_ciphername);
-
-    if (!session->opt->server && !cipher_allowed_as_fallback
-        && !tls_item_in_cipher_list(options->ciphername, options->ncp_ciphers))
+    if (!check_session_cipher(session, options))
     {
-        msg(D_TLS_ERRORS, "Error: negotiated cipher not allowed - %s not in %s",
-            options->ciphername, options->ncp_ciphers);
-        /* undo cipher push, abort connection setup */
-        options->ciphername = session->opt->config_ciphername;
         return false;
     }
 
@@ -1976,6 +1966,9 @@ push_peer_info(struct buffer *buf, struct tls_session *session)
         /* support for P_DATA_V2 */
         int iv_proto = IV_PROTO_DATA_V2;
 
+        /* support for the --dns option */
+        iv_proto |= IV_PROTO_DNS_OPTION;
+
         /* support for receiving push_reply before sending
          * push request, also signal that the client wants
          * to get push-reply messages without without requiring a round
@@ -2027,7 +2020,7 @@ push_peer_info(struct buffer *buf, struct tls_session *session)
             {
                 buf_printf(&out, "IV_HWADDR=%s\n", format_hex_ex(rgi.hwaddr, 6, 0, 1, ":", &gc));
             }
-            buf_printf(&out, "IV_SSL=%s\n", get_ssl_library_version());
+            buf_printf(&out, "IV_SSL=%s\n", get_ssl_library_version() );
 #if defined(_WIN32)
             buf_printf(&out, "IV_PLAT_VER=%s\n", win32_version_string(&gc, false));
 #endif

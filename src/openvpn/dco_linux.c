@@ -31,6 +31,7 @@
 
 #include "syshead.h"
 
+#include "dco_linux.h"
 #include "errlevel.h"
 #include "buffer.h"
 #include "networking.h"

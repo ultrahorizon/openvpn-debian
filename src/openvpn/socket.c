@@ -525,7 +525,7 @@ openvpn_getaddrinfo(unsigned int flags,
         if (!(flags & GETADDR_RESOLVE) || status == EAI_FAIL)
         {
             msg(msglevel, "RESOLVE: Cannot parse IP address: %s:%s (%s)",
-                print_hostname,print_servname, gai_strerror(status));
+                print_hostname, print_servname, gai_strerror(status));
             goto done;
         }
 
@@ -1131,6 +1131,10 @@ create_socket(struct link_socket *sock, struct addrinfo *addr)
     {
         ASSERT(0);
     }
+    /* Set af field of sock->info, so it always reflects the address family
+     * of the created socket */
+    sock->info.af = addr->ai_family;
+
     /* set socket buffers based on --sndbuf and --rcvbuf options */
     socket_set_buffers(sock->sd, &sock->socket_buffer_sizes);
 
@@ -1949,7 +1953,7 @@ phase2_set_socket_flags(struct link_socket *sock)
 
 #if EXTENDED_SOCKET_ERROR_CAPABILITY
     /* if the OS supports it, enable extended error passing on the socket */
-    set_sock_extended_error_passing(sock->sd);
+    set_sock_extended_error_passing(sock->sd, sock->info.af);
 #endif
 }
 
@@ -1978,7 +1982,7 @@ linksock_print_addr(struct link_socket *sock)
         ASSERT(cur);
         msg(msglevel, "%s link local (bound): %s",
             proto2ascii(sock->info.proto, sock->info.af, true),
-            print_sockaddr(cur->ai_addr,&gc));
+            print_sockaddr(cur->ai_addr, &gc));
     }
     else
     {
@@ -2119,38 +2123,6 @@ phase2_socks_client(struct link_socket *sock, struct signal_info *sig_info)
     resolve_remote(sock, 1, NULL, &sig_info->signal_received);
 }
 
-#if defined(_WIN32)
-static void
-create_socket_windco(struct context *c, struct link_socket *sock,
-                     volatile int *signal_received)
-{
-    struct tuntap *tt;
-    /* In this case persist-tun is enabled, which we don't support yet */
-    ASSERT(!c->c1.tuntap);
-
-    ALLOC_OBJ(tt, struct tuntap);
-
-    *tt = dco_create_socket(sock->info.lsa->current_remote,
-                            sock->bind_local,
-                            sock->info.lsa->bind_local,
-                            c->options.dev_node,
-                            &c->gc,
-                            get_server_poll_remaining_time(sock->server_poll_timeout),
-                            signal_received);
-    if (*signal_received)
-    {
-        return;
-    }
-
-    c->c1.tuntap = tt;
-    sock->info.dco_installed = true;
-
-    /* Ensure we can "safely" cast the handle to a socket */
-    static_assert(sizeof(sock->sd) == sizeof(tt->hand), "HANDLE and SOCKET size differs");
-    sock->sd = (SOCKET)tt->hand;
-}
-#endif /* if defined(_WIN32) */
-
 /* finalize socket initialization */
 void
 link_socket_init_phase2(struct context *c)
@@ -2190,24 +2162,7 @@ link_socket_init_phase2(struct context *c)
     /* If a valid remote has been found, create the socket with its addrinfo */
     if (sock->info.lsa->current_remote)
     {
-#if defined(_WIN32)
-        if (dco_enabled(&c->options))
-        {
-            create_socket_windco(c, sock, &sig_info->signal_received);
-            if (sig_info->signal_received)
-            {
-                goto done;
-            }
-
-            linksock_print_addr(sock);
-            goto done;
-        }
-        else
-#endif
-        {
-            create_socket(sock, sock->info.lsa->current_remote);
-        }
-
+        create_socket(sock, sock->info.lsa->current_remote);
     }
 
     /* If socket has not already been created create it now */
@@ -2270,7 +2225,6 @@ link_socket_init_phase2(struct context *c)
     }
 
     phase2_set_socket_flags(sock);
-
     linksock_print_addr(sock);
 
 done:
@@ -2424,12 +2378,12 @@ link_socket_bad_incoming_addr(struct buffer *buf,
                 "TCP/UDP: Incoming packet rejected from %s[%d], expected peer address: %s (allow this incoming source address/port by removing --remote or adding --float)",
                 print_link_socket_actual(from_addr, &gc),
                 (int)from_addr->dest.addr.sa.sa_family,
-                print_sockaddr_ex(info->lsa->remote_list->ai_addr,":",PS_SHOW_PORT, &gc));
+                print_sockaddr_ex(info->lsa->remote_list->ai_addr, ":", PS_SHOW_PORT, &gc));
             /* print additional remote addresses */
             for (ai = info->lsa->remote_list->ai_next; ai; ai = ai->ai_next)
             {
-                msg(D_LINK_ERRORS,"or from peer address: %s",
-                    print_sockaddr_ex(ai->ai_addr,":",PS_SHOW_PORT, &gc));
+                msg(D_LINK_ERRORS, "or from peer address: %s",
+                    print_sockaddr_ex(ai->ai_addr, ":", PS_SHOW_PORT, &gc));
             }
             break;
     }
@@ -2780,7 +2734,7 @@ print_sockaddr_ex(const struct sockaddr *sa,
 
     if (status!=0)
     {
-        buf_printf(&out,"[nameinfo() err: %s]",gai_strerror(status));
+        buf_printf(&out, "[nameinfo() err: %s]", gai_strerror(status));
         return BSTR(&out);
     }
 
@@ -3509,19 +3463,7 @@ socket_recv_queue(struct link_socket *sock, int maxsize)
         ASSERT(ResetEvent(sock->reads.overlapped.hEvent));
         sock->reads.flags = 0;
 
-        if (sock->info.dco_installed)
-        {
-            status = ReadFile(
-                (HANDLE) sock->sd,
-                wsabuf[0].buf,
-                wsabuf[0].len,
-                &sock->reads.size,
-                &sock->reads.overlapped
-                );
-            /* Readfile status is inverted from WSARecv */
-            status = !status;
-        }
-        else if (proto_is_udp(sock->info.proto))
+        if (proto_is_udp(sock->info.proto))
         {
             sock->reads.addr_defined = true;
             sock->reads.addrlen = sizeof(sock->reads.addr6);
@@ -3574,14 +3516,7 @@ socket_recv_queue(struct link_socket *sock, int maxsize)
         }
         else
         {
-            if (sock->info.dco_installed)
-            {
-                status = GetLastError();
-            }
-            else
-            {
-                status = WSAGetLastError();
-            }
+            status = WSAGetLastError();
             if (status == WSA_IO_PENDING) /* operation queued? */
             {
                 sock->reads.iostate = IOSTATE_QUEUED;
@@ -3626,21 +3561,7 @@ socket_send_queue(struct link_socket *sock, struct buffer *buf, const struct lin
         ASSERT(ResetEvent(sock->writes.overlapped.hEvent));
         sock->writes.flags = 0;
 
-        if (sock->info.dco_installed)
-        {
-            status = WriteFile(
-                (HANDLE)sock->sd,
-                wsabuf[0].buf,
-                wsabuf[0].len,
-                &sock->writes.size,
-                &sock->writes.overlapped
-                );
-
-            /* WriteFile status is inverted from WSASendTo */
-            status = !status;
-
-        }
-        else if (proto_is_udp(sock->info.proto))
+        if (proto_is_udp(sock->info.proto))
         {
             /* set destination address for UDP writes */
             sock->writes.addr_defined = true;
@@ -3701,17 +3622,8 @@ socket_send_queue(struct link_socket *sock, struct buffer *buf, const struct lin
         }
         else
         {
-            if (sock->info.dco_installed)
-            {
-                status = GetLastError();
-            }
-            else
-            {
-                status = WSAGetLastError();
-            }
-
-            /* both status code have the identical value */
-            if (status == WSA_IO_PENDING || status == ERROR_IO_PENDING) /* operation queued? */
+            status = WSAGetLastError();
+            if (status == WSA_IO_PENDING) /* operation queued? */
             {
                 sock->writes.iostate = IOSTATE_QUEUED;
                 sock->writes.status = status;
@@ -3736,7 +3648,6 @@ socket_send_queue(struct link_socket *sock, struct buffer *buf, const struct lin
     return sock->writes.iostate;
 }
 
-/* Returns the nubmer of bytes successfully read */
 int
 sockethandle_finalize(sockethandle_t sh,
                       struct overlapped_io *io,
