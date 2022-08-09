@@ -34,8 +34,6 @@
 typedef enum ovpn_key_slot dco_key_slot_t;
 typedef enum ovpn_cipher_alg dco_cipher_t;
 
-#define DCO_IROUTE_METRIC   100
-#define DCO_DEFAULT_METRIC  200
 
 typedef struct
 {

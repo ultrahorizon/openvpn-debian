@@ -73,6 +73,7 @@ struct ta_iow_flags
     unsigned int sock;
 };
 
+#ifdef ENABLE_DEBUG
 static const char *
 pract(int action)
 {
@@ -115,6 +116,7 @@ pract(int action)
             return "?";
     }
 }
+#endif /* ENABLE_DEBUG */
 
 static struct multi_instance *
 multi_create_instance_tcp(struct multi_context *m)
@@ -124,7 +126,6 @@ multi_create_instance_tcp(struct multi_context *m)
     struct hash *hash = m->hash;
 
     mi = multi_create_instance(m, NULL);
-
     if (mi)
     {
         struct hash_element *he;
@@ -401,7 +402,6 @@ multi_tcp_wait_lite(struct multi_context *m, struct multi_instance *mi, const in
 
     tv_clear(&c->c2.timeval); /* ZERO-TIMEOUT */
 
-#if defined(TARGET_LINUX)
     if (mi && mi->context.c2.link_socket->info.dco_installed)
     {
         /* If we got a socket that has been handed over to the kernel
@@ -413,7 +413,6 @@ multi_tcp_wait_lite(struct multi_context *m, struct multi_instance *mi, const in
         /* We are always ready! */
         return action;
     }
-#endif
 
     switch (action)
     {

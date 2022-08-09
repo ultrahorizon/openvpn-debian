@@ -421,7 +421,6 @@ struct options
     int management_log_history_cache;
     int management_echo_buffer_size;
     int management_state_buffer_size;
-    const char *management_write_peer_info_file;
 
     const char *management_client_user;
     const char *management_client_group;
@@ -813,11 +812,9 @@ char *options_string_extract_option(const char *options_string,
                                     const char *opt_name, struct gc_arena *gc);
 
 
-void options_postprocess(struct options *options);
+void options_postprocess(struct options *options, struct env_set *es);
 
 bool options_postprocess_pull(struct options *o, struct env_set *es);
-
-void pre_connect_save(struct options *o);
 
 void pre_connect_restore(struct options *o, struct gc_arena *gc);
 
@@ -879,19 +876,24 @@ void options_string_import(struct options *options,
 
 bool key_is_external(const struct options *options);
 
+#if defined(ENABLE_DCO) && defined(TARGET_LINUX)
+
 /**
  * Returns whether the current configuration has dco enabled.
  */
 static inline bool
 dco_enabled(const struct options *o)
 {
-#if defined(_WIN32)
-    return o->windows_driver == WINDOWS_DRIVER_WINDCO;
-#elif defined(ENABLE_DCO)
     return !o->tuntap_options.disable_dco;
-#else
-    return false;
-#endif /* defined(_WIN32) */
 }
 
+#else /* if defined(ENABLE_DCO) && defined(TARGET_LINUX) */
+
+static inline bool
+dco_enabled(const struct options *o)
+{
+    return false;
+}
+
+#endif
 #endif /* ifndef OPTIONS_H */

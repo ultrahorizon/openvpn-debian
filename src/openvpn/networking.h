@@ -23,6 +23,8 @@
 
 #include "syshead.h"
 
+#define IFACE_TYPE_LEN_MAX 64
+
 struct context;
 
 #ifdef ENABLE_SITNL
@@ -94,10 +96,23 @@ void net_ctx_free(openvpn_net_ctx_t *ctx);
  * @param iface     interface to create
  * @param type      string describing interface type
  * @param arg       extra data required by the specific type
- * @return int 0 on success, negative error code on error
+ *
+ * @return          0 on success, negative error code on error
  */
 int net_iface_new(openvpn_net_ctx_t *ctx, const openvpn_net_iface_t *iface,
                   const char *type, void *arg);
+
+/**
+ * Retrieve the interface type
+ *
+ * @param ctx       the implementation specific context
+ * @param iface     interface to query
+ * @param type      buffer where the type will be stored
+ *
+ * @return          0 on success, a negative error code otherwise
+ */
+int net_iface_type(openvpn_net_ctx_t *ctx, const char *iface,
+                   char type[IFACE_TYPE_LEN_MAX]);
 
 /**
  * Remove an interface

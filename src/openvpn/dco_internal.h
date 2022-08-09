@@ -28,13 +28,10 @@
 #if defined(ENABLE_DCO)
 
 #include "dco_linux.h"
-#include "dco_win.h"
 
 /**
  * This file contains the internal DCO API definition.
- * It is expected that this file is included only in dco.h after including the
- * platform specific DCO header (i.e. dco_linux.h or dco_win.h).
- *
+ * It is expected that this file is included only in dco.h.
  * The OpenVPN code should never directly include this file
  */
 
@@ -50,10 +47,6 @@ dco_get_cipher(const char *cipher)
     {
         return OVPN_CIPHER_ALG_CHACHA20_POLY1305;
     }
-    else if (strcmp(cipher, "none") == 0)
-    {
-        return OVPN_CIPHER_ALG_NONE;
-    }
     else
     {
         msg(M_FATAL, "DCO: provided unsupported cipher: %s", cipher);
@@ -62,11 +55,13 @@ dco_get_cipher(const char *cipher)
 
 /**
  * The following are the DCO APIs used to control the driver.
- * They are implemented by either dco_linux.c or dco_win.c
+ * They are implemented by dco_linux.c
  */
+
 int dco_new_peer(dco_context_t *dco, unsigned int peerid, int sd,
                  struct sockaddr *localaddr, struct sockaddr *remoteaddr,
                  struct in_addr *remote_in4, struct in6_addr *remote_in6);
+
 int dco_del_peer(dco_context_t *dco, unsigned int peerid);
 
 int dco_new_key(dco_context_t *dco, unsigned int peerid, int keyid,
@@ -75,8 +70,7 @@ int dco_new_key(dco_context_t *dco, unsigned int peerid, int keyid,
                 const uint8_t *decrypt_key, const uint8_t *decrypt_iv,
                 const char *ciphername);
 
-int dco_del_key(dco_context_t *dco, unsigned int peerid,
-                dco_key_slot_t slot);
+int dco_del_key(dco_context_t *dco, unsigned int peerid, dco_key_slot_t slot);
 
 int dco_swap_keys(dco_context_t *dco, unsigned int peerid);
 

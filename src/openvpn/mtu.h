@@ -253,16 +253,6 @@ unsigned int
 calc_packet_id_size_dc(const struct options *options,
                        const struct key_type *kt);
 
-
-/*
- * frame_set_mtu_dynamic and flags
- */
-
-#define SET_MTU_TUN         (1<<0) /* use tun/tap rather than link sizing */
-#define SET_MTU_UPPER_BOUND (1<<1) /* only decrease dynamic MTU */
-
-void frame_set_mtu_dynamic(struct frame *frame, int mtu, unsigned int flags);
-
 /*
  * allocate a buffer for socket or tun layer
  */
@@ -278,26 +268,10 @@ void alloc_buf_sock_tun(struct buffer *buf,
 
 #if EXTENDED_SOCKET_ERROR_CAPABILITY
 
-void set_sock_extended_error_passing(int sd);
+void set_sock_extended_error_passing(int sd, sa_family_t proto_af);
 
 const char *format_extended_socket_error(int fd, int *mtu, struct gc_arena *gc);
 
 #endif
-
-/*
- * frame member adjustment functions
- */
-
-static inline void
-frame_add_to_extra_tun(struct frame *frame, const int increment)
-{
-    frame->extra_tun += increment;
-}
-
-static inline bool
-frame_defined(const struct frame *frame)
-{
-    return frame->buf.payload_size > 0;
-}
 
 #endif /* ifndef MTU_H */

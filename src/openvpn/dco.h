@@ -26,35 +26,59 @@
 #ifndef DCO_H
 #define DCO_H
 
-#include "crypto.h"
-#include "networking.h"
+#include "buffer.h"
+#include "error.h"
 #include "dco_internal.h"
+#include "networking.h"
 
-/* forward declarations, including multi.h leads to nasty include
- * order problems */
-struct context;
+/* forward declarations (including other headers leads to nasty include
+ * order problems)
+ */
+struct event_set;
+struct key2;
 struct key_state;
 struct multi_context;
 struct multi_instance;
 struct mroute_addr;
+struct options;
 struct tls_multi;
 struct tuntap;
-struct event_set;
 
+#define DCO_IROUTE_METRIC   100
 #define DCO_DEFAULT_METRIC  200
 
 #if defined(ENABLE_DCO)
 
 /**
+ * Check whether ovpn-dco is available on this platform (i.e. kernel support is
+ * there)
+ *
+ * @param msglevel      level to print messages to
+ * @return              true if ovpn-dco is available, false otherwise
+ */
+bool dco_available(int msglevel);
+
+/**
  * Check whether the options struct has any option that is not supported by
  * our current dco implementation. If so print a warning at warning level
- * for the first conflicting option found and return true.
+ * for the first conflicting option found and return false.
  *
  * @param msglevel  the msg level to use to print the warnings
  * @param o         the options struct that hold the options
- * @return          true if a conflict was detected, false otherwise
+ * @return          true if no conflict was detected, false otherwise
  */
 bool dco_check_option_conflict(int msglevel, const struct options *o);
+
+/**
+ * Check whether any of the options pushed by the server is not supported by
+ * our current dco implementation. If so print a warning at warning level
+ * for the first conflicting option found and return false.
+ *
+ * @param msglevel  the msg level to use to print the warnings
+ * @param o         the options struct that hold the options
+ * @return          true if no conflict was detected, false otherwise
+ */
+bool dco_check_pull_options(int msglevel, const struct options *o);
 
 /**
  * Initialize the DCO context
@@ -84,30 +108,6 @@ int open_tun_dco(struct tuntap *tt, openvpn_net_ctx_t *ctx, const char *dev);
 void close_tun_dco(struct tuntap *tt, openvpn_net_ctx_t *ctx);
 
 /**
- * Install a new peer in DCO - to be called by a SERVER instance
- *
- * @param m         the server context
- * @param mi        the client instance
- * @return          0 on success or a negative error code otherwise
- */
-int dco_multi_add_new_peer(struct multi_context *m, struct multi_instance *mi);
-
-/**
- * Install a new peer in DCO - to be called by a CLIENT (or P2P) instance
- *
- * @param c         the main instance context
- * @return          0 on success or a negative error code otherwise
- */
-int dco_p2p_add_new_peer(struct context *c);
-
-/**
- * Remove a peer from DCO
- *
- * @param c         the main instance context of the peer to remove
- */
-void dco_remove_peer(struct context *c);
-
-/**
  * Read data from the DCO communication channel (i.e. a control packet)
  *
  * @param dco       the DCO context
@@ -125,26 +125,14 @@ int dco_do_read(dco_context_t *dco);
 int dco_do_write(dco_context_t *dco, int peer_id, struct buffer *buf);
 
 /**
- * Install an iroute in DCO, which means adding a route to the system routing
- * table. To be called by a SERVER instance only.
- *
- * @param m         the server context
- * @param mi        the client instance acting as nexthop for the route
- * @param addr      the route to add
+ * Install a DCO in the main event loop
  */
-void dco_install_iroute(struct multi_context *m, struct multi_instance *mi,
-                        struct mroute_addr *addr);
+void dco_event_set(dco_context_t *dco, struct event_set *es, void *arg);
 
 /**
- * Remove all routes added through the specified client
- *
- * @param m         the server context
- * @param mi        the client instance for which routes have to be removed
- */
-void dco_delete_iroutes(struct multi_context *m, struct multi_instance *mi);
-
-/**
- * Install the key material in DCO for the specified peer, at the specified slot
+ * Install the key material in DCO for the specified peer.
+ * The key is installed in the primary slot when no other key was yet installed.
+ * Any subsequent invocation will install the key in the secondary slot.
  *
  * @param multi     the TLS context of the current instance
  * @param ks        the state of the key being installed
@@ -168,23 +156,12 @@ int init_key_dco_bi(struct tls_multi *multi, struct key_state *ks,
 void dco_update_keys(dco_context_t *dco, struct tls_multi *multi);
 
 /**
- * Check whether ovpn-dco is available on this platform (i.e. kernel support is
- * there)
+ * Install a new peer in DCO - to be called by a CLIENT (or P2P) instance
  *
- * @param msglevel      level to print messages to
- * @return              true if ovpn-dco is available, false otherwise
+ * @param c         the main instance context
+ * @return          0 on success or a negative error code otherwise
  */
-bool dco_available(int msglevel);
-
-/**
- * Return list of colon-separated ciphers supported by platform
- */
-const char *dco_get_supported_ciphers();
-
-/**
- * Install a DCO in the main event loop
- */
-void dco_event_set(dco_context_t *dco, struct event_set *es, void *arg);
+int dco_p2p_add_new_peer(struct context *c);
 
 /**
  * Modify DCO peer options. Special values are 0 (disable)
@@ -201,31 +178,74 @@ void dco_event_set(dco_context_t *dco, struct event_set *es, void *arg);
 int dco_set_peer(dco_context_t *dco, unsigned int peerid,
                  int keepalive_interval, int keepalive_timeout, int mss);
 
+/**
+ * Remove a peer from DCO
+ *
+ * @param c         the main instance context of the peer to remove
+ */
+void dco_remove_peer(struct context *c);
+
+/**
+ * Install a new peer in DCO - to be called by a SERVER instance
+ *
+ * @param m         the server context
+ * @param mi        the client instance
+ * @return          0 on success or a negative error code otherwise
+ */
+int dco_multi_add_new_peer(struct multi_context *m, struct multi_instance *mi);
+
+/**
+ * Install an iroute in DCO, which means adding a route to the system routing
+ * table. To be called by a SERVER instance only.
+ *
+ * @param m         the server context
+ * @param mi        the client instance acting as nexthop for the route
+ * @param addr      the route to add
+ */
+void dco_install_iroute(struct multi_context *m, struct multi_instance *mi,
+                        struct mroute_addr *addr);
+
+/**
+ * Remove all routes added through the specified client
+ *
+ * @param m         the server context
+ * @param mi        the client instance for which routes have to be removed
+ */
+void dco_delete_iroutes(struct multi_context *m, struct multi_instance *mi);
+
+/**
+ * Retrieve the list of ciphers supported by the current platform
+ *
+ * @return                   list of colon-separated ciphers
+ */
+const char *dco_get_supported_ciphers();
+
 #else /* if defined(ENABLE_DCO) */
 
 typedef void *dco_context_t;
 
 static inline bool
+dco_available(int msglevel)
+{
+    return false;
+}
+
+static inline bool
 dco_check_option_conflict(int msglevel, const struct options *o)
 {
-    return true;
+    return false;
+}
+
+static inline bool
+dco_check_pull_options(int msglevel, const struct options *o)
+{
+    return false;
 }
 
 static inline bool
 ovpn_dco_init(int mode, dco_context_t *dco)
 {
     return true;
-}
-
-static inline void
-dco_install_iroute(struct multi_context *m, struct multi_instance *mi,
-                   struct mroute_addr *addr)
-{
-}
-
-static inline void
-dco_delete_iroutes(struct multi_context *m, struct multi_instance *mi)
-{
 }
 
 static inline int
@@ -240,23 +260,36 @@ close_tun_dco(struct tuntap *tt, openvpn_net_ctx_t *ctx)
 }
 
 static inline int
+dco_do_read(dco_context_t *dco)
+{
+    ASSERT(false);
+    return 0;
+}
+
+static inline int
+dco_do_write(dco_context_t *dco, int peer_id, struct buffer *buf)
+{
+    ASSERT(false);
+    return 0;
+}
+
+static inline void
+dco_event_set(dco_context_t *dco, struct event_set *es, void *arg)
+{
+}
+
+static inline int
 init_key_dco_bi(struct tls_multi *multi, struct key_state *ks,
                 const struct key2 *key2, int key_direction,
                 const char *ciphername, bool server)
 {
-    ASSERT(false);
+    return 0;
 }
 
 static inline void
 dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
 {
     ASSERT(false);
-}
-
-static inline bool
-dco_multi_add_new_peer(struct multi_context *m, struct multi_instance *mi)
-{
-    return true;
 }
 
 static inline bool
@@ -277,29 +310,27 @@ dco_remove_peer(struct context *c)
 {
 }
 
-static inline int
-dco_do_read(dco_context_t *dco)
-{
-    ASSERT(false);
-    return 0;
-}
-
-static inline int
-dco_do_write(dco_context_t *dco, int peer_id, struct buffer *buf)
-{
-    ASSERT(false);
-    return 0;
-}
-
 static inline bool
-dco_available(int msglevel)
+dco_multi_add_new_peer(struct multi_context *m, struct multi_instance *mi)
 {
-    return false;
+    return true;
 }
 
 static inline void
-dco_event_set(dco_context_t *dco, struct event_set *es, void *arg)
+dco_install_iroute(struct multi_context *m, struct multi_instance *mi,
+                   struct mroute_addr *addr)
 {
+}
+
+static inline void
+dco_delete_iroutes(struct multi_context *m, struct multi_instance *mi)
+{
+}
+
+static inline const char *
+dco_get_supported_ciphers()
+{
+    return "";
 }
 
 #endif /* defined(ENABLE_DCO) */

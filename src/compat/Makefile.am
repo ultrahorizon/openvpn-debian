@@ -28,5 +28,4 @@ libcompat_la_SOURCES = \
 	compat-gettimeofday.c \
 	compat-daemon.c \
 	compat-strsep.c \
-	compat-versionhelpers.h \
-	compat-dco_get_overlapped_result.c
+	compat-versionhelpers.h

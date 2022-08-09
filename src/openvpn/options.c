@@ -110,7 +110,9 @@ const char title_string[] =
 #ifdef ENABLE_DCO
     " [DCO]"
 #endif
+#ifdef CONFIGURE_GIT_REVISION
     " built on " __DATE__
+#endif
 ;
 
 #ifndef ENABLE_SMALL
@@ -1020,6 +1022,44 @@ setenv_settings(struct env_set *es, const struct options *o)
     }
 }
 
+static void
+setenv_foreign_option(struct options *o, const char *argv[], int len, struct env_set *es)
+{
+    if (len > 0)
+    {
+        struct gc_arena gc = gc_new();
+        struct buffer name = alloc_buf_gc(OPTION_PARM_SIZE, &gc);
+        struct buffer value = alloc_buf_gc(OPTION_PARM_SIZE, &gc);
+        int i;
+        bool first = true;
+        bool good = true;
+
+        good &= buf_printf(&name, "foreign_option_%d", o->foreign_option_index + 1);
+        ++o->foreign_option_index;
+        for (i = 0; i < len; ++i)
+        {
+            if (argv[i])
+            {
+                if (!first)
+                {
+                    good &= buf_printf(&value, " ");
+                }
+                good &= buf_printf(&value, "%s", argv[i]);
+                first = false;
+            }
+        }
+        if (good)
+        {
+            setenv_str(es, BSTR(&name), BSTR(&value));
+        }
+        else
+        {
+            msg(M_WARN, "foreign_option: name/value overflow");
+        }
+        gc_free(&gc);
+    }
+}
+
 static in_addr_t
 get_ip_addr(const char *ip_string, int msglevel, bool *error)
 {
@@ -1111,7 +1151,7 @@ parse_hash_fingerprint(const char *str, int nbytes, int msglevel, struct gc_aren
     ALLOC_OBJ_CLEAR_GC(ret, struct verify_hash_list, gc);
 
     char term = 0;
-    int byte;
+    unsigned int byte;
 
     while (*cp && i < nbytes)
     {
@@ -1348,6 +1388,80 @@ tuntap_options_copy_dns(struct options *o)
         {
             msg(M_WARN, "WARNING: couldn't copy all --dns server addresses to --dhcp-option");
         }
+    }
+}
+#else /* if defined(_WIN32) || defined(TARGET_ANDROID) */
+static void
+foreign_options_copy_dns(struct options *o, struct env_set *es)
+{
+    const struct dns_domain *domain = o->dns_options.search_domains;
+    const struct dns_server *server = o->dns_options.servers;
+    if (!domain && !server)
+    {
+        return;
+    }
+
+    /* reset the index since we're starting all over again */
+    int opt_max = o->foreign_option_index;
+    o->foreign_option_index = 0;
+
+    for (int i = 1; i <= opt_max; ++i)
+    {
+        char name[32];
+        openvpn_snprintf(name, sizeof(name), "foreign_option_%d", i);
+
+        const char *env_str = env_set_get(es, name);
+        const char *value = strchr(env_str, '=') + 1;
+        if ((domain && strstr(value, "dhcp-option DOMAIN-SEARCH") == value)
+            || (server && strstr(value, "dhcp-option DNS") == value))
+        {
+            setenv_del(es, name);
+        }
+        else
+        {
+            setenv_foreign_option(o, &value, 1, es);
+        }
+    }
+
+    struct gc_arena gc = gc_new();
+
+    while (server)
+    {
+        if (server->addr4_defined)
+        {
+            const char *argv[] = {
+                "dhcp-option",
+                "DNS",
+                print_in_addr_t(server->addr4.s_addr, 0, &gc)
+            };
+            setenv_foreign_option(o, argv, 3, es);
+        }
+        if (server->addr6_defined)
+        {
+            const char *argv[] = {
+                "dhcp-option",
+                "DNS6",
+                print_in6_addr(server->addr6, 0, &gc)
+            };
+            setenv_foreign_option(o, argv, 3, es);
+        }
+        server = server->next;
+    }
+    while (domain)
+    {
+        const char *argv[] = { "dhcp-option", "DOMAIN-SEARCH", domain->name };
+        setenv_foreign_option(o, argv, 3, es);
+        domain = domain->next;
+    }
+
+    gc_free(&gc);
+
+    /* remove old leftover entries */
+    while (o->foreign_option_index < opt_max)
+    {
+        char name[32];
+        openvpn_snprintf(name, sizeof(name), "foreign_option_%d", opt_max--);
+        setenv_del(es, name);
     }
 }
 #endif /* if defined(_WIN32) || defined(TARGET_ANDROID) */
@@ -1791,7 +1905,6 @@ show_settings(const struct options *o)
     SHOW_STR(management_user_pass);
     SHOW_INT(management_log_history_cache);
     SHOW_INT(management_echo_buffer_size);
-    SHOW_STR(management_write_peer_info_file);
     SHOW_STR(management_client_user);
     SHOW_STR(management_client_group);
     SHOW_INT(management_flags);
@@ -1829,7 +1942,7 @@ show_settings(const struct options *o)
 #ifdef ENABLE_MANAGEMENT
     if ((o->management_flags & MF_EXTERNAL_CERT))
     {
-        SHOW_PARM("cert_file","EXTERNAL_CERT","%s");
+        SHOW_PARM("cert_file", "EXTERNAL_CERT", "%s");
     }
     else
 #endif
@@ -1839,7 +1952,7 @@ show_settings(const struct options *o)
 #ifdef ENABLE_MANAGEMENT
     if ((o->management_flags & MF_EXTERNAL_KEY))
     {
-        SHOW_PARM("priv_key_file","EXTERNAL_PRIVATE_KEY","%s");
+        SHOW_PARM("priv_key_file", "EXTERNAL_PRIVATE_KEY", "%s");
     }
     else
 #endif
@@ -2278,7 +2391,6 @@ options_postprocess_verify_ce(const struct options *options,
 #ifdef ENABLE_MANAGEMENT
     if (!options->management_addr
         && (options->management_flags
-            || options->management_write_peer_info_file
             || options->management_log_history_cache != defaults.management_log_history_cache))
     {
         msg(M_USAGE, "--management is not specified, however one or more options which modify the behavior of --management were specified");
@@ -2337,11 +2449,6 @@ options_postprocess_verify_ce(const struct options *options,
     if (options->windows_driver == WINDOWS_DRIVER_WINTUN && dev != DEV_TYPE_TUN)
     {
         msg(M_USAGE, "--windows-driver wintun requires --dev tun");
-    }
-
-    if (options->windows_driver == WINDOWS_DRIVER_WINDCO)
-    {
-        dco_check_option_conflict(M_USAGE, options);
     }
 #endif /* ifdef _WIN32 */
 
@@ -3088,7 +3195,6 @@ options_postprocess_mutate_ce(struct options *o, struct connection_entry *ce)
         msg(M_WARN, "NOTICE: --explicit-exit-notify ignored for --proto tcp");
         ce->explicit_exit_notification = 0;
     }
-
 }
 
 #ifdef _WIN32
@@ -3107,14 +3213,133 @@ remap_redirect_gateway_flags(struct options *opt)
 }
 #endif
 
+/*
+ * Save/Restore certain option defaults before --pull is applied.
+ */
+
+static void
+pre_connect_save(struct options *o)
+{
+    ALLOC_OBJ_CLEAR_GC(o->pre_connect, struct options_pre_connect, &o->gc);
+    o->pre_connect->tuntap_options = o->tuntap_options;
+    o->pre_connect->tuntap_options_defined = true;
+    o->pre_connect->foreign_option_index = o->foreign_option_index;
+
+    if (o->routes)
+    {
+        o->pre_connect->routes = clone_route_option_list(o->routes, &o->gc);
+        o->pre_connect->routes_defined = true;
+    }
+    if (o->routes_ipv6)
+    {
+        o->pre_connect->routes_ipv6 = clone_route_ipv6_option_list(o->routes_ipv6, &o->gc);
+        o->pre_connect->routes_ipv6_defined = true;
+    }
+    if (o->client_nat)
+    {
+        o->pre_connect->client_nat = clone_client_nat_option_list(o->client_nat, &o->gc);
+        o->pre_connect->client_nat_defined = true;
+    }
+
+    o->pre_connect->route_default_gateway = o->route_default_gateway;
+    o->pre_connect->route_ipv6_default_gateway = o->route_ipv6_default_gateway;
+
+    o->pre_connect->dns_options = clone_dns_options(o->dns_options, &o->gc);
+
+    /* NCP related options that can be overwritten by a push */
+    o->pre_connect->ciphername = o->ciphername;
+    o->pre_connect->authname = o->authname;
+
+    /* Ping related options should be reset to the config values on reconnect */
+    o->pre_connect->ping_rec_timeout = o->ping_rec_timeout;
+    o->pre_connect->ping_rec_timeout_action = o->ping_rec_timeout_action;
+    o->pre_connect->ping_send_timeout = o->ping_send_timeout;
+
+    /* Miscellaneous Options */
+#ifdef USE_COMP
+    o->pre_connect->comp = o->comp;
+#endif
+}
+
+void
+pre_connect_restore(struct options *o, struct gc_arena *gc)
+{
+    const struct options_pre_connect *pp = o->pre_connect;
+    if (pp)
+    {
+        CLEAR(o->tuntap_options);
+        if (pp->tuntap_options_defined)
+        {
+            o->tuntap_options = pp->tuntap_options;
+        }
+
+        if (pp->routes_defined)
+        {
+            rol_check_alloc(o);
+            copy_route_option_list(o->routes, pp->routes, gc);
+        }
+        else
+        {
+            o->routes = NULL;
+        }
+
+        if (pp->routes_ipv6_defined)
+        {
+            rol6_check_alloc(o);
+            copy_route_ipv6_option_list(o->routes_ipv6, pp->routes_ipv6, gc);
+        }
+        else
+        {
+            o->routes_ipv6 = NULL;
+        }
+
+        o->route_default_gateway = pp->route_default_gateway;
+        o->route_ipv6_default_gateway = pp->route_ipv6_default_gateway;
+
+        /* Free DNS options and reset them to pre-pull state */
+        gc_free(&o->dns_options.gc);
+        struct gc_arena dns_gc = gc_new();
+        o->dns_options = clone_dns_options(pp->dns_options, &dns_gc);
+        o->dns_options.gc = dns_gc;
+
+        if (pp->client_nat_defined)
+        {
+            cnol_check_alloc(o);
+            copy_client_nat_option_list(o->client_nat, pp->client_nat);
+        }
+        else
+        {
+            o->client_nat = NULL;
+        }
+
+        o->foreign_option_index = pp->foreign_option_index;
+
+        o->ciphername = pp->ciphername;
+        o->authname = pp->authname;
+
+        o->ping_rec_timeout = pp->ping_rec_timeout;
+        o->ping_rec_timeout_action = pp->ping_rec_timeout_action;
+        o->ping_send_timeout = pp->ping_send_timeout;
+
+        /* Miscellaneous Options */
+#ifdef USE_COMP
+        o->comp = pp->comp;
+#endif
+    }
+
+    o->push_continuation = 0;
+    o->push_option_types_found = 0;
+    o->data_channel_crypto_flags = 0;
+}
+
 static void
 options_postprocess_mutate_invariant(struct options *options)
 {
 #ifdef _WIN32
     const int dev = dev_type_enum(options->dev, options->dev_type);
 
-    /* when using wintun/ovpn-dco-win, kernel doesn't send DHCP requests, so don't use it */
-    if ((options->windows_driver == WINDOWS_DRIVER_WINTUN || options->windows_driver == WINDOWS_DRIVER_WINDCO)
+    /* when using wintun, kernel doesn't send DHCP requests, so don't use it */
+    if (options->windows_driver == WINDOWS_DRIVER_WINTUN
         && (options->tuntap_options.ip_win32_type == IPW32_SET_DHCP_MASQ || options->tuntap_options.ip_win32_type == IPW32_SET_ADAPTIVE))
     {
         options->tuntap_options.ip_win32_type = IPW32_SET_NETSH;
@@ -3192,8 +3417,7 @@ options_postprocess_verify(const struct options *o)
     {
         msg(M_WARN, "Note: --client-to-client has no effect when using data "
             "channel offload: packets are always sent to the VPN "
-            "interface and then routed based on the system routing "
-            "table");
+            "interface and then routed based on the system routing table");
     }
 }
 
@@ -3210,12 +3434,10 @@ options_postprocess_setdefault_ncpciphers(struct options *o)
         /* custom --data-ciphers set, keep list */
         return;
     }
-#if !defined(_WIN32)
     else if (cipher_valid("CHACHA20-POLY1305"))
     {
         o->ncp_ciphers = "AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305";
     }
-#endif
     else
     {
         o->ncp_ciphers = "AES-256-GCM:AES-128-GCM";
@@ -3355,7 +3577,7 @@ options_set_backwards_compatible_options(struct options *o)
 }
 
 static void
-options_postprocess_mutate(struct options *o)
+options_postprocess_mutate(struct options *o, struct env_set *es)
 {
     int i;
     /*
@@ -3441,10 +3663,23 @@ options_postprocess_mutate(struct options *o)
         o->verify_hash_no_ca = true;
     }
 
+    if (o->config && streq(o->config, "stdin") && o->remap_sigusr1 == SIGHUP)
+    {
+        msg(M_USAGE, "Options 'config stdin' and 'remap-usr1 SIGHUP' are "
+            "incompatible with each other.");
+    }
+
     /* check if any option should force disabling DCO */
 #if defined(TARGET_LINUX)
-    o->tuntap_options.disable_dco = dco_check_option_conflict(D_DCO, o);
+    o->tuntap_options.disable_dco = !dco_check_option_conflict(D_DCO, o);
 #endif
+
+    if (dco_enabled(o) && o->dev_node)
+    {
+        msg(M_WARN, "Note: ignoring --dev-node as it has no effect when using "
+            "data channel offload");
+        o->dev_node = NULL;
+    }
 
     /*
      * Save certain parms before modifying options during connect, especially
@@ -3454,12 +3689,14 @@ options_postprocess_mutate(struct options *o)
     {
         dns_options_preprocess_pull(&o->dns_options);
     }
-#if defined(_WIN32) || defined(TARGET_ANDROID)
     else
     {
+#if defined(_WIN32) || defined(TARGET_ANDROID)
         tuntap_options_copy_dns(o);
-    }
+#else
+        foreign_options_copy_dns(o, es);
 #endif
+    }
     pre_connect_save(o);
 }
 
@@ -3795,9 +4032,9 @@ options_postprocess_filechecks(struct options *options)
  * options.
  */
 void
-options_postprocess(struct options *options)
+options_postprocess(struct options *options, struct env_set *es)
 {
-    options_postprocess_mutate(options);
+    options_postprocess_mutate(options, es);
     options_postprocess_verify(options);
 #ifndef ENABLE_SMALL
     options_postprocess_filechecks(options);
@@ -3818,128 +4055,11 @@ options_postprocess_pull(struct options *o, struct env_set *es)
         setenv_dns_options(&o->dns_options, es);
 #if defined(_WIN32) || defined(TARGET_ANDROID)
         tuntap_options_copy_dns(o);
+#else
+        foreign_options_copy_dns(o, es);
 #endif
     }
     return success;
-}
-
-/*
- * Save/Restore certain option defaults before --pull is applied.
- */
-
-void
-pre_connect_save(struct options *o)
-{
-    ALLOC_OBJ_CLEAR_GC(o->pre_connect, struct options_pre_connect, &o->gc);
-    o->pre_connect->tuntap_options = o->tuntap_options;
-    o->pre_connect->tuntap_options_defined = true;
-    o->pre_connect->foreign_option_index = o->foreign_option_index;
-
-    if (o->routes)
-    {
-        o->pre_connect->routes = clone_route_option_list(o->routes, &o->gc);
-        o->pre_connect->routes_defined = true;
-    }
-    if (o->routes_ipv6)
-    {
-        o->pre_connect->routes_ipv6 = clone_route_ipv6_option_list(o->routes_ipv6, &o->gc);
-        o->pre_connect->routes_ipv6_defined = true;
-    }
-    if (o->client_nat)
-    {
-        o->pre_connect->client_nat = clone_client_nat_option_list(o->client_nat, &o->gc);
-        o->pre_connect->client_nat_defined = true;
-    }
-
-    o->pre_connect->route_default_gateway = o->route_default_gateway;
-    o->pre_connect->route_ipv6_default_gateway = o->route_ipv6_default_gateway;
-
-    o->pre_connect->dns_options = clone_dns_options(o->dns_options, &o->gc);
-
-    /* NCP related options that can be overwritten by a push */
-    o->pre_connect->ciphername = o->ciphername;
-    o->pre_connect->authname = o->authname;
-
-    /* Ping related options should be reset to the config values on reconnect */
-    o->pre_connect->ping_rec_timeout = o->ping_rec_timeout;
-    o->pre_connect->ping_rec_timeout_action = o->ping_rec_timeout_action;
-    o->pre_connect->ping_send_timeout = o->ping_send_timeout;
-
-    /* Miscellaneous Options */
-#ifdef USE_COMP
-    o->pre_connect->comp = o->comp;
-#endif
-}
-
-void
-pre_connect_restore(struct options *o, struct gc_arena *gc)
-{
-    const struct options_pre_connect *pp = o->pre_connect;
-    if (pp)
-    {
-        CLEAR(o->tuntap_options);
-        if (pp->tuntap_options_defined)
-        {
-            o->tuntap_options = pp->tuntap_options;
-        }
-
-        if (pp->routes_defined)
-        {
-            rol_check_alloc(o);
-            copy_route_option_list(o->routes, pp->routes, gc);
-        }
-        else
-        {
-            o->routes = NULL;
-        }
-
-        if (pp->routes_ipv6_defined)
-        {
-            rol6_check_alloc(o);
-            copy_route_ipv6_option_list(o->routes_ipv6, pp->routes_ipv6, gc);
-        }
-        else
-        {
-            o->routes_ipv6 = NULL;
-        }
-
-        o->route_default_gateway = pp->route_default_gateway;
-        o->route_ipv6_default_gateway = pp->route_ipv6_default_gateway;
-
-        /* Free DNS options and reset them to pre-pull state */
-        gc_free(&o->dns_options.gc);
-        struct gc_arena dns_gc = gc_new();
-        o->dns_options = clone_dns_options(pp->dns_options, &dns_gc);
-        o->dns_options.gc = dns_gc;
-
-        if (pp->client_nat_defined)
-        {
-            cnol_check_alloc(o);
-            copy_client_nat_option_list(o->client_nat, pp->client_nat);
-        }
-        else
-        {
-            o->client_nat = NULL;
-        }
-
-        o->foreign_option_index = pp->foreign_option_index;
-
-        o->ciphername = pp->ciphername;
-        o->authname = pp->authname;
-
-        o->ping_rec_timeout = pp->ping_rec_timeout;
-        o->ping_rec_timeout_action = pp->ping_rec_timeout_action;
-        o->ping_send_timeout = pp->ping_send_timeout;
-
-        /* Miscellaneous Options */
-#ifdef USE_COMP
-        o->comp = pp->comp;
-#endif
-    }
-
-    o->push_continuation = 0;
-    o->push_option_types_found = 0;
-    o->data_channel_crypto_flags = 0;
 }
 
 /*
@@ -4040,8 +4160,7 @@ options_string(const struct options *o,
                       NULL,
                       false,
                       NULL,
-                      ctx,
-                      NULL);
+                      ctx);
         if (tt)
         {
             tt_local = true;
@@ -4380,7 +4499,7 @@ options_string_version(const char *s, struct gc_arena *gc)
 }
 
 char *
-options_string_extract_option(const char *options_string,const char *opt_name,
+options_string_extract_option(const char *options_string, const char *opt_name,
                               struct gc_arena *gc)
 {
     char *ret = NULL;
@@ -4409,44 +4528,6 @@ options_string_extract_option(const char *options_string,const char *opt_name,
     return ret;
 }
 
-static void
-foreign_option(struct options *o, char *argv[], int len, struct env_set *es)
-{
-    if (len > 0)
-    {
-        struct gc_arena gc = gc_new();
-        struct buffer name = alloc_buf_gc(OPTION_PARM_SIZE, &gc);
-        struct buffer value = alloc_buf_gc(OPTION_PARM_SIZE, &gc);
-        int i;
-        bool first = true;
-        bool good = true;
-
-        good &= buf_printf(&name, "foreign_option_%d", o->foreign_option_index + 1);
-        ++o->foreign_option_index;
-        for (i = 0; i < len; ++i)
-        {
-            if (argv[i])
-            {
-                if (!first)
-                {
-                    good &= buf_printf(&value, " ");
-                }
-                good &= buf_printf(&value, "%s", argv[i]);
-                first = false;
-            }
-        }
-        if (good)
-        {
-            setenv_str(es, BSTR(&name), BSTR(&value));
-        }
-        else
-        {
-            msg(M_WARN, "foreign_option: name/value overflow");
-        }
-        gc_free(&gc);
-    }
-}
-
 #ifdef _WIN32
 /**
  * Parses --windows-driver config option
@@ -4466,19 +4547,13 @@ parse_windows_driver(const char *str, const int msglevel)
     {
         return WINDOWS_DRIVER_WINTUN;
     }
-
-    else if (streq(str, "ovpn-dco-win"))
-    {
-        return WINDOWS_DRIVER_WINDCO;
-    }
     else
     {
-        msg(msglevel, "--windows-driver must be tap-windows6, wintun "
-            "or ovpn-dco-win");
+        msg(msglevel, "--windows-driver must be tap-windows6 or wintun");
         return WINDOWS_DRIVER_UNSPECIFIED;
     }
 }
-#endif /* ifdef _WIN32 */
+#endif
 
 /*
  * parse/print topology coding
@@ -5569,13 +5644,6 @@ add_option(struct options *options,
         openvpn_exit(OPENVPN_EXIT_STATUS_GOOD); /* exit point */
     }
 #endif
-#if 0
-    else if (streq(p[0], "foreign-option") && p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_IPWIN32);
-        foreign_option(options, p, 3, es);
-    }
-#endif
     else if (streq(p[0], "echo") || streq(p[0], "parameter"))
     {
         struct buffer string = alloc_buf_gc(OPTION_PARM_SIZE, &gc);
@@ -5684,11 +5752,10 @@ add_option(struct options *options,
         VERIFY_PERMISSION(OPT_P_GENERAL);
         options->management_flags |= MF_UP_DOWN;
     }
-    else if (streq(p[0], "management-client") && !p[2])
+    else if (streq(p[0], "management-client") && !p[1])
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
         options->management_flags |= MF_CONNECT_AS_CLIENT;
-        options->management_write_peer_info_file = p[1];
     }
 #ifdef ENABLE_MANAGEMENT
     else if (streq(p[0], "management-external-key"))
@@ -5803,7 +5870,7 @@ add_option(struct options *options,
         options->windows_driver = parse_windows_driver(p[1], M_FATAL);
     }
 #endif
-    else if (streq(p[0], "disable-dco") || streq(p[0], "dco-disable"))
+    else if (streq(p[0], "disable-dco"))
     {
 #if defined(TARGET_LINUX)
         options->tuntap_options.disable_dco = true;
@@ -7143,7 +7210,7 @@ add_option(struct options *options,
     {
         VERIFY_PERMISSION(OPT_P_INSTANCE);
         msg(D_PUSH, "PUSH_REMOVE '%s'", p[1]);
-        push_remove_option(options,p[1]);
+        push_remove_option(options, p[1]);
     }
     else if (streq(p[0], "ifconfig-pool") && p[1] && p[2] && !p[4])
     {
@@ -7868,7 +7935,6 @@ add_option(struct options *options,
             if (strstr(p[2], ":"))
             {
                 ipv6dns = true;
-                foreign_option(options, p, 3, es);
                 dhcp_option_dns6_parse(p[2], o->dns6, &o->dns6_len, msglevel);
             }
             else
@@ -8065,7 +8131,7 @@ add_option(struct options *options,
     else if (streq(p[0], "dhcp-option") && p[1] && !p[3])
     {
         VERIFY_PERMISSION(OPT_P_IPWIN32);
-        foreign_option(options, p, 3, es);
+        setenv_foreign_option(options, (const char **)p, 3, es);
     }
     else if (streq(p[0], "route-method") && p[1] && !p[2]) /* ignore when pushed to non-Windows OS */
     {

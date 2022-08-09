@@ -30,6 +30,7 @@
 
 #include "syshead.h"
 #include "manage.h"
+#include "integer.h"
 #include "xkey_common.h"
 
 #ifdef HAVE_XKEY_PROVIDER
@@ -66,7 +67,11 @@ static const char *const pubkey2 = "-----BEGIN PUBLIC KEY-----\n"
                                    "u95ff1JiUaJIkYNIkZA+hwIPFVH5aJcSCv3SPIeDS2VUAESNKHZJBQ==\n"
                                    "-----END PUBLIC KEY-----\n";
 
-static const char *pubkeys[] = {pubkey1, pubkey2};
+static const char *const pubkey3 = "-----BEGIN PUBLIC KEY-----\n"
+                                   "MCowBQYDK2VwAyEA+q5xjF5hGyyqYZidJdz/0saEQabL3N4wIZJBxNGbgJE=\n"
+                                   "-----END PUBLIC KEY-----";
+
+static const char *pubkeys[] = {pubkey1, pubkey2, pubkey3};
 
 static const char *prov_name = "ovpn.xkey";
 
@@ -116,14 +121,16 @@ load_pubkey(const char *pem)
 static void
 init_test()
 {
-    prov[0] = OSSL_PROVIDER_load(NULL,"default");
+    prov[0] = OSSL_PROVIDER_load(NULL, "default");
     OSSL_PROVIDER_add_builtin(NULL, prov_name, xkey_provider_init);
     prov[1] = OSSL_PROVIDER_load(NULL, prov_name);
 
     /* set default propq matching what we use in ssl_openssl.c */
     EVP_set_default_properties(NULL, "?provider!=ovpn.xkey");
 
+#ifdef ENABLE_MANAGEMENT
     management = test_calloc(sizeof(*management), 1);
+#endif
 }
 
 static void
@@ -158,12 +165,17 @@ management_query_pk_sig(struct management *man, const char *b64_data,
     if (strstr(algorithm, "data=message"))
     {
         expected_tbs = test_msg_b64;
-        assert_non_null(strstr(algorithm, "hashalg=SHA256"));
+        /* ED25519 does not have a hash algorithm even though it goes via
+         * the DigestSign path (data=message) */
+        if (!strstr(algorithm, "ED25519"))
+        {
+            assert_non_null(strstr(algorithm, "hashalg=SHA256"));
+        }
     }
     assert_string_equal(b64_data, expected_tbs);
 
-    /* We test using ECDSA or PSS with saltlen = digest */
-    if (!strstr(algorithm, "ECDSA"))
+    /* We test using ED25519, ECDSA or PSS with saltlen = digest */
+    if (!strstr(algorithm, "ECDSA") && !strstr(algorithm, "ED25519"))
     {
         assert_non_null(strstr(algorithm, "RSA_PKCS1_PSS_PADDING,hashalg=SHA256,saltlen=digest"));
     }
@@ -228,6 +240,12 @@ digest_sign(EVP_PKEY *pkey)
         params[3] = OSSL_PARAM_construct_utf8_string(OSSL_SIGNATURE_PARAM_MGF1_DIGEST, (char *)saltlen, 0);
         params[4] = OSSL_PARAM_construct_end();
     }
+    else if (EVP_PKEY_get_id(pkey) == EVP_PKEY_ED25519)
+    {
+        mdname = NULL;
+        params[0] = OSSL_PARAM_construct_end();
+    }
+
 
     EVP_PKEY_CTX *pctx = NULL;
     EVP_MD_CTX *mctx = EVP_MD_CTX_new();
@@ -257,6 +275,7 @@ done:
     return sig;
 }
 
+#ifdef ENABLE_MANAGEMENT
 /* Check loading of management external key and have sign callback exercised
  * for RSA and EC keys with and without digest support in management client.
  * Sha256 digest used for both cases with pss padding for RSA.
@@ -295,6 +314,7 @@ again:
         EVP_PKEY_free(privkey);
     }
 }
+#endif /* ifdef ENABLE_MANAGEMENT */
 
 /* helpers for testing generic key load and sign */
 static int xkey_free_called;
@@ -328,13 +348,20 @@ xkey_sign(void *handle, unsigned char *sig, size_t *siglen,
         assert_memory_equal(tbs, test_digest, sizeof(test_digest));
     }
 
-    /* For the test use sha256 and PSS padding for RSA */
-    assert_int_equal(OBJ_sn2nid(s.mdname), NID_sha256);
+    /* For the test use sha256 and PSS padding for RSA and none for EDDSA */
+    if (!strcmp(s.keytype, "ED25519"))
+    {
+        assert_string_equal(s.mdname, "none");
+    }
+    else
+    {
+        assert_int_equal(OBJ_sn2nid(s.mdname), NID_sha256);
+    }
     if (!strcmp(s.keytype, "RSA"))
     {
         assert_string_equal(s.padmode, "pss"); /* we use PSS for the test */
     }
-    else if (strcmp(s.keytype, "EC"))
+    else if (strcmp(s.keytype, "EC") && strcmp(s.keytype, "ED25519"))
     {
         fail_msg("Unknown keytype: %s", s.keytype);
     }
@@ -387,7 +414,9 @@ main(void)
 
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(xkey_provider_test_fetch),
+#ifdef ENABLE_MANAGEMENT
         cmocka_unit_test(xkey_provider_test_mgmt_sign_cb),
+#endif
         cmocka_unit_test(xkey_provider_test_generic_sign_cb),
     };
 
