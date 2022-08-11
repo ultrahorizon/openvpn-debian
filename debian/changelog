@@ -1,3 +1,12 @@
+openvpn (2.6.0~git20220811-1) unstable; urgency=medium
+
+  * New upstream version 2.6.0~git20220811
+    * Retain CAP_NET_ADMIN when dropping privileges
+  * Add build-dependency on libcap-ng-dev
+  * Explicitly disable unit tests (Closes: #1016057)
+
+ -- Bernhard Schmidt <berni@debian.org>  Thu, 11 Aug 2022 16:05:36 +0200
+
 openvpn (2.6.0~git20220808-1) unstable; urgency=medium
 
   [ Gianfranco Costamagna ]
