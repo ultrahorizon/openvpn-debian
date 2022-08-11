@@ -4,6 +4,7 @@ openvpn (2.6.0~git20220811-1) unstable; urgency=medium
     * Retain CAP_NET_ADMIN when dropping privileges
   * Add build-dependency on libcap-ng-dev
   * Explicitly disable unit tests (Closes: #1016057)
+  * Drop obsolete entries from d/copyright
 
  -- Bernhard Schmidt <berni@debian.org>  Thu, 11 Aug 2022 16:05:36 +0200
 

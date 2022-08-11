@@ -72,8 +72,6 @@ Files: sample/sample-plugins/log/log_v3.c
        src/compat/compat-basename.c
        src/compat/compat-daemon.c
        src/compat/compat-dirname.c
-       src/compat/compat-inet_ntop.c
-       src/compat/compat-inet_pton.c
        src/compat/compat.h
        src/openvpn/console.c
        src/openvpn/console.h
@@ -87,11 +85,6 @@ Files: sample/sample-plugins/log/log_v3.c
        src/plugins/down-root/down-root.c
 Copyright: 2010-2021 David Sommerseth <davids@redhat.com>
 License: GPL-2
-
-Files: src/compat/compat-lz4.c
-       src/compat/compat-lz4.h
-Copyright: 2011-2016 Yann Collet
-License: BSD-2
 
 Files: src/openvpn/base64.c
        src/openvpn/base64.h
