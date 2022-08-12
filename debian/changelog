@@ -1,7 +1,7 @@
 openvpn (2.6.0~git20220811-1) unstable; urgency=medium
 
   * New upstream version 2.6.0~git20220811
-    * Retain CAP_NET_ADMIN when dropping privileges
+    * Retain CAP_NET_ADMIN when dropping privileges (Closes: #976070)
   * Add build-dependency on libcap-ng-dev
   * Explicitly disable unit tests (Closes: #1016057)
   * Drop obsolete entries from d/copyright
