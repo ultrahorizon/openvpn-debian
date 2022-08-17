@@ -1,3 +1,11 @@
+openvpn (2.6.0~git20220811-2) unstable; urgency=medium
+
+  * Cherry-Pick proposed upstream fix to disable DCO if unable to retain
+    capabilities, fixes network-manager-openvpn together with DCO
+    (Closes: #1017379)
+
+ -- Bernhard Schmidt <berni@debian.org>  Wed, 17 Aug 2022 15:30:31 +0200
+
 openvpn (2.6.0~git20220811-1) unstable; urgency=medium
 
   * New upstream version 2.6.0~git20220811
