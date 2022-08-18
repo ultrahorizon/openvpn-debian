@@ -760,7 +760,8 @@ ovpn_handle_msg(struct nl_msg *msg, void *arg)
     uint32_t ifindex = nla_get_u32(attrs[OVPN_ATTR_IFINDEX]);
     if (ifindex != dco->ifindex)
     {
-        msg(D_DCO, "ovpn-dco: received message type %d with mismatched ifindex %d\n",
+        msg(D_DCO_DEBUG,
+            "ovpn-dco: ignoring message (type=%d) for foreign ifindex %d",
             gnlh->cmd, ifindex);
         return NL_SKIP;
     }
@@ -913,7 +914,7 @@ nla_put_failure:
 bool
 dco_available(int msglevel)
 {
-    if (resolve_ovpn_netlink_id(msglevel) < 0)
+    if (resolve_ovpn_netlink_id(D_DCO_DEBUG) < 0)
     {
         msg(msglevel,
             "Note: Kernel support for ovpn-dco missing, disabling data channel offload.");

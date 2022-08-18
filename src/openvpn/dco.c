@@ -44,6 +44,10 @@
 #include "ssl_ncp.h"
 #include "tun.h"
 
+#ifdef HAVE_LIBCAPNG
+#include <cap-ng.h>
+#endif
+
 static int
 dco_install_key(struct tls_multi *multi, struct key_state *ks,
                 const uint8_t *encrypt_key, const uint8_t *encrypt_iv,
@@ -218,8 +222,8 @@ dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
     }
 }
 
-static bool
-dco_check_option_conflict_platform(int msglevel, const struct options *o)
+bool
+dco_check_startup_option_conflict(int msglevel, const struct options *o)
 {
 #if defined(TARGET_LINUX)
     /* if the device name is fixed, we need to check if an interface with this
@@ -247,6 +251,28 @@ dco_check_option_conflict_platform(int msglevel, const struct options *o)
         }
     }
 #endif /* if defined(TARGET_LINUX) */
+
+#if defined(HAVE_LIBCAPNG)
+    /* DCO can't operate without CAP_NET_ADMIN. To retain it when switching user
+     * we need CAP_SETPCAP. CAP_NET_ADMIN also needs to be part of the permitted set
+     * of capabilities in order to retain it.
+     */
+    if (o->username)
+    {
+        if (!capng_have_capability(CAPNG_EFFECTIVE, CAP_SETPCAP))
+        {
+            msg(msglevel, "--user specified but lacking CAP_SETPCAP. "
+                "Cannot retain CAP_NET_ADMIN. Disabling data channel offload");
+            return false;
+        }
+        if (!capng_have_capability(CAPNG_PERMITTED, CAP_NET_ADMIN))
+        {
+            msg(msglevel, "--user specified but not permitted to retain CAP_NET_ADMIN. "
+                "Disabling data channel offload");
+            return false;
+        }
+    }
+#endif /* if defined(HAVE_LIBCAPNG) */
     return true;
 }
 
@@ -271,6 +297,14 @@ dco_check_option_conflict_ce(const struct connection_entry *ce, int msglevel)
         return false;
     }
 
+#if defined(TARGET_FREEBSD)
+    if (!proto_is_udp(ce->proto))
+    {
+        msg(msglevel, "NOTE: TCP transport disables data channel offload on FreeBSD.");
+        return false;
+    }
+#endif
+
     return true;
 }
 
@@ -289,11 +323,6 @@ dco_check_option_conflict(int msglevel, const struct options *o)
     }
 
     if (!o->dev)
-    {
-        return false;
-    }
-
-    if (!dco_check_option_conflict_platform(msglevel, o))
     {
         return false;
     }
@@ -393,61 +422,14 @@ dco_p2p_add_new_peer(struct context *c)
         return 0;
     }
 
-    struct tls_multi *multi = c->c2.tls_multi;
     struct link_socket *ls = c->c2.link_socket;
-
-    struct in6_addr remote_ip6 = { 0 };
-    struct in_addr remote_ip4 = { 0 };
-
-    struct in6_addr *remote_addr6 = NULL;
-    struct in_addr *remote_addr4 = NULL;
-
-    const char *gw = NULL;
 
     ASSERT(ls->info.connection_established);
 
-    /* In client mode if a P2P style topology is used we assume the
-     * remote-gateway is the IP of the peer */
-    if (c->options.topology == TOP_NET30 || c->options.topology == TOP_P2P)
-    {
-        gw = c->options.ifconfig_remote_netmask;
-    }
-    if (c->options.route_default_gateway)
-    {
-        gw = c->options.route_default_gateway;
-    }
-
-    /* These inet_pton conversion are fatal since options.c already implements
-     * checks to have only valid addresses when setting the options */
-    if (c->options.ifconfig_ipv6_remote)
-    {
-        if (inet_pton(AF_INET6, c->options.ifconfig_ipv6_remote, &remote_ip6) != 1)
-        {
-            msg(M_FATAL,
-                "DCO peer init: problem converting IPv6 ifconfig remote address %s to binary",
-                c->options.ifconfig_ipv6_remote);
-        }
-        remote_addr6 = &remote_ip6;
-    }
-
-    if (gw)
-    {
-        if (inet_pton(AF_INET, gw, &remote_ip4) != 1)
-        {
-            msg(M_FATAL, "DCO peer init: problem converting IPv4 ifconfig gateway address %s to binary", gw);
-        }
-        remote_addr4 = &remote_ip4;
-    }
-    else if (c->options.ifconfig_local)
-    {
-        msg(M_INFO, "DCO peer init: Need a peer VPN addresss to setup IPv4 (set --route-gateway)");
-    }
-
     struct sockaddr *remoteaddr = &ls->info.lsa->actual.dest.addr.sa;
-
+    struct tls_multi *multi = c->c2.tls_multi;
     int ret = dco_new_peer(&c->c1.tuntap->dco, multi->peer_id,
-                           c->c2.link_socket->sd, NULL, remoteaddr,
-                           remote_addr4, remote_addr6);
+                           c->c2.link_socket->sd, NULL, remoteaddr, NULL, NULL);
     if (ret < 0)
     {
         return ret;
@@ -544,19 +526,20 @@ dco_multi_add_new_peer(struct multi_context *m, struct multi_instance *mi)
         remoteaddr = &c->c2.link_socket_info->lsa->actual.dest.addr.sa;
     }
 
-    struct in_addr remote_ip4 = { 0 };
-    struct in6_addr *remote_addr6 = NULL;
-    struct in_addr *remote_addr4 = NULL;
-
     /* In server mode we need to fetch the remote addresses from the push config */
+
+    struct in_addr vpn_ip4 = { 0 };
+    struct in_addr *vpn_addr4 = NULL;
     if (c->c2.push_ifconfig_defined)
     {
-        remote_ip4.s_addr =  htonl(c->c2.push_ifconfig_local);
-        remote_addr4 = &remote_ip4;
+        vpn_ip4.s_addr = htonl(c->c2.push_ifconfig_local);
+        vpn_addr4 = &vpn_ip4;
     }
+
+    struct in6_addr *vpn_addr6 = NULL;
     if (c->c2.push_ifconfig_ipv6_defined)
     {
-        remote_addr6 = &c->c2.push_ifconfig_ipv6_local;
+        vpn_addr6 = &c->c2.push_ifconfig_ipv6_local;
     }
 
     if (dco_multi_get_localaddr(m, mi, &local))
@@ -565,7 +548,7 @@ dco_multi_add_new_peer(struct multi_context *m, struct multi_instance *mi)
     }
 
     int ret = dco_new_peer(&c->c1.tuntap->dco, peer_id, sd, localaddr,
-                           remoteaddr, remote_addr4, remote_addr6);
+                           remoteaddr, vpn_addr4, vpn_addr6);
     if (ret < 0)
     {
         return ret;

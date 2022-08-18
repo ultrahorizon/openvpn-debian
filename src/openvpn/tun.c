@@ -1722,7 +1722,7 @@ tun_name_is_fixed(const char *dev)
     return has_digit(dev);
 }
 
-#if defined(TARGET_LINUX)
+#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
 static bool
 tun_dco_enabled(struct tuntap *tt)
 {
@@ -1836,9 +1836,9 @@ open_tun_generic(const char *dev, const char *dev_type, const char *dev_node,
         tt->actual_name = string_alloc(dynamic_opened ? dynamic_name : dev, NULL);
     }
 }
-#endif /* !_WIN32 && !TARGET_LINUX */
+#endif /* !_WIN32 && !TARGET_LINUX && !TARGET_FREEBSD*/
 
-#if defined(TARGET_LINUX)
+#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
 static void
 open_tun_dco_generic(const char *dev, const char *dev_type,
                      struct tuntap *tt, openvpn_net_ctx_t *ctx)
@@ -1911,7 +1911,7 @@ open_tun_dco_generic(const char *dev, const char *dev_type,
         tt->actual_name = string_alloc(dev, NULL);
     }
 }
-#endif /* TARGET_LINUX */
+#endif /* TARGET_LINUX || TARGET_FREEBSD*/
 
 #if !defined(_WIN32)
 static void
@@ -2294,7 +2294,7 @@ close_tun(struct tuntap *tt, openvpn_net_ctx_t *ctx)
         net_ctx_reset(ctx);
     }
 
-#ifdef TARGET_LINUX
+#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
     if (tun_dco_enabled(tt))
     {
         close_tun_dco(tt, ctx);
@@ -2915,20 +2915,27 @@ void
 open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
          openvpn_net_ctx_t *ctx)
 {
-    open_tun_generic(dev, dev_type, dev_node, tt);
-
-    if (tt->fd >= 0 && tt->type == DEV_TYPE_TUN)
+    if (tun_dco_enabled(tt))
     {
-        int i = IFF_POINTOPOINT | IFF_MULTICAST;
+        open_tun_dco_generic(dev, dev_type, tt, ctx);
+    }
+    else
+    {
+        open_tun_generic(dev, dev_type, dev_node, tt);
 
-        if (ioctl(tt->fd, TUNSIFMODE, &i) < 0)
+        if (tt->fd >= 0 && tt->type == DEV_TYPE_TUN)
         {
-            msg(M_WARN | M_ERRNO, "ioctl(TUNSIFMODE)");
-        }
-        i = 1;
-        if (ioctl(tt->fd, TUNSIFHEAD, &i) < 0)
-        {
-            msg(M_WARN | M_ERRNO, "ioctl(TUNSIFHEAD)");
+            int i = IFF_POINTOPOINT | IFF_MULTICAST;
+
+            if (ioctl(tt->fd, TUNSIFMODE, &i) < 0)
+            {
+                msg(M_WARN | M_ERRNO, "ioctl(TUNSIFMODE)");
+            }
+            i = 1;
+            if (ioctl(tt->fd, TUNSIFHEAD, &i) < 0)
+            {
+                msg(M_WARN | M_ERRNO, "ioctl(TUNSIFHEAD)");
+            }
         }
     }
 }
@@ -3715,7 +3722,6 @@ get_device_instance_id_interface(struct gc_arena *gc)
         LONG status;
         ULONG dev_interface_list_size;
         CONFIGRET cr;
-        struct buffer dev_interface_list;
 
         ZeroMemory(&device_info_data, sizeof(SP_DEVINFO_DATA));
         device_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
@@ -3768,9 +3774,9 @@ get_device_instance_id_interface(struct gc_arena *gc)
             goto next;
         }
 
-        dev_interface_list = alloc_buf_gc(dev_interface_list_size, gc);
+        char *dev_interface_list = gc_malloc(dev_interface_list_size, false, gc);
         cr = CM_Get_Device_Interface_List((LPGUID)&GUID_DEVINTERFACE_NET, device_instance_id,
-                                          BSTR(&dev_interface_list),
+                                          dev_interface_list,
                                           dev_interface_list_size,
                                           CM_GET_DEVICE_INTERFACE_LIST_PRESENT);
         if (cr != CR_SUCCESS)
@@ -3778,21 +3784,29 @@ get_device_instance_id_interface(struct gc_arena *gc)
             goto next;
         }
 
-        struct device_instance_id_interface *dev_if;
-        ALLOC_OBJ_CLEAR_GC(dev_if, struct device_instance_id_interface, gc);
-        dev_if->net_cfg_instance_id = (unsigned char *)string_alloc((char *)net_cfg_instance_id, gc);
-        dev_if->device_interface_list = string_alloc(BSTR(&dev_interface_list), gc);
+        char *dev_if = dev_interface_list;
 
-        /* link into return list */
-        if (!first)
+        /* device interface list ends with empty string */
+        while (strlen(dev_if) > 0)
         {
-            first = dev_if;
+            struct device_instance_id_interface *dev_iif;
+            ALLOC_OBJ_CLEAR_GC(dev_iif, struct device_instance_id_interface, gc);
+            dev_iif->net_cfg_instance_id = (unsigned char *)string_alloc((char *)net_cfg_instance_id, gc);
+            dev_iif->device_interface = string_alloc(dev_if, gc);
+
+            /* link into return list */
+            if (!first)
+            {
+                first = dev_iif;
+            }
+            if (last)
+            {
+                last->next = dev_iif;
+            }
+            last = dev_iif;
+
+            dev_if += strlen(dev_if) + 1;
         }
-        if (last)
-        {
-            last->next = dev_if;
-        }
-        last = dev_if;
 
 next:
         RegCloseKey(dev_key);
@@ -6468,12 +6482,11 @@ tun_try_open_device(struct tuntap *tt, const char *device_guid, const struct dev
     {
         const struct device_instance_id_interface *dev_if;
 
-        /* Open Wintun adapter */
         for (dev_if = device_instance_id_interface; dev_if != NULL; dev_if = dev_if->next)
         {
             if (strcmp((const char *)dev_if->net_cfg_instance_id, device_guid) == 0)
             {
-                path = dev_if->device_interface_list;
+                path = dev_if->device_interface;
                 break;
             }
         }
