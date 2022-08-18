@@ -691,7 +691,7 @@ struct options
 #define OPT_P_GENERAL         (1<<0)
 #define OPT_P_UP              (1<<1)
 #define OPT_P_ROUTE           (1<<2)
-#define OPT_P_IPWIN32         (1<<3)
+#define OPT_P_DHCPDNS         (1<<3)    /* includes ip windows options like */
 #define OPT_P_SCRIPT          (1<<4)
 #define OPT_P_SETENV          (1<<5)
 #define OPT_P_SHAPER          (1<<6)
@@ -876,7 +876,7 @@ void options_string_import(struct options *options,
 
 bool key_is_external(const struct options *options);
 
-#if defined(ENABLE_DCO) && defined(TARGET_LINUX)
+#if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))
 
 /**
  * Returns whether the current configuration has dco enabled.
@@ -887,7 +887,7 @@ dco_enabled(const struct options *o)
     return !o->tuntap_options.disable_dco;
 }
 
-#else /* if defined(ENABLE_DCO) && defined(TARGET_LINUX) */
+#else /* if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))*/
 
 static inline bool
 dco_enabled(const struct options *o)

@@ -1113,7 +1113,7 @@ process_incoming_link(struct context *c)
 static void
 process_incoming_dco(struct context *c)
 {
-#if defined(ENABLE_DCO) && defined(TARGET_LINUX)
+#if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))
     struct link_socket_info *lsi = get_link_socket_info(c);
     dco_context_t *dco = &c->c1.tuntap->dco;
 
@@ -1140,7 +1140,7 @@ process_incoming_dco(struct context *c)
 
     c->c2.buf = orig_buff;
     buf_init(&dco->dco_packet_in, 0);
-#endif /* if defined(ENABLE_DCO) && defined(TARGET_LINUX) */
+#endif /* if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD)) */
 }
 
 /*
@@ -1593,6 +1593,26 @@ process_ip_header(struct context *c, unsigned int flags, struct buffer *buf)
     }
 }
 
+/* Linux-like DCO implementations pass the socket to the kernel and
+ * disallow usage of it from userland, so (control) packets sent and
+ * received by OpenVPN need to go through the DCO interface.
+ *
+ * Windows DCO needs control packets to be sent via the normal
+ * standard Overlapped I/O.
+ *
+ * Hide that complexity (...especially if more platforms show up
+ * in future...) in a small inline function.
+ */
+static inline bool
+should_use_dco_socket(struct link_socket *sock)
+{
+#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
+    return sock->info.dco_installed;
+#else
+    return false;
+#endif
+}
+
 /*
  * Input: c->c2.to_link
  */
@@ -1666,7 +1686,7 @@ process_outgoing_link(struct context *c)
                 socks_preprocess_outgoing_link(c, &to_addr, &size_delta);
 
                 /* Send packet */
-                if (c->c2.link_socket->info.dco_installed)
+                if (should_use_dco_socket(c->c2.link_socket))
                 {
                     size = dco_do_write(&c->c1.tuntap->dco,
                                         c->c2.tls_multi->peer_id,
@@ -1946,7 +1966,7 @@ io_wait_dowork(struct context *c, const unsigned int flags)
 #ifdef ENABLE_ASYNC_PUSH
     static int file_shift = FILE_SHIFT;
 #endif
-#ifdef TARGET_LINUX
+#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
     static int dco_shift = DCO_SHIFT;    /* Event from DCO linux kernel module */
 #endif
 
@@ -2056,7 +2076,7 @@ io_wait_dowork(struct context *c, const unsigned int flags)
      */
     socket_set(c->c2.link_socket, c->c2.event_set, socket, (void *)&socket_shift, NULL);
     tun_set(c->c1.tuntap, c->c2.event_set, tuntap, (void *)&tun_shift, NULL);
-#if defined(TARGET_LINUX)
+#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
     if (socket & EVENT_READ && c->c2.did_open_tun)
     {
         dco_event_set(&c->c1.tuntap->dco, c->c2.event_set, (void *)&dco_shift);

@@ -837,7 +837,7 @@ multi_print_status(struct multi_context *m, struct status_output *so, const int 
 
         status_reset(so);
 
-        if (version == 1) /* WAS: m->status_file_version */
+        if (version == 1)
         {
             /*
              * Status file version 1
@@ -984,6 +984,7 @@ multi_print_status(struct multi_context *m, struct status_output *so, const int 
                               sep, sep, mbuf_maximum_queued(m->mbuf));
             }
 
+            status_printf(so, "GLOBAL_STATS%cdco_enabled%c%d", sep, sep, dco_enabled(&m->top.options));
             status_printf(so, "END");
         }
         else
@@ -3154,7 +3155,7 @@ multi_close_instance_on_signal(struct multi_context *m, struct multi_instance *m
     multi_close_instance(m, mi, false);
 }
 
-#if (defined(ENABLE_DCO) && defined(TARGET_LINUX)) || defined(ENABLE_MANAGEMENT)
+#if (defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))) || defined(ENABLE_MANAGEMENT)
 static void
 multi_signal_instance(struct multi_context *m, struct multi_instance *mi, const int sig)
 {
@@ -3163,7 +3164,7 @@ multi_signal_instance(struct multi_context *m, struct multi_instance *mi, const 
 }
 #endif
 
-#if defined(ENABLE_DCO) && defined(TARGET_LINUX)
+#if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))
 static void
 process_incoming_dco_packet(struct multi_context *m, struct multi_instance *mi,
                             dco_context_t *dco)
