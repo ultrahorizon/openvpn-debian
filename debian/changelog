@@ -1,3 +1,11 @@
+openvpn (2.6.0~git20220818-1) unstable; urgency=medium
+
+  * New upstream version 2.6.0~git20220818
+  * Only depend on libcap-ng-dev on Linux
+  * Drop d/p/disable-dco-without-necessary-capabilities applied upstream
+
+ -- Bernhard Schmidt <berni@debian.org>  Thu, 18 Aug 2022 10:48:47 +0200
+
 openvpn (2.6.0~git20220811-2) unstable; urgency=medium
 
   * Cherry-Pick proposed upstream fix to disable DCO if unable to retain
