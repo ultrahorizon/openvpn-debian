@@ -5,4 +5,3 @@ openvpn-pkcs11warn.patch
 #kfreebsd_support.patch
 match-manpage-and-command-help.patch
 systemd.patch
-disable-dco-without-necessary-capabilities.patch
