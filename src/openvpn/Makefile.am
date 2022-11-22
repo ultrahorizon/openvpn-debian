@@ -16,7 +16,6 @@ MAINTAINERCLEANFILES = \
 
 EXTRA_DIST = \
 	openvpn.vcxproj \
-	openvpn.vcxproj.filters \
 	openvpn.manifest
 
 AM_CPPFLAGS = \
@@ -56,6 +55,7 @@ openvpn_SOURCES = \
 	dco.c dco.h dco_internal.h \
 	dco_freebsd.c dco_freebsd.h \
 	dco_linux.c dco_linux.h \
+	dco_win.c dco_win.h \
 	dhcp.c dhcp.h \
 	dns.c dns.h \
 	env_set.c env_set.h \
@@ -79,6 +79,7 @@ openvpn_SOURCES = \
 	memdbg.h \
 	misc.c misc.h \
 	ovpn_dco_linux.h \
+	ovpn_dco_win.h \
 	platform.c platform.h \
 	console.c console.h console_builtin.c console_systemd.c \
 	mroute.c mroute.h \
@@ -88,6 +89,7 @@ openvpn_SOURCES = \
 	mtu.c mtu.h \
 	mudp.c mudp.h \
 	multi.c multi.h \
+	networking_freebsd.c \
 	networking_iproute2.c networking_iproute2.h \
 	networking_sitnl.c networking_sitnl.h \
 	networking.h \
@@ -99,6 +101,7 @@ openvpn_SOURCES = \
 	pkcs11_mbedtls.c \
 	openvpn.c openvpn.h \
 	options.c options.h \
+	options_util.c options_util.h \
 	otime.c otime.h \
 	packet_id.c packet_id.h \
 	perf.c perf.h \
@@ -152,5 +155,5 @@ openvpn_LDADD = \
 	$(OPTIONAL_INOTIFY_LIBS)
 if WIN32
 openvpn_SOURCES += openvpn_win32_resources.rc block_dns.c block_dns.h ring_buffer.h
-openvpn_LDADD += -lgdi32 -lws2_32 -lwininet -lcrypt32 -liphlpapi -lwinmm -lfwpuclnt -lrpcrt4 -lncrypt -lsetupapi
+openvpn_LDADD += -lgdi32 -lws2_32 -lwininet -lcrypt32 -liphlpapi -lwinmm -lfwpuclnt -lrpcrt4 -lncrypt -lsetupapi -lbcrypt
 endif

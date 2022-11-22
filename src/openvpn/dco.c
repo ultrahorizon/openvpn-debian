@@ -222,62 +222,8 @@ dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
     }
 }
 
-bool
-dco_check_startup_option_conflict(int msglevel, const struct options *o)
-{
-#if defined(TARGET_LINUX)
-    /* if the device name is fixed, we need to check if an interface with this
-     * name already exists. IF it does, it must be a DCO interface, otherwise
-     * DCO has to be disabled in order to continue.
-     */
-    if (tun_name_is_fixed(o->dev))
-    {
-        char iftype[IFACE_TYPE_LEN_MAX];
-        /* we pass NULL as net_ctx because using DCO on Linux implies that we
-         * are using SITNL and the latter does not need any context. This way we
-         * don't need to have the net_ctx percolate all the way here
-         */
-        int ret = net_iface_type(NULL, o->dev, iftype);
-        if ((ret == 0) && (strcmp(iftype, "ovpn-dco") != 0))
-        {
-            msg(msglevel, "Interface %s exists and is non-DCO. Disabling data channel offload",
-                o->dev);
-            return false;
-        }
-        else if ((ret < 0) && (ret != -ENODEV))
-        {
-            msg(msglevel, "Cannot retrieve type of device %s: %s (%d)", o->dev,
-                strerror(-ret), ret);
-        }
-    }
-#endif /* if defined(TARGET_LINUX) */
-
-#if defined(HAVE_LIBCAPNG)
-    /* DCO can't operate without CAP_NET_ADMIN. To retain it when switching user
-     * we need CAP_SETPCAP. CAP_NET_ADMIN also needs to be part of the permitted set
-     * of capabilities in order to retain it.
-     */
-    if (o->username)
-    {
-        if (!capng_have_capability(CAPNG_EFFECTIVE, CAP_SETPCAP))
-        {
-            msg(msglevel, "--user specified but lacking CAP_SETPCAP. "
-                "Cannot retain CAP_NET_ADMIN. Disabling data channel offload");
-            return false;
-        }
-        if (!capng_have_capability(CAPNG_PERMITTED, CAP_NET_ADMIN))
-        {
-            msg(msglevel, "--user specified but not permitted to retain CAP_NET_ADMIN. "
-                "Disabling data channel offload");
-            return false;
-        }
-    }
-#endif /* if defined(HAVE_LIBCAPNG) */
-    return true;
-}
-
 static bool
-dco_check_option_conflict_ce(const struct connection_entry *ce, int msglevel)
+dco_check_option_ce(const struct connection_entry *ce, int msglevel)
 {
     if (ce->fragment)
     {
@@ -309,19 +255,12 @@ dco_check_option_conflict_ce(const struct connection_entry *ce, int msglevel)
 }
 
 bool
-dco_check_option_conflict(int msglevel, const struct options *o)
+dco_check_startup_option(int msglevel, const struct options *o)
 {
-    if (o->tuntap_options.disable_dco)
-    {
-        /* already disabled by --disable-dco, no need to print warnings */
-        return false;
-    }
-
-    if (!dco_available(msglevel))
-    {
-        return false;
-    }
-
+    /* check if no dev name was specified at all. In the case,
+     * later logic will most likely stop OpenVPN, so no need to
+     * print any message here.
+     */
     if (!o->dev)
     {
         return false;
@@ -333,21 +272,12 @@ dco_check_option_conflict(int msglevel, const struct options *o)
         return false;
     }
 
-    /* At this point the ciphers have already been normalised */
-    if (o->enable_ncp_fallback
-        && !tls_item_in_cipher_list(o->ciphername, dco_get_supported_ciphers()))
-    {
-        msg(msglevel, "Note: --data-cipher-fallback with cipher '%s' "
-            "disables data channel offload.", o->ciphername);
-        return false;
-    }
-
     if (o->connection_list)
     {
         const struct connection_list *l = o->connection_list;
         for (int i = 0; i < l->len; ++i)
         {
-            if (!dco_check_option_conflict_ce(l->array[i], msglevel))
+            if (!dco_check_option_ce(l->array[i], msglevel))
             {
                 return false;
             }
@@ -355,15 +285,97 @@ dco_check_option_conflict(int msglevel, const struct options *o)
     }
     else
     {
-        if (!dco_check_option_conflict_ce(&o->ce, msglevel))
+        if (!dco_check_option_ce(&o->ce, msglevel))
         {
             return false;
         }
     }
 
+#if defined(_WIN32)
+    if (o->mode == MODE_SERVER)
+    {
+        msg(msglevel, "--mode server is set. Disabling Data Channel Offload");
+        return false;
+    }
+
+    if ((o->windows_driver == WINDOWS_DRIVER_WINTUN)
+        || (o->windows_driver == WINDOWS_DRIVER_TAP_WINDOWS6))
+    {
+        msg(msglevel, "--windows-driver is set to '%s'. Disabling Data Channel Offload",
+            print_windows_driver(o->windows_driver));
+        return false;
+    }
+
+#elif defined(TARGET_LINUX)
+    /* if the device name is fixed, we need to check if an interface with this
+     * name already exists. IF it does, it must be a DCO interface, otherwise
+     * DCO has to be disabled in order to continue.
+     */
+    if (tun_name_is_fixed(o->dev))
+    {
+        char iftype[IFACE_TYPE_LEN_MAX];
+        /* we pass NULL as net_ctx because using DCO on Linux implies that we
+         * are using SITNL and the latter does not need any context. This way we
+         * don't need to have the net_ctx percolate all the way here
+         */
+        int ret = net_iface_type(NULL, o->dev, iftype);
+        if ((ret == 0) && (strcmp(iftype, "ovpn-dco") != 0))
+        {
+            msg(msglevel, "Interface %s exists and is non-DCO. Disabling data channel offload",
+                o->dev);
+            return false;
+        }
+        else if ((ret < 0) && (ret != -ENODEV))
+        {
+            msg(msglevel, "Cannot retrieve type of device %s: %s (%d)", o->dev,
+                strerror(-ret), ret);
+        }
+    }
+#endif /* if defined(_WIN32) */
+
+#if defined(HAVE_LIBCAPNG)
+    /* DCO can't operate without CAP_NET_ADMIN. To retain it when switching user
+     * we need CAP_SETPCAP. CAP_NET_ADMIN also needs to be part of the permitted set
+     * of capabilities in order to retain it.
+     */
+    if (o->username)
+    {
+        if (!capng_have_capability(CAPNG_EFFECTIVE, CAP_SETPCAP))
+        {
+            msg(msglevel, "--user specified but lacking CAP_SETPCAP. "
+                "Cannot retain CAP_NET_ADMIN. Disabling data channel offload");
+            return false;
+        }
+        if (!capng_have_capability(CAPNG_PERMITTED, CAP_NET_ADMIN))
+        {
+            msg(msglevel, "--user specified but not permitted to retain CAP_NET_ADMIN. "
+                "Disabling data channel offload");
+            return false;
+        }
+    }
+#endif /* if defined(HAVE_LIBCAPNG) */
+
     if (o->mode == MODE_SERVER && o->topology != TOP_SUBNET)
     {
         msg(msglevel, "Note: NOT using '--topology subnet' disables data channel offload.");
+        return false;
+    }
+
+    /* now that all options have been confirmed to be supported, check
+     * if DCO is truly available on the system
+     */
+    return dco_available(msglevel);
+}
+
+bool
+dco_check_option(int msglevel, const struct options *o)
+{
+    /* At this point the ciphers have already been normalised */
+    if (o->enable_ncp_fallback
+        && !tls_item_in_cipher_list(o->ciphername, dco_get_supported_ciphers()))
+    {
+        msg(msglevel, "Note: --data-cipher-fallback with cipher '%s' "
+            "disables data channel offload.", o->ciphername);
         return false;
     }
 
@@ -574,7 +586,7 @@ void
 dco_install_iroute(struct multi_context *m, struct multi_instance *mi,
                    struct mroute_addr *addr)
 {
-#if defined(TARGET_LINUX)
+#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
     if (!dco_enabled(&m->top.options))
     {
         return;
@@ -594,36 +606,24 @@ dco_install_iroute(struct multi_context *m, struct multi_instance *mi,
 
     if (addrtype == MR_ADDR_IPV6)
     {
-        int netbits = 128;
-        if (addr->type & MR_WITH_NETBITS)
-        {
-            netbits = addr->netbits;
-        }
-
-        net_route_v6_add(&m->top.net_ctx, &addr->v6.addr, netbits,
+        net_route_v6_add(&m->top.net_ctx, &addr->v6.addr, addr->netbits,
                          &mi->context.c2.push_ifconfig_ipv6_local, dev, 0,
                          DCO_IROUTE_METRIC);
     }
     else if (addrtype == MR_ADDR_IPV4)
     {
-        int netbits = 32;
-        if (addr->type & MR_WITH_NETBITS)
-        {
-            netbits = addr->netbits;
-        }
-
         in_addr_t dest = htonl(addr->v4.addr);
-        net_route_v4_add(&m->top.net_ctx, &dest, netbits,
+        net_route_v4_add(&m->top.net_ctx, &dest, addr->netbits,
                          &mi->context.c2.push_ifconfig_local, dev, 0,
                          DCO_IROUTE_METRIC);
     }
-#endif /* if defined(TARGET_LINUX) */
+#endif /* if defined(TARGET_LINUX) || defined(TARGET_FREEBSD) */
 }
 
 void
 dco_delete_iroutes(struct multi_context *m, struct multi_instance *mi)
 {
-#if defined(TARGET_LINUX)
+#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
     if (!dco_enabled(&m->top.options))
     {
         return;
@@ -656,7 +656,7 @@ dco_delete_iroutes(struct multi_context *m, struct multi_instance *mi)
                              0, DCO_IROUTE_METRIC);
         }
     }
-#endif /* if defined(TARGET_LINUX) */
+#endif /* if defined(TARGET_LINUX) || defined(TARGET_FREEBSD) */
 }
 
 #endif /* defined(ENABLE_DCO) */

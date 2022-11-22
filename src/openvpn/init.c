@@ -71,6 +71,7 @@ static const char *saved_pid_file_name; /* GLOBAL */
 #define CF_INIT_TLS_AUTH_STANDALONE (1<<2)
 
 static void do_init_first_time(struct context *c);
+
 static bool do_deferred_p2p_ncp(struct context *c);
 
 void
@@ -484,13 +485,15 @@ next_connection_entry(struct context *c)
             /* Check if there is another resolved address to try for
              * the current connection */
             if (c->c1.link_socket_addr.current_remote
-                && c->c1.link_socket_addr.current_remote->ai_next)
+                && c->c1.link_socket_addr.current_remote->ai_next
+                && !c->options.advance_next_remote)
             {
                 c->c1.link_socket_addr.current_remote =
                     c->c1.link_socket_addr.current_remote->ai_next;
             }
             else
             {
+                c->options.advance_next_remote = false;
                 /* FIXME (schwabe) fix the persist-remote-ip option for real,
                  * this is broken probably ever since connection lists and multiple
                  * remote existed
@@ -592,10 +595,14 @@ init_query_passwords(const struct context *c)
     /* Auth user/pass input */
     if (c->options.auth_user_pass_file)
     {
+        enable_auth_user_pass();
 #ifdef ENABLE_MANAGEMENT
-        auth_user_pass_setup(c->options.auth_user_pass_file, &c->options.sc_info);
+        auth_user_pass_setup(c->options.auth_user_pass_file,
+                             c->options.auth_user_pass_file_inline,
+                             &c->options.sc_info);
 #else
-        auth_user_pass_setup(c->options.auth_user_pass_file, NULL);
+        auth_user_pass_setup(c->options.auth_user_pass_file,
+                             c->options.auth_user_pass_file_inline, NULL);
 #endif
     }
 }
@@ -1057,57 +1064,59 @@ do_genkey(const struct options *options)
 bool
 do_persist_tuntap(struct options *options, openvpn_net_ctx_t *ctx)
 {
-    if (options->persist_config)
+    if (!options->persist_config)
     {
-        /* sanity check on options for --mktun or --rmtun */
-        notnull(options->dev, "TUN/TAP device (--dev)");
-        if (options->ce.remote || options->ifconfig_local
-            || options->ifconfig_remote_netmask
-            || options->shared_secret_file
-            || options->tls_server || options->tls_client
-            )
-        {
-            msg(M_FATAL|M_OPTERR,
-                "options --mktun or --rmtun should only be used together with --dev");
-        }
+        return false;
+    }
+
+    /* sanity check on options for --mktun or --rmtun */
+    notnull(options->dev, "TUN/TAP device (--dev)");
+    if (options->ce.remote || options->ifconfig_local
+        || options->ifconfig_remote_netmask
+        || options->shared_secret_file
+        || options->tls_server || options->tls_client
+        )
+    {
+        msg(M_FATAL|M_OPTERR,
+            "options --mktun or --rmtun should only be used together with --dev");
+    }
 
 #if defined(ENABLE_DCO)
-        if (dco_enabled(options))
+    if (dco_enabled(options))
+    {
+        /* creating a DCO interface via --mktun is not supported as it does not
+         * make much sense. Since DCO is enabled by default, people may run into
+         * this without knowing, therefore this case should be properly handled.
+         *
+         * Disable DCO if --mktun was provided and print a message to let
+         * user know.
+         */
+        if (dev_type_enum(options->dev, options->dev_type) == DEV_TYPE_TUN)
         {
-            /* creating a DCO interface via --mktun is not supported as it does not
-             * make much sense. Since DCO is enabled by default, people may run into
-             * this without knowing, therefore this case should be properly handled.
-             *
-             * Disable DCO if --mktun was provided and print a message to let
-             * user know.
-             */
-            if (dev_type_enum(options->dev, options->dev_type) == DEV_TYPE_TUN)
-            {
-                msg(M_WARN, "Note: --mktun does not support DCO. Creating TUN interface.");
-            }
-
-            options->tuntap_options.disable_dco = true;
+            msg(M_WARN, "Note: --mktun does not support DCO. Creating TUN interface.");
         }
+
+        options->tuntap_options.disable_dco = true;
+    }
 #endif
 
 #ifdef ENABLE_FEATURE_TUN_PERSIST
-        tuncfg(options->dev, options->dev_type, options->dev_node,
-               options->persist_mode,
-               options->username, options->groupname, &options->tuntap_options,
-               ctx);
-        if (options->persist_mode && options->lladdr)
-        {
-            set_lladdr(ctx, options->dev, options->lladdr, NULL);
-        }
-        return true;
-#else  /* ifdef ENABLE_FEATURE_TUN_PERSIST */
-        msg( M_FATAL|M_OPTERR,
-             "options --mktun and --rmtun are not available on your operating "
-             "system.  Please check 'man tun' (or 'tap'), whether your system "
-             "supports using 'ifconfig %s create' / 'destroy' to create/remove "
-             "persistent tunnel interfaces.", options->dev );
-#endif
+    tuncfg(options->dev, options->dev_type, options->dev_node,
+           options->persist_mode,
+           options->username, options->groupname, &options->tuntap_options,
+           ctx);
+    if (options->persist_mode && options->lladdr)
+    {
+        set_lladdr(ctx, options->dev, options->lladdr, NULL);
     }
+    return true;
+#else  /* ifdef ENABLE_FEATURE_TUN_PERSIST */
+    msg(M_FATAL|M_OPTERR,
+        "options --mktun and --rmtun are not available on your operating "
+        "system.  Please check 'man tun' (or 'tap'), whether your system "
+        "supports using 'ifconfig %s create' / 'destroy' to create/remove "
+        "persistent tunnel interfaces.", options->dev );
+#endif
     return false;
 }
 
@@ -1316,6 +1325,13 @@ do_init_timers(struct context *c, bool deferred)
         event_timeout_init(&c->c2.inactivity_interval, c->options.inactivity_timeout, now);
     }
 
+    /* initialize inactivity timeout */
+    if (c->options.session_timeout)
+    {
+        event_timeout_init(&c->c2.session_interval, c->options.session_timeout,
+                           now);
+    }
+
     /* initialize pings */
     if (dco_enabled(&c->options))
     {
@@ -1334,6 +1350,18 @@ do_init_timers(struct context *c, bool deferred)
         {
             event_timeout_init(&c->c2.ping_rec_interval, c->options.ping_rec_timeout, now);
         }
+    }
+
+    /* If the auth-token renewal interval is shorter than reneg-sec, arm
+     * "auth-token renewal" timer to send additional auth-token to update the
+     * token on the client more often.  If not, this happens automatically
+     * at renegotiation time, without needing an extra event.
+     */
+    if (c->options.auth_token_generate
+        && c->options.auth_token_renewal < c->options.renegotiate_seconds)
+    {
+        event_timeout_init(&c->c2.auth_token_renewal_interval,
+                           c->options.auth_token_renewal, now);
     }
 
     if (!deferred)
@@ -1520,19 +1548,6 @@ initialization_sequence_completed(struct context *c, const unsigned int flags)
     /* If we delayed UID/GID downgrade or chroot, do it now */
     do_uid_gid_chroot(c, true);
 
-
-    /*
-     * In some cases (i.e. when receiving auth-token via
-     * push-reply) the auth-nocache option configured on the
-     * client is overridden; for this reason we have to wait
-     * for the push-reply message before attempting to wipe
-     * the user/pass entered by the user
-     */
-    if (c->options.mode == MODE_POINT_TO_POINT)
-    {
-        ssl_clean_user_pass();
-    }
-
     /* Test if errors */
     if (flags & ISC_ERRORS)
     {
@@ -1699,7 +1714,8 @@ do_init_tun(struct context *c)
                             c->c1.link_socket_addr.remote_list,
                             !c->options.ifconfig_nowarn,
                             c->c2.es,
-                            &c->net_ctx);
+                            &c->net_ctx,
+                            c->c1.tuntap);
 
 #ifdef _WIN32
     c->c1.tuntap->windows_driver = c->options.windows_driver;
@@ -1723,7 +1739,7 @@ can_preserve_tun(struct tuntap *tt)
 #ifdef TARGET_ANDROID
     return false;
 #else
-    return tt;
+    return is_tun_type_set(tt);
 #endif
 }
 
@@ -1917,9 +1933,15 @@ do_open_tun(struct context *c)
 static void
 do_close_tun_simple(struct context *c)
 {
-    msg(D_CLOSE, "Closing TUN/TAP interface");
+    msg(D_CLOSE, "Closing %s interface",
+        dco_enabled(&c->options) ? "DCO" : "TUN/TAP");
+
     if (c->c1.tuntap)
     {
+        if (!c->options.ifconfig_noexec)
+        {
+            undo_ifconfig(c->c1.tuntap, &c->net_ctx);
+        }
         close_tun(c->c1.tuntap, &c->net_ctx);
         c->c1.tuntap = NULL;
     }
@@ -1930,6 +1952,16 @@ do_close_tun_simple(struct context *c)
 static void
 do_close_tun(struct context *c, bool force)
 {
+    /* With dco-win we open tun handle in the very beginning.
+     * In case when tun wasn't opened - like we haven't connected,
+     * we still need to close tun handle
+     */
+    if (tuntap_is_dco_win(c->c1.tuntap) && !is_tun_type_set(c->c1.tuntap))
+    {
+        do_close_tun_simple(c);
+        return;
+    }
+
     if (!c->c1.tuntap || !c->c1.tuntap_owned)
     {
         return;
@@ -2168,10 +2200,23 @@ do_up(struct context *c, bool pulled_options, unsigned int option_types_found)
             {
                 /* if so, close tun, delete routes, then reinitialize tun and add routes */
                 msg(M_INFO, "NOTE: Pulled options changed on restart, will need to close and reopen TUN/TAP device.");
+
+                bool tt_dco_win = tuntap_is_dco_win(c->c1.tuntap);
                 do_close_tun(c, true);
-                management_sleep(1);
-                c->c2.did_open_tun = do_open_tun(c);
-                update_time();
+
+                if (tt_dco_win)
+                {
+                    msg(M_NONFATAL, "dco-win doesn't yet support reopening TUN device");
+                    /* prevent link_socket_close() from closing handle with WinSock API */
+                    c->c2.link_socket->sd = SOCKET_UNDEFINED;
+                    return false;
+                }
+                else
+                {
+                    management_sleep(1);
+                    c->c2.did_open_tun = do_open_tun(c);
+                    update_time();
+                }
             }
         }
 
@@ -2267,7 +2312,8 @@ pull_permission_mask(const struct context *c)
         | OPT_P_ECHO
         | OPT_P_PULL_MODE
         | OPT_P_PEER_ID
-        | OPT_P_NCP;
+        | OPT_P_NCP
+        | OPT_P_PUSH_MTU;
 
     if (!c->options.route_nopull)
     {
@@ -2430,6 +2476,23 @@ do_deferred_options(struct context *c, const unsigned int found)
         }
     }
 
+    if (found & OPT_P_PUSH_MTU)
+    {
+        /* MTU has changed, check that the pushed MTU is small enough to
+         * be able to change it */
+        msg(D_PUSH, "OPTIONS IMPORT: tun-mtu set to %d", c->options.ce.tun_mtu);
+
+        struct frame *frame = &c->c2.frame;
+
+        if (c->options.ce.tun_mtu > frame->tun_max_mtu)
+        {
+            msg(D_PUSH_ERRORS, "Server-pushed tun-mtu is too large, please add "
+                "tun-mtu-max %d in the client configuration",
+                c->options.ce.tun_mtu);
+        }
+        frame->tun_mtu = min_int(frame->tun_max_mtu, c->options.ce.tun_mtu);
+    }
+
     return true;
 }
 
@@ -2495,6 +2558,11 @@ socket_restart_pause(struct context *c)
         {
             /* sec is less than 2^16; we can left shift it by up to 15 bits without overflow */
             sec = max_int(sec, 1) << min_int(backoff, 15);
+        }
+        if (c->options.server_backoff_time)
+        {
+            sec = max_int(sec, c->options.server_backoff_time);
+            c->options.server_backoff_time = 0;
         }
 
         if (sec > c->options.ce.connect_retry_seconds_max)
@@ -2585,10 +2653,20 @@ frame_finalize_options(struct context *c, const struct options *o)
     struct frame *frame = &c->c2.frame;
 
     frame->tun_mtu = get_frame_mtu(c, o);
+    frame->tun_max_mtu = o->ce.tun_mtu_max;
 
-    /* We always allow at least 1500 MTU packets to be received in our buffer
-     * space */
-    size_t payload_size = max_int(1500, frame->tun_mtu);
+    /* max mtu needs to be at least as large as the tun mtu */
+    frame->tun_max_mtu = max_int(frame->tun_mtu, frame->tun_max_mtu);
+
+    /* We always allow at least 1600 MTU packets to be received in our buffer
+     * space to allow server to push "baby giant" MTU sizes */
+    frame->tun_max_mtu = max_int(1600, frame->tun_max_mtu);
+
+    size_t payload_size = frame->tun_max_mtu;
+
+    /* we need to be also large enough to hold larger control channel packets
+     * if configured */
+    payload_size = max_int(payload_size, o->ce.tls_mtu);
 
     /* The extra tun needs to be added to the payload size */
     if (o->ce.tun_mtu_defined)
@@ -2596,9 +2674,9 @@ frame_finalize_options(struct context *c, const struct options *o)
         payload_size += o->ce.tun_mtu_extra;
     }
 
-    /* Add 100 byte of extra space in the buffer to account for slightly
-     * mismatched MUTs between peers */
-    payload_size += 100;
+    /* Add 32 byte of extra space in the buffer to account for small errors
+     * in the calculation */
+    payload_size += 32;
 
 
     /* the space that is reserved before the payload to add extra headers to it
@@ -2789,6 +2867,21 @@ do_init_tls_wrap_key(struct context *c)
                                          &c->c1.ks.tls_crypt_v2_wkc,
                                          options->ce.tls_crypt_v2_file,
                                          options->ce.tls_crypt_v2_file_inline);
+        }
+        /* We have to ensure that the loaded tls-crypt key is small enough
+         * to fit into the initial hard reset v3 packet */
+        int wkc_len = buf_len(&c->c1.ks.tls_crypt_v2_wkc);
+
+        /* empty ACK/message id, tls-crypt, Opcode, UDP, ipv6 */
+        int required_size = 5 + wkc_len + tls_crypt_buf_overhead() + 1 + 8 + 40;
+
+        if (required_size > c->options.ce.tls_mtu)
+        {
+            msg(M_WARN, "ERROR: tls-crypt-v2 client key too large to work with "
+                "requested --max-packet-size %d, requires at least "
+                "--max-packet-size %d. Packets will ignore requested "
+                "maximum packet size", c->options.ce.tls_mtu,
+                required_size);
         }
     }
 
@@ -3029,14 +3122,17 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
 
     to.auth_user_pass_verify_script = options->auth_user_pass_verify_script;
     to.auth_user_pass_verify_script_via_file = options->auth_user_pass_verify_script_via_file;
+    to.client_crresponse_script = options->client_crresponse_script;
     to.tmp_dir = options->tmp_dir;
     if (options->ccd_exclusive)
     {
         to.client_config_dir_exclusive = options->client_config_dir;
     }
     to.auth_user_pass_file = options->auth_user_pass_file;
+    to.auth_user_pass_file_inline = options->auth_user_pass_file_inline;
     to.auth_token_generate = options->auth_token_generate;
     to.auth_token_lifetime = options->auth_token_lifetime;
+    to.auth_token_renewal = options->auth_token_renewal;
     to.auth_token_call_auth = options->auth_token_call_auth;
     to.auth_token_key = c->c1.ks.auth_token_key;
 
@@ -3134,15 +3230,19 @@ do_init_frame_tls(struct context *c)
 {
     if (c->c2.tls_multi)
     {
-        tls_multi_init_finalize(c->c2.tls_multi, &c->c2.frame);
+        tls_multi_init_finalize(c->c2.tls_multi, c->options.ce.tls_mtu);
         ASSERT(c->c2.tls_multi->opt.frame.buf.payload_size <=
                c->c2.frame.buf.payload_size);
         frame_print(&c->c2.tls_multi->opt.frame, D_MTU_INFO,
                     "Control Channel MTU parms");
+
+        /* Keep the max mtu also in the frame of tls multi so it can access
+         * it in push_peer_info */
+        c->c2.tls_multi->opt.frame.tun_max_mtu = c->c2.frame.tun_max_mtu;
     }
     if (c->c2.tls_auth_standalone)
     {
-        tls_init_control_channel_frame_parameters(&c->c2.frame, &c->c2.tls_auth_standalone->frame);
+        tls_init_control_channel_frame_parameters(&c->c2.tls_auth_standalone->frame, c->options.ce.tls_mtu);
         frame_print(&c->c2.tls_auth_standalone->frame, D_MTU_INFO,
                     "TLS-Auth MTU parms");
         c->c2.tls_auth_standalone->tls_wrap.work = alloc_buf_gc(BUF_SIZE(&c->c2.frame), &c->c2.gc);
@@ -3487,10 +3587,14 @@ do_init_first_time(struct context *c)
         ALLOC_OBJ_CLEAR_GC(c->c0, struct context_0, &c->gc);
         c0 = c->c0;
 
-        /* get user and/or group that we want to setuid/setgid to */
-        c0->uid_gid_specified =
-            platform_group_get(c->options.groupname, &c0->platform_state_group)
-            |platform_user_get(c->options.username, &c0->platform_state_user);
+        /* get user and/or group that we want to setuid/setgid to,
+         * sets also platform_x_state */
+        bool group_defined =  platform_group_get(c->options.groupname,
+                                                 &c0->platform_state_group);
+        bool user_defined = platform_user_get(c->options.username,
+                                              &c0->platform_state_user);
+
+        c0->uid_gid_specified = user_defined || group_defined;
 
         /* perform postponed chdir if --daemon */
         if (c->did_we_daemonize && c->options.cd_dir == NULL)
@@ -3570,6 +3674,15 @@ do_close_free_key_schedule(struct context *c, bool free_ssl_ctx)
 static void
 do_close_link_socket(struct context *c)
 {
+    /* in dco-win case, link socket is a tun handle which is
+     * closed in do_close_tun(). Set it to UNDEFINED so
+     * we won't use WinSock API to close it. */
+    if (tuntap_is_dco_win(c->c1.tuntap) && c->c2.link_socket
+        && c->c2.link_socket->info.dco_installed)
+    {
+        c->c2.link_socket->sd = SOCKET_UNDEFINED;
+    }
+
     if (c->c2.link_socket && c->c2.link_socket_owned)
     {
         link_socket_close(c->c2.link_socket);

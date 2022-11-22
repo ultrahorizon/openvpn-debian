@@ -183,7 +183,7 @@ static const char usage_message[] =
     "                  does not begin with \"tun\" or \"tap\".\n"
     "--dev-node node : Explicitly set the device node rather than using\n"
     "                  /dev/net/tun, /dev/tun, /dev/tap, etc.\n"
-#if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))
+#if defined(ENABLE_DCO)
     "--disable-dco   : Do not attempt using Data Channel Offload.\n"
 #endif
     "--lladdr hw     : Set the link layer address of the tap device.\n"
@@ -208,7 +208,7 @@ static const char usage_message[] =
     "                  is established.  Multiple routes can be specified.\n"
     "                  netmask default: 255.255.255.255\n"
     "                  gateway default: taken from --route-gateway or --ifconfig\n"
-    "                  Specify default by leaving blank or setting to \"nil\".\n"
+    "                  Specify default by leaving blank or setting to \"default\".\n"
     "--route-ipv6 network/bits [gateway] [metric] :\n"
     "                  Add IPv6 route to routing table after connection\n"
     "                  is established.  Multiple routes can be specified.\n"
@@ -261,6 +261,7 @@ static const char usage_message[] =
     "                  for m seconds.\n"
     "--inactive n [bytes] : Exit after n seconds of activity on tun/tap device\n"
     "                  produces a combined in/out byte count < bytes.\n"
+    "--session-timeout n: Limit connection time to n seconds.\n"
     "--ping-exit n   : Exit if n seconds pass without reception of remote ping.\n"
     "--ping-restart n: Restart if n seconds pass without reception of remote ping.\n"
     "--ping-timer-rem: Run the --ping-exit/--ping-restart timer only if we have a\n"
@@ -749,7 +750,8 @@ static const char usage_message[] =
     "--show-net-up   : Show " PACKAGE_NAME "'s view of routing table and net adapter list\n"
     "                  after TAP adapter is up and routes have been added.\n"
     "--windows-driver   : Which tun driver to use?\n"
-    "                     tap-windows6 (default)\n"
+    "                     ovpn-dco (default)\n"
+    "                     tap-windows6\n"
     "                     wintun\n"
     "--block-outside-dns   : Block DNS on other network adapters to prevent DNS leaks\n"
     "Windows Standalone Options:\n"
@@ -823,7 +825,9 @@ init_options(struct options *o, const bool init_gc)
     o->status_file_version = 1;
     o->ce.bind_local = true;
     o->ce.tun_mtu = TUN_MTU_DEFAULT;
+    o->ce.occ_mtu = 0;
     o->ce.link_mtu = LINK_MTU_DEFAULT;
+    o->ce.tls_mtu = TLS_MTU_DEFAULT;
     o->ce.mtu_discover_type = -1;
     o->ce.mssfix = 0;
     o->ce.mssfix_default = true;
@@ -851,7 +855,7 @@ init_options(struct options *o, const bool init_gc)
     o->tuntap_options.dhcp_masq_offset = 0;     /* use network address as internal DHCP server address */
     o->route_method = ROUTE_METHOD_ADAPTIVE;
     o->block_outside_dns = false;
-    o->windows_driver = WINDOWS_DRIVER_TAP_WINDOWS6;
+    o->windows_driver = WINDOWS_DRIVER_UNSPECIFIED;
 #endif
     o->vlan_accept = VLAN_ALL;
     o->vlan_pvid = 1;
@@ -903,6 +907,10 @@ init_options(struct options *o, const bool init_gc)
     }
 #endif /* _WIN32 */
     o->allow_recursive_routing = false;
+
+#ifndef ENABLE_DCO
+    o->tuntap_options.disable_dco = true;
+#endif /* ENABLE_DCO */
 }
 
 void
@@ -1525,6 +1533,7 @@ show_p2mp_parms(const struct options *o)
     SHOW_STR(client_connect_script);
     SHOW_STR(learn_address_script);
     SHOW_STR(client_disconnect_script);
+    SHOW_STR(client_crresponse_script);
     SHOW_STR(client_config_dir);
     SHOW_BOOL(ccd_exclusive);
     SHOW_STR(tmp_dir);
@@ -1555,7 +1564,7 @@ show_p2mp_parms(const struct options *o)
 
     SHOW_BOOL(client);
     SHOW_BOOL(pull);
-    SHOW_STR(auth_user_pass_file);
+    SHOW_STR_INLINE(auth_user_pass_file);
 
     gc_free(&gc);
 }
@@ -1572,12 +1581,14 @@ option_iroute(struct options *o,
 
     ALLOC_OBJ_GC(ir, struct iroute, &o->gc);
     ir->network = getaddr(GETADDR_HOST_ORDER, network_str, 0, NULL, NULL);
-    ir->netbits = -1;
+    ir->netbits = 32;           /* host route if no netmask given */
 
     if (netmask_str)
     {
         const in_addr_t netmask = getaddr(GETADDR_HOST_ORDER, netmask_str, 0, NULL, NULL);
-        if (!netmask_to_netbits(ir->network, netmask, &ir->netbits))
+        ir->netbits = netmask_to_netbits2(netmask);
+
+        if (ir->netbits < 0)
         {
             msg(msglevel, "in --iroute %s %s : Bad network/subnet specification",
                 network_str,
@@ -1703,6 +1714,7 @@ show_connection_entry(const struct connection_entry *o)
     SHOW_BOOL(link_mtu_defined);
     SHOW_INT(tun_mtu_extra);
     SHOW_BOOL(tun_mtu_extra_defined);
+    SHOW_INT(tls_mtu);
 
     SHOW_INT(mtu_discover_type);
 
@@ -1794,7 +1806,7 @@ show_settings(const struct options *o)
     SHOW_STR(dev);
     SHOW_STR(dev_type);
     SHOW_STR(dev_node);
-#if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))
+#if defined(ENABLE_DCO)
     SHOW_BOOL(tuntap_options.disable_dco);
 #endif
     SHOW_STR(lladdr);
@@ -1815,6 +1827,7 @@ show_settings(const struct options *o)
     SHOW_INT(keepalive_ping);
     SHOW_INT(keepalive_timeout);
     SHOW_INT(inactivity_timeout);
+    SHOW_INT(session_timeout);
     SHOW_INT64(inactivity_minimum_bytes);
     SHOW_INT(ping_send_timeout);
     SHOW_INT(ping_rec_timeout);
@@ -2622,6 +2635,14 @@ options_postprocess_verify_ce(const struct options *options,
             msg(M_USAGE, "--auth-gen-token needs a non-infinite "
                 "--renegotiate_seconds setting");
         }
+        if (options->auth_token_generate && options->auth_token_renewal
+            && options->auth_token_renewal < 2 * options->handshake_window)
+        {
+            msg(M_USAGE, "--auth-gen-token renewal time needs to be at least "
+                " two times --hand-window (%d).",
+                options->handshake_window);
+
+        }
         {
             const bool ccnr = (options->auth_user_pass_verify_script
                                || PLUGIN_OPTION_LIST(options)
@@ -2683,6 +2704,10 @@ options_postprocess_verify_ce(const struct options *options,
         if (options->client_connect_script)
         {
             msg(M_USAGE, "--client-connect requires --mode server");
+        }
+        if (options->client_crresponse_script)
+        {
+            msg(M_USAGE, "--client-crresponse requires --mode server");
         }
         if (options->client_disconnect_script)
         {
@@ -3329,7 +3354,7 @@ pre_connect_restore(struct options *o, struct gc_arena *gc)
 
     o->push_continuation = 0;
     o->push_option_types_found = 0;
-    o->data_channel_crypto_flags = 0;
+    o->imported_protocol_flags = 0;
 }
 
 static void
@@ -3338,9 +3363,11 @@ options_postprocess_mutate_invariant(struct options *options)
 #ifdef _WIN32
     const int dev = dev_type_enum(options->dev, options->dev_type);
 
-    /* when using wintun, kernel doesn't send DHCP requests, so don't use it */
-    if (options->windows_driver == WINDOWS_DRIVER_WINTUN
-        && (options->tuntap_options.ip_win32_type == IPW32_SET_DHCP_MASQ || options->tuntap_options.ip_win32_type == IPW32_SET_ADAPTIVE))
+    /* when using wintun/ovpn-dco, kernel doesn't send DHCP requests, so don't use it */
+    if ((options->windows_driver == WINDOWS_DRIVER_WINTUN
+         || options->windows_driver == WINDOWS_DRIVER_DCO)
+        && (options->tuntap_options.ip_win32_type == IPW32_SET_DHCP_MASQ
+            || options->tuntap_options.ip_win32_type == IPW32_SET_ADAPTIVE))
     {
         options->tuntap_options.ip_win32_type = IPW32_SET_NETSH;
     }
@@ -3434,7 +3461,17 @@ options_postprocess_setdefault_ncpciphers(struct options *o)
         /* custom --data-ciphers set, keep list */
         return;
     }
-    else if (cipher_valid("CHACHA20-POLY1305"))
+
+    /* check if crypto library supports chacha */
+    bool can_do_chacha = cipher_valid("CHACHA20-POLY1305");
+
+    if (can_do_chacha && dco_enabled(o))
+    {
+        /* also make sure that dco supports chacha */
+        can_do_chacha = tls_item_in_cipher_list("CHACHA20-POLY1305", dco_get_supported_ciphers());
+    }
+
+    if (can_do_chacha)
     {
         o->ncp_ciphers = "AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305";
     }
@@ -3473,7 +3510,7 @@ options_postprocess_cipher(struct options *o)
         msg(M_INFO, "Note: --cipher is not set. OpenVPN versions before 2.5 "
             "defaulted to BF-CBC as fallback when cipher negotiation "
             "failed in this case. If you need this fallback please add "
-            "'--data-ciphers-fallback 'BF-CBC' to your configuration "
+            "'--data-ciphers-fallback BF-CBC' to your configuration "
             "and/or add BF-CBC to --data-ciphers.");
     }
     else if (!o->enable_ncp_fallback
@@ -3551,11 +3588,11 @@ options_set_backwards_compatible_options(struct options *o)
     }
 
     /* Versions < 2.5.0 do need --cipher in the list of accepted ciphers.
-     * Version 2.4 might probably does not need it but NCP was not so
+     * Version 2.4 probably does not need it but NCP was not so
      * good with 2.4 and ncp-disable might be more common on 2.4 peers.
-     * Only do this iif --cipher is not explicitly (BF-CBC). This is not
-     * 100% correct backwards compatible behaviour but 2.5 already behaved like
-     * this */
+     * Only do this iff --cipher is set (explicitly or by compat mode
+     * < 2.4.0, see above). This is not 100% correct backwards compatible
+     * behaviour but 2.5 already behaved like this */
     if (o->ciphername && need_compatibility_before(o, 20500)
         && !tls_item_in_cipher_list(o->ciphername, o->ncp_ciphers))
     {
@@ -3592,8 +3629,6 @@ options_postprocess_mutate(struct options *o, struct env_set *es)
     options_set_backwards_compatible_options(o);
 
     options_postprocess_cipher(o);
-    options_postprocess_mutate_invariant(o);
-
     o->ncp_ciphers = mutate_ncp_cipher_list(o->ncp_ciphers, &o->gc);
     if (o->ncp_ciphers == NULL)
     {
@@ -3669,10 +3704,30 @@ options_postprocess_mutate(struct options *o, struct env_set *es)
             "incompatible with each other.");
     }
 
-    /* check if any option should force disabling DCO */
-#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
-    o->tuntap_options.disable_dco = !dco_check_option_conflict(D_DCO, o)
-                                    || !dco_check_startup_option_conflict(D_DCO, o);
+    if (dco_enabled(o))
+    {
+        /* check if any option should force disabling DCO */
+        o->tuntap_options.disable_dco = !dco_check_option(D_DCO, o)
+                                        || !dco_check_startup_option(D_DCO, o);
+    }
+
+#ifdef _WIN32
+    if (dco_enabled(o))
+    {
+        o->windows_driver = WINDOWS_DRIVER_DCO;
+    }
+    else
+    {
+        if (o->windows_driver == WINDOWS_DRIVER_DCO)
+        {
+            msg(M_WARN, "Option --windows-driver ovpn-dco is ignored because Data Channel Offload is disabled");
+            o->windows_driver = WINDOWS_DRIVER_TAP_WINDOWS6;
+        }
+        else if (o->windows_driver == WINDOWS_DRIVER_UNSPECIFIED)
+        {
+            o->windows_driver = WINDOWS_DRIVER_TAP_WINDOWS6;
+        }
+    }
 #endif
 
     if (dco_enabled(o) && o->dev_node)
@@ -3681,6 +3736,9 @@ options_postprocess_mutate(struct options *o, struct env_set *es)
             "data channel offload");
         o->dev_node = NULL;
     }
+
+    /* this depends on o->windows_driver, which is set above */
+    options_postprocess_mutate_invariant(o);
 
     /*
      * Save certain parms before modifying options during connect, especially
@@ -3697,6 +3755,10 @@ options_postprocess_mutate(struct options *o, struct env_set *es)
 #else
         foreign_options_copy_dns(o, es);
 #endif
+    }
+    if (o->auth_token_generate && !o->auth_token_renewal)
+    {
+        o->auth_token_renewal = o->renegotiate_seconds;
     }
     pre_connect_save(o);
 }
@@ -3999,9 +4061,10 @@ options_postprocess_filechecks(struct options *options)
                               options->management_user_pass, R_OK,
                               "--management user/password file");
 #endif /* ENABLE_MANAGEMENT */
-    errs |= check_file_access(CHKACC_FILE|CHKACC_ACPTSTDIN|CHKACC_PRIVATE,
-                              options->auth_user_pass_file, R_OK,
-                              "--auth-user-pass");
+    errs |= check_file_access_inline(options->auth_user_pass_file_inline,
+                                     CHKACC_FILE|CHKACC_ACPTSTDIN|CHKACC_PRIVATE,
+                                     options->auth_user_pass_file, R_OK,
+                                     "--auth-user-pass");
     /* ** System related ** */
     errs |= check_file_access(CHKACC_FILE, options->chroot_dir,
                               R_OK|X_OK, "--chroot directory");
@@ -4131,7 +4194,15 @@ options_string(const struct options *o,
     buf_printf(&out, ",link-mtu %u",
                (unsigned int) calc_options_string_link_mtu(o, frame));
 
-    buf_printf(&out, ",tun-mtu %d", frame->tun_mtu);
+    if (o->ce.occ_mtu != 0)
+    {
+        buf_printf(&out, ",tun-mtu %d", o->ce.occ_mtu);
+    }
+    else
+    {
+        buf_printf(&out, ",tun-mtu %d", frame->tun_mtu);
+    }
+
     buf_printf(&out, ",proto %s",  proto_remote(o->ce.proto, remote));
 
     bool p2p_nopull = o->mode == MODE_POINT_TO_POINT && !PULL_DEFINED(o);
@@ -4161,7 +4232,8 @@ options_string(const struct options *o,
                       NULL,
                       false,
                       NULL,
-                      ctx);
+                      ctx,
+                      NULL);
         if (tt)
         {
             tt_local = true;
@@ -4548,13 +4620,19 @@ parse_windows_driver(const char *str, const int msglevel)
     {
         return WINDOWS_DRIVER_WINTUN;
     }
+
+    else if (streq(str, "ovpn-dco"))
+    {
+        return WINDOWS_DRIVER_DCO;
+    }
     else
     {
-        msg(msglevel, "--windows-driver must be tap-windows6 or wintun");
+        msg(msglevel, "--windows-driver must be tap-windows6, wintun "
+            "or ovpn-dco");
         return WINDOWS_DRIVER_UNSPECIFIED;
     }
 }
-#endif
+#endif /* ifdef _WIN32 */
 
 /*
  * parse/print topology coding
@@ -5873,9 +5951,7 @@ add_option(struct options *options,
 #endif
     else if (streq(p[0], "disable-dco"))
     {
-#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
         options->tuntap_options.disable_dco = true;
-#endif
     }
     else if (streq(p[0], "dev-node") && p[1] && !p[2])
     {
@@ -6380,17 +6456,57 @@ add_option(struct options *options,
         options->ce.link_mtu = positive_atoi(p[1]);
         options->ce.link_mtu_defined = true;
     }
-    else if (streq(p[0], "tun-mtu") && p[1] && !p[2])
+    else if (streq(p[0], "tun-mtu") && p[1] && !p[3])
     {
-        VERIFY_PERMISSION(OPT_P_MTU|OPT_P_CONNECTION);
+        VERIFY_PERMISSION(OPT_P_PUSH_MTU|OPT_P_CONNECTION);
         options->ce.tun_mtu = positive_atoi(p[1]);
         options->ce.tun_mtu_defined = true;
+        if (p[2])
+        {
+            options->ce.occ_mtu = positive_atoi(p[2]);
+        }
+        else
+        {
+            options->ce.occ_mtu = 0;
+        }
+    }
+    else if (streq(p[0], "tun-mtu-max") && p[1] && !p[3])
+    {
+        VERIFY_PERMISSION(OPT_P_MTU|OPT_P_CONNECTION);
+        int max_mtu = positive_atoi(p[1]);
+        if (max_mtu < 68 || max_mtu > 65536)
+        {
+            msg(msglevel, "--tun-mtu-max value '%s' is invalid", p[1]);
+        }
+        else
+        {
+            options->ce.tun_mtu_max = max_mtu;
+        }
     }
     else if (streq(p[0], "tun-mtu-extra") && p[1] && !p[2])
     {
         VERIFY_PERMISSION(OPT_P_MTU|OPT_P_CONNECTION);
         options->ce.tun_mtu_extra = positive_atoi(p[1]);
         options->ce.tun_mtu_extra_defined = true;
+    }
+    else if (streq(p[0], "max-packet-size") && p[1] && !p[2])
+    {
+        VERIFY_PERMISSION(OPT_P_MTU|OPT_P_CONNECTION);
+        int maxmtu = positive_atoi(p[1]);
+        options->ce.tls_mtu = constrain_int(maxmtu, TLS_CHANNEL_MTU_MIN, TLS_CHANNEL_BUF_SIZE);
+
+        if (maxmtu < TLS_CHANNEL_MTU_MIN || maxmtu > TLS_CHANNEL_BUF_SIZE)
+        {
+            msg(M_WARN, "Note: max-packet-size value outside of allowed "
+                "control channel packet size (%d to %d), will use %d "
+                "instead.", TLS_CHANNEL_MTU_MIN, TLS_CHANNEL_BUF_SIZE,
+                options->ce.tls_mtu);
+        }
+
+        /* also set mssfix maxmtu mtu */
+        options->ce.mssfix = maxmtu;
+        options->ce.mssfix_default = false;
+        options->ce.mssfix_encap = true;
     }
 #ifdef ENABLE_FRAGMENT
     else if (streq(p[0], "mtu-dynamic"))
@@ -6546,6 +6662,11 @@ add_option(struct options *options,
                     options->inactivity_timeout );
             }
         }
+    }
+    else if (streq(p[0], "session-timeout") && p[1] && !p[2])
+    {
+        VERIFY_PERMISSION(OPT_P_TIMER);
+        options->session_timeout = positive_atoi(p[1]);
     }
     else if (streq(p[0], "proto") && p[1] && !p[2])
     {
@@ -7406,20 +7527,26 @@ add_option(struct options *options,
                         &options->auth_user_pass_verify_script,
                         p[1], "auth-user-pass-verify", true);
     }
-    else if (streq(p[0], "auth-gen-token") && !p[3])
+    else if (streq(p[0], "auth-gen-token"))
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
         options->auth_token_generate = true;
         options->auth_token_lifetime = p[1] ? positive_atoi(p[1]) : 0;
-        if (p[2])
+
+        for (int i = 2; i < MAX_PARMS && p[i] != NULL; i++)
         {
-            if (streq(p[2], "external-auth"))
+            /* the second parameter can be the renewal time */
+            if (i == 2 && positive_atoi(p[i]))
+            {
+                options->auth_token_renewal = positive_atoi(p[i]);
+            }
+            else if (streq(p[i], "external-auth"))
             {
                 options->auth_token_call_auth = true;
             }
             else
             {
-                msg(msglevel, "Invalid argument to auth-gen-token: %s", p[2]);
+                msg(msglevel, "Invalid argument to auth-gen-token: %s (%d)", p[i], i);
             }
         }
 
@@ -7440,6 +7567,16 @@ add_option(struct options *options,
         }
         set_user_script(options, &options->client_connect_script,
                         p[1], "client-connect", true);
+    }
+    else if (streq(p[0], "client-crresponse") && p[1])
+    {
+        VERIFY_PERMISSION(OPT_P_SCRIPT);
+        if (!no_more_than_n_args(msglevel, p, 2, NM_QUOTE_HINT))
+        {
+            goto err;
+        }
+        set_user_script(options, &options->client_crresponse_script,
+                        p[1], "client-crresponse", true);
     }
     else if (streq(p[0], "client-disconnect") && p[1])
     {
@@ -7660,10 +7797,11 @@ add_option(struct options *options,
     }
     else if (streq(p[0], "auth-user-pass") && !p[2])
     {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
+        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
         if (p[1])
         {
             options->auth_user_pass_file = p[1];
+            options->auth_user_pass_file_inline = is_inline;
         }
         else
         {
@@ -8436,16 +8574,42 @@ add_option(struct options *options,
     }
     else if (streq(p[0], "key-derivation") && p[1])
     {
+        /* NCP only option that is pushed by the server to enable EKM,
+         * should not be used by normal users in config files*/
         VERIFY_PERMISSION(OPT_P_NCP)
 #ifdef HAVE_EXPORT_KEYING_MATERIAL
         if (streq(p[1], "tls-ekm"))
         {
-            options->data_channel_crypto_flags |= CO_USE_TLS_KEY_MATERIAL_EXPORT;
+            options->imported_protocol_flags |= CO_USE_TLS_KEY_MATERIAL_EXPORT;
         }
         else
 #endif
         {
             msg(msglevel, "Unknown key-derivation method %s", p[1]);
+        }
+    }
+    else if (streq(p[0], "protocol-flags") && p[1])
+    {
+        /* NCP only option that is pushed by the server to enable protocol
+         * features that are negotiated, should not be used by normal users
+         * in config files */
+        VERIFY_PERMISSION(OPT_P_NCP)
+        for (size_t j = 1; j < MAX_PARMS && p[j] != NULL; j++)
+        {
+            if (streq(p[j], "cc-exit"))
+            {
+                options->imported_protocol_flags |= CO_USE_CC_EXIT_NOTIFY;
+            }
+#ifdef HAVE_EXPORT_KEYING_MATERIAL
+            else if (streq(p[j], "tls-ekm"))
+            {
+                options->imported_protocol_flags |= CO_USE_TLS_KEY_MATERIAL_EXPORT;
+            }
+#endif
+            else
+            {
+                msg(msglevel, "Unknown protocol-flags flag: %s", p[j]);
+            }
         }
     }
     else if (streq(p[0], "prng") && p[1] && !p[3])

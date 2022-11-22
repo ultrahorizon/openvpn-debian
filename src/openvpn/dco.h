@@ -67,7 +67,7 @@ bool dco_available(int msglevel);
  * @param o         the options struct that hold the options
  * @return          true if no conflict was detected, false otherwise
  */
-bool dco_check_option_conflict(int msglevel, const struct options *o);
+bool dco_check_option(int msglevel, const struct options *o);
 
 /**
  * Check whether the options struct has any further option that is not supported
@@ -79,7 +79,7 @@ bool dco_check_option_conflict(int msglevel, const struct options *o);
  * @param o         the options struct that hold the options
  * @return          true if no conflict was detected, false otherwise
  */
-bool dco_check_startup_option_conflict(int msglevel, const struct options *o);
+bool dco_check_startup_option(int msglevel, const struct options *o);
 
 /**
  * Check whether any of the options pushed by the server is not supported by
@@ -243,13 +243,13 @@ dco_available(int msglevel)
 }
 
 static inline bool
-dco_check_option_conflict(int msglevel, const struct options *o)
+dco_check_option(int msglevel, const struct options *o)
 {
     return false;
 }
 
 static inline bool
-dco_check_startup_option_conflict(int msglevel, const struct options *o)
+dco_check_startup_option(int msglevel, const struct options *o)
 {
     return false;
 }
@@ -310,10 +310,10 @@ dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
     ASSERT(false);
 }
 
-static inline bool
+static inline int
 dco_p2p_add_new_peer(struct context *c)
 {
-    return true;
+    return 0;
 }
 
 static inline int
@@ -328,10 +328,10 @@ dco_remove_peer(struct context *c)
 {
 }
 
-static inline bool
+static inline int
 dco_multi_add_new_peer(struct multi_context *m, struct multi_instance *mi)
 {
-    return true;
+    return 0;
 }
 
 static inline void

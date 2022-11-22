@@ -166,6 +166,33 @@ ovpn_dco_init(int mode, dco_context_t *dco)
 }
 
 static int
+dco_set_ifmode(dco_context_t *dco, int ifmode)
+{
+    struct ifdrv drv;
+    nvlist_t *nvl;
+    int ret;
+
+    nvl = nvlist_create(0);
+    nvlist_add_number(nvl, "ifmode", ifmode);
+
+    CLEAR(drv);
+    snprintf(drv.ifd_name, IFNAMSIZ, "%s", dco->ifname);
+    drv.ifd_cmd = OVPN_SET_IFMODE;
+    drv.ifd_data = nvlist_pack(nvl, &drv.ifd_len);
+
+    ret = ioctl(dco->fd, SIOCSDRVSPEC, &drv);
+    if (ret)
+    {
+        msg(M_WARN | M_ERRNO, "dco_set_ifmode: failed to set ifmode=%08x", ifmode);
+    }
+
+    free(drv.ifd_data);
+    nvlist_destroy(nvl);
+
+    return ret;
+}
+
+static int
 create_interface(struct tuntap *tt, const char *dev)
 {
     int ret;
@@ -178,7 +205,8 @@ create_interface(struct tuntap *tt, const char *dev)
     ret = ioctl(tt->dco.fd, SIOCIFCREATE2, &ifr);
     if (ret)
     {
-        msg(M_ERR | M_ERRNO, "Failed to create interface %s", ifr.ifr_name);
+        ret = -errno;
+        msg(M_WARN|M_ERRNO, "Failed to create interface %s (SIOCIFCREATE2)", ifr.ifr_name);
         return ret;
     }
 
@@ -194,14 +222,23 @@ create_interface(struct tuntap *tt, const char *dev)
     ret = ioctl(tt->dco.fd, SIOCSIFNAME, &ifr);
     if (ret)
     {
+        ret = -errno;
         /* Delete the created interface again. */
         (void)ioctl(tt->dco.fd, SIOCIFDESTROY, &ifr);
-        msg(M_ERR | M_ERRNO, "Failed to create interface %s", ifr.ifr_data);
+        msg(M_WARN|M_ERRNO, "Failed to create interface %s (SIOCSIFNAME)", ifr.ifr_data);
         return ret;
     }
 
     snprintf(tt->dco.ifname, IFNAMSIZ, "%s", ifr.ifr_data);
     tt->actual_name = string_alloc(tt->dco.ifname, NULL);
+
+    /* see "Interface Flags" in ifnet(9) */
+    int i = IFF_POINTOPOINT | IFF_MULTICAST;
+    if (tt->topology == TOP_SUBNET)
+    {
+        i = IFF_BROADCAST | IFF_MULTICAST;
+    }
+    dco_set_ifmode(&tt->dco, i);
 
     return 0;
 }
@@ -229,16 +266,7 @@ remove_interface(struct tuntap *tt)
 int
 open_tun_dco(struct tuntap *tt, openvpn_net_ctx_t *ctx, const char *dev)
 {
-    int ret;
-
-    ret = create_interface(tt, dev);
-
-    if (ret < 0)
-    {
-        msg(M_ERR, "Failed to create interface");
-    }
-
-    return ret;
+    return create_interface(tt, dev);
 }
 
 void
@@ -639,7 +667,7 @@ dco_event_set(dco_context_t *dco, struct event_set *es, void *arg)
 const char *
 dco_get_supported_ciphers()
 {
-    return "none:AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305";
+    return "none:AES-256-GCM:AES-192-GCM:AES-128-GCM:CHACHA20-POLY1305";
 }
 
 #endif /* defined(ENABLE_DCO) && defined(TARGET_FREEBSD) */

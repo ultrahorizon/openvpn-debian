@@ -220,9 +220,14 @@ configuration.
   immediately close its client instance object rather than waiting for a
   timeout.
 
+  If both server and client support sending this message using the control
+  channel, the message will be sent as control-channel message. Otherwise
+  the message is sent as data-channel message, which will be ignored by
+  data-channel offloaded peers.
+
   The **n** parameter (default :code:`1` if not present) controls the
   maximum number of attempts that the client will try to resend the exit
-  notification message.
+  notification message if messages are sent in data-channel mode.
 
   In UDP server mode, send :code:`RESTART` control channel command to
   connected clients. The ``n`` parameter (default :code:`1` if not present)
@@ -357,6 +362,10 @@ configuration.
   :code:`IV_CIPHERS=<ncp-ciphers>`
         The client announces the list of supported ciphers configured with the
         ``--data-ciphers`` option to the server.
+
+  :code:`IV_MTU=<max_mtu>`
+        The client announces the support of pushable MTU and the maximum MTU
+        it is willing to accept.
 
   :code:`IV_GUI_VER=<gui_id> <version>`
         The UI version of a UI if one is running, for example

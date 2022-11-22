@@ -80,6 +80,11 @@
 #define MSSFIX_DEFAULT     1492
 
 /*
+ * Default maximum size of control channel packets
+ */
+#define TLS_MTU_DEFAULT    1250
+
+/*
  * Alignment of payload data such as IP packet or
  * ethernet frame.
  */
@@ -133,6 +138,9 @@ struct frame {
                                  *   control frame payload (although most of
                                  *   code ignores it)
                                  */
+    int tun_max_mtu;            /**< the maximum tun-mtu size the buffers are
+                                 *   are sized for. This is the upper bound that
+                                 *   a server can push as MTU */
 
     int extra_tun;              /**< Maximum number of bytes in excess of
                                  *   the tun/tap MTU that might be read

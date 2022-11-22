@@ -121,6 +121,7 @@ mutate_ncp_cipher_list(const char *list, struct gc_arena *gc)
         }
 
         const bool nonecipher = (strcmp(token, "none") == 0);
+        const char *optstr = optional ? "optional " : "";
 
         if (nonecipher)
         {
@@ -132,8 +133,15 @@ mutate_ncp_cipher_list(const char *list, struct gc_arena *gc)
         }
         if (!nonecipher && !cipher_valid(token))
         {
-            const char *optstr = optional ? "optional " : "";
             msg(M_WARN, "Unsupported %scipher in --data-ciphers: %s", optstr, token);
+            error_found = error_found || !optional;
+        }
+        else if (!nonecipher && !cipher_kt_mode_aead(token)
+                 && !cipher_kt_mode_cbc(token)
+                 && !cipher_kt_mode_ofb_cfb(token))
+        {
+            msg(M_WARN, "Unsupported %scipher algorithm '%s'. It does not use "
+                "CFB, OFB, CBC, or a supported AEAD mode", optstr, token);
             error_found = error_found || !optional;
         }
         else
@@ -417,6 +425,11 @@ p2p_ncp_set_options(struct tls_multi *multi, struct tls_session *session)
     {
         multi->use_peer_id = true;
         multi->peer_id = 0x76706e; /* 'v' 'p' 'n' */
+    }
+
+    if (iv_proto_peer & IV_PROTO_CC_EXIT_NOTIFY)
+    {
+        session->opt->crypto_flags |= CO_USE_CC_EXIT_NOTIFY;
     }
 
 #if defined(HAVE_EXPORT_KEYING_MATERIAL)
