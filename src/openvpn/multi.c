@@ -1241,6 +1241,7 @@ multi_learn_in_addr_t(struct multi_context *m,
         /* "primary" is the VPN ifconfig address of the peer and already
          * known to DCO, so only install "extra" iroutes (primary = false)
          */
+        ASSERT(netbits >= 0);           /* DCO requires populated netbits */
         dco_install_iroute(m, mi, &addr);
     }
 
@@ -1280,6 +1281,7 @@ multi_learn_in6_addr(struct multi_context *m,
         /* "primary" is the VPN ifconfig address of the peer and already
          * known to DCO, so only install "extra" iroutes (primary = false)
          */
+        ASSERT(netbits >= 0);           /* DCO requires populated netbits */
         dco_install_iroute(m, mi, &addr);
     }
 
@@ -1799,9 +1801,14 @@ multi_client_set_protocol_options(struct context *c)
 #ifdef HAVE_EXPORT_KEYING_MATERIAL
     if (proto & IV_PROTO_TLS_KEY_EXPORT)
     {
-        o->data_channel_crypto_flags |= CO_USE_TLS_KEY_MATERIAL_EXPORT;
+        o->imported_protocol_flags |= CO_USE_TLS_KEY_MATERIAL_EXPORT;
     }
 #endif
+
+    if (proto & IV_PROTO_CC_EXIT_NOTIFY)
+    {
+        o->imported_protocol_flags |= CO_USE_CC_EXIT_NOTIFY;
+    }
 
     /* Select cipher if client supports Negotiable Crypto Parameters */
 
@@ -2717,7 +2724,7 @@ multi_connection_established(struct multi_context *m, struct multi_instance *mi)
 
     /* Check if we have forbidding options in the current mode */
     if (dco_enabled(&mi->context.options)
-        && !dco_check_option_conflict(D_MULTI_ERRORS, &mi->context.options))
+        && !dco_check_option(D_MULTI_ERRORS, &mi->context.options))
     {
         msg(D_MULTI_ERRORS, "MULTI: client has been rejected due to incompatible DCO options");
         cc_succeeded = false;

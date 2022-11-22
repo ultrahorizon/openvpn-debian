@@ -118,11 +118,15 @@ struct connection_entry
     const char *socks_proxy_authfile;
 
     int tun_mtu;         /* MTU of tun device */
+    int occ_mtu;         /* if non-null, this is the MTU we announce to peers in OCC */
+    int tun_mtu_max;     /* maximum MTU that can be pushed */
+
     bool tun_mtu_defined; /* true if user overriding parm with command line option */
     int tun_mtu_extra;
     bool tun_mtu_extra_defined;
     int link_mtu;        /* MTU of device over which tunnel packets pass via TCP/UDP */
     bool link_mtu_defined; /* true if user overriding parm with command line option */
+    int tls_mtu;         /* Maximum MTU for the control channel messages */
 
     /* Advanced MTU negotiation and datagram fragmentation options */
     int mtu_discover_type; /* used if OS supports setting Path MTU discovery options on socket */
@@ -272,10 +276,17 @@ struct options
     struct connection_list *connection_list;
 
     struct remote_list *remote_list;
-    /* Do not advanced the connection or remote addr list*/
+    /* Do not advance the connection or remote addr list */
     bool no_advance;
+    /* Advance directly to the next remote, skipping remaining addresses of the
+     * current remote */
+    bool advance_next_remote;
     /* Counts the number of unsuccessful connection attempts */
     unsigned int unsuccessful_attempts;
+    /* the server can suggest a backoff time to the client, it
+     * will still be capped by the max timeout between connections
+     * (300s by default) */
+    int server_backoff_time;
 
 #if ENABLE_MANAGEMENT
     struct http_proxy_options *http_proxy_override;
@@ -316,6 +327,8 @@ struct options
 
     int inactivity_timeout;     /* --inactive */
     int64_t inactivity_minimum_bytes;
+
+    int session_timeout;        /* Force-kill session after n seconds */
 
     int ping_send_timeout;      /* Send a TCP/UDP ping to remote every n seconds */
     int ping_rec_timeout;       /* Expect a TCP/UDP ping from remote at least once every n seconds */
@@ -473,6 +486,7 @@ struct options
     const char *client_connect_script;
     const char *client_disconnect_script;
     const char *learn_address_script;
+    const char *client_crresponse_script;
     const char *client_config_dir;
     bool ccd_exclusive;
     bool disable;
@@ -505,9 +519,9 @@ struct options
     const char *auth_user_pass_verify_script;
     bool auth_user_pass_verify_script_via_file;
     bool auth_token_generate;
-    bool auth_token_gen_secret_file;
     bool auth_token_call_auth;
     int auth_token_lifetime;
+    int auth_token_renewal;
     const char *auth_token_secret_file;
     bool auth_token_secret_file_inline;
 
@@ -522,6 +536,7 @@ struct options
     int push_continuation;
     unsigned int push_option_types_found;
     const char *auth_user_pass_file;
+    bool auth_user_pass_file_inline;
     struct options_pre_connect *pre_connect;
 
     int scheduled_exit_interval;
@@ -680,7 +695,7 @@ struct options
     bool allow_recursive_routing;
 
     /* data channel crypto flags set by push/pull. Reuses the CO_* crypto_flags */
-    unsigned int data_channel_crypto_flags;
+    unsigned int imported_protocol_flags;
 };
 
 #define streq(x, y) (!strcmp((x), (y)))
@@ -718,6 +733,7 @@ struct options
 #define OPT_P_CONNECTION      (1<<27)
 #define OPT_P_PEER_ID         (1<<28)
 #define OPT_P_INLINE          (1<<29)
+#define OPT_P_PUSH_MTU        (1<<30)
 
 #define OPT_P_DEFAULT   (~(OPT_P_INSTANCE|OPT_P_PULL_MODE))
 
@@ -876,24 +892,17 @@ void options_string_import(struct options *options,
 
 bool key_is_external(const struct options *options);
 
-#if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))
-
 /**
  * Returns whether the current configuration has dco enabled.
  */
 static inline bool
 dco_enabled(const struct options *o)
 {
+#ifdef ENABLE_DCO
     return !o->tuntap_options.disable_dco;
-}
-
-#else /* if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))*/
-
-static inline bool
-dco_enabled(const struct options *o)
-{
+#else
     return false;
+#endif /* ENABLE_DCO */
 }
 
-#endif
 #endif /* ifndef OPTIONS_H */

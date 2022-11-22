@@ -96,6 +96,13 @@
 /** Supports the --dns option introduced in version 2.6 */
 #define IV_PROTO_DNS_OPTION      (1<<6)
 
+/** Support for explicit exit notify via control channel
+ *  This also includes support for the protocol-flags pushed option */
+#define IV_PROTO_CC_EXIT_NOTIFY  (1<<7)
+
+/** Support for AUTH_FAIL,TEMP messages */
+#define IV_PROTO_AUTH_FAIL_TEMP  (1<<8)
+
 /* Default field in X509 to be username */
 #define X509_USERNAME_FIELD_DEFAULT "CN"
 
@@ -159,10 +166,9 @@ struct tls_multi *tls_multi_init(struct tls_options *tls_options);
  *
  * @param multi        - The \c tls_multi structure of which to finalize
  *                       initialization.
- * @param frame        - The data channel's \c frame structure.
+ * @param tls_mtu      - maximum allowed size for control channel packets
  */
-void tls_multi_init_finalize(struct tls_multi *multi,
-                             const struct frame *frame);
+void tls_multi_init_finalize(struct tls_multi *multi, int tls_mtu);
 
 /*
  * Initialize a standalone tls-auth verification object.
@@ -174,8 +180,7 @@ struct tls_auth_standalone *tls_auth_standalone_init(struct tls_options *tls_opt
  * Setups the control channel frame size parameters from the data channel
  * parameters
  */
-void tls_init_control_channel_frame_parameters(const struct frame *data_channel_frame,
-                                               struct frame *frame);
+void tls_init_control_channel_frame_parameters(struct frame *frame, int tls_mtu);
 
 /*
  * Set local and remote option compatibility strings.
@@ -364,11 +369,16 @@ void tls_post_encrypt(struct tls_multi *multi, struct buffer *buf);
  */
 void pem_password_setup(const char *auth_file);
 
+/* Enables the use of user/password authentication */
+void enable_auth_user_pass();
+
 /*
  * Setup authentication username and password. If auth_file is given, use the
- * credentials stored in the file.
+ * credentials stored in the file, however, if is_inline is true then auth_file
+ * contains the username/password inline.
  */
-void auth_user_pass_setup(const char *auth_file, const struct static_challenge_info *sc_info);
+void auth_user_pass_setup(const char *auth_file, bool is_inline,
+                          const struct static_challenge_info *sc_info);
 
 /*
  * Ensure that no caching is performed on authentication information
@@ -378,6 +388,7 @@ void ssl_set_auth_nocache(void);
 /*
  * Purge any stored authentication information, both for key files and tunnel
  * authentication. If PCKS #11 is enabled, purge authentication for that too.
+ * Note that auth_token is not cleared.
  */
 void ssl_purge_auth(const bool auth_user_pass_only);
 
@@ -525,12 +536,6 @@ void extract_x509_field_test(void);
  *
  */
 bool is_hard_reset_method2(int op);
-
-/**
- * Cleans the saved user/password unless auth-nocache is in use.
- */
-void ssl_clean_user_pass(void);
-
 
 /*
  * Show the TLS ciphers that are available for us to use in the SSL

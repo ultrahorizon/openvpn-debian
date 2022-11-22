@@ -42,6 +42,7 @@
 #include "common.h"
 #include "ssl_verify.h"
 #include "dco.h"
+#include "auth_token.h"
 
 #include "memdbg.h"
 
@@ -259,6 +260,10 @@ check_incoming_control_channel(struct context *c)
         else if (buf_string_match_head_str(&buf, "AUTH_PENDING"))
         {
             receive_auth_pending(c, &buf);
+        }
+        else if (buf_string_match_head_str(&buf, "EXIT"))
+        {
+            receive_exit_message(c);
         }
         else
         {
@@ -627,6 +632,21 @@ encrypt_sign(struct context *c, bool comp_frag)
 }
 
 /*
+ * Should we exit due to session timeout?
+ */
+static void
+check_session_timeout(struct context *c)
+{
+    if (c->options.session_timeout
+        && event_timeout_trigger(&c->c2.session_interval, &c->c2.timeval,
+                                 ETT_DEFAULT))
+    {
+        msg(M_INFO, "Session timeout, exiting");
+        register_signal(c, SIGTERM, "session-timeout");
+    }
+}
+
+/*
  * Coarse timers work to 1 second resolution.
  */
 static void
@@ -665,6 +685,12 @@ process_coarse_timers(struct context *c)
         check_add_routes(c);
     }
 
+    /* check if we want to refresh the auth-token */
+    if (event_timeout_trigger(&c->c2.auth_token_renewal_interval, &c->c2.timeval, ETT_DEFAULT))
+    {
+        check_send_auth_token(c);
+    }
+
     /* possibly exit due to --inactive */
     if (c->options.inactivity_timeout
         && event_timeout_trigger(&c->c2.inactivity_interval, &c->c2.timeval, ETT_DEFAULT))
@@ -672,6 +698,13 @@ process_coarse_timers(struct context *c)
         check_inactivity_timeout(c);
     }
 
+    if (c->sig->signal_received)
+    {
+        return;
+    }
+
+    /* kill session if time is over */
+    check_session_timeout(c);
     if (c->sig->signal_received)
     {
         return;
@@ -864,8 +897,16 @@ read_incoming_link(struct context *c)
         return;
     }
 
+    /* check_status() call below resets last-error code */
+    bool dco_win_timeout = tuntap_is_dco_win_timeout(c->c1.tuntap, status);
+
     /* check recvfrom status */
     check_status(status, "read", c->c2.link_socket, NULL);
+
+    if (dco_win_timeout)
+    {
+        trigger_ping_timeout_signal(c);
+    }
 
     /* Remove socks header if applicable */
     socks_postprocess_incoming_link(c);
@@ -1119,7 +1160,8 @@ process_incoming_dco(struct context *c)
 
     dco_do_read(dco);
 
-    if (dco->dco_message_type == OVPN_CMD_DEL_PEER)
+    if ((dco->dco_message_type == OVPN_CMD_DEL_PEER)
+        && (dco->dco_del_peer_reason == OVPN_DEL_PEER_REASON_EXPIRED))
     {
         trigger_ping_timeout_signal(c);
         return;

@@ -46,7 +46,7 @@
                                  *   be stored in one \c reliable_ack
                                  *   structure. */
 
-#define RELIABLE_CAPACITY 8     /**< The maximum number of packets that
+#define RELIABLE_CAPACITY 12    /**< The maximum number of packets that
                                  *   the reliability layer for one VPN
                                  *   tunnel in one direction can store. */
 
@@ -93,7 +93,7 @@ struct reliable
     int size;
     interval_t initial_timeout;
     packet_id_type packet_id;
-    int offset;
+    int offset; /**< Offset of the bufs in the reliable_entry array */
     bool hold; /* don't xmit until reliable_schedule_now is called */
     struct reliable_entry array[RELIABLE_CAPACITY];
 };
@@ -179,10 +179,27 @@ reliable_ack_empty(struct reliable_ack *ack)
 }
 
 /**
+ * Returns the number of packets that need to be acked.
+ *
+ * @param ack The acknowledgment structure to check.
+ *
+ * @returns the number of outstanding acks
+ */
+static inline int
+reliable_ack_outstanding(struct reliable_ack *ack)
+{
+    return ack->len;
+}
+
+
+/**
  * Write a packet ID acknowledgment record to a buffer.
  *
  * @param ack The acknowledgment structure containing packet IDs to be
  *     acknowledged.
+ * @param ack_mru List of packets we have acknowledged before. Packets from
+ *                \c ack will be moved here and if there is space in our
+ *                ack structure we will fill it with packets from this
  * @param buf The buffer into which the acknowledgment record will be
  *     written.
  * @param sid The session ID of the VPN tunnel associated with the
@@ -197,6 +214,7 @@ reliable_ack_empty(struct reliable_ack *ack)
  * @li False, if an error occurs during processing.
  */
 bool reliable_ack_write(struct reliable_ack *ack,
+                        struct reliable_ack *ack_mru,
                         struct buffer *buf,
                         const struct session_id *sid, int max, bool prepend);
 
@@ -356,6 +374,19 @@ bool reliable_ack_acknowledge_packet_id(struct reliable_ack *ack, packet_id_type
  */
 struct reliable_entry *reliable_get_entry_sequenced(struct reliable *rel);
 
+
+
+/**
+ * Copies the first n acks from \c ack to \c ack_mru
+ *
+ * @param ack The reliable structure to copy the acks from
+ * @param ack_mru The reliable structure to insert the acks into
+ * @param n The number of ACKS to copy
+ */
+void
+copy_acks_to_mru(struct reliable_ack *ack, struct reliable_ack *ack_mru, int n);
+
+
 /**
  * Remove an entry from a reliable structure.
  *
@@ -384,6 +415,20 @@ void reliable_mark_deleted(struct reliable *rel, struct buffer *buf);
  *     broken, this function also returns NULL.
  */
 struct buffer *reliable_get_buf_output_sequenced(struct reliable *rel);
+
+
+/**
+ * Counts the number of free buffers in output that can be potentially used
+ * for sending
+ *
+ *  @param rel The reliable structure in which to search for a free
+ *     entry.
+ *
+ *  @return the number of buffer that are available for sending without
+ *             breaking ack sequence
+ * */
+int
+reliable_get_num_output_sequenced_available(struct reliable *rel);
 
 /**
  * Mark the reliable entry associated with the given buffer as

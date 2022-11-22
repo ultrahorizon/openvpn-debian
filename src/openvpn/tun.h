@@ -44,11 +44,13 @@
 
 #ifdef _WIN32
 #define WINTUN_COMPONENT_ID "wintun"
+#define DCO_WIN_REFERENCE_STRING "ovpn-dco"
 
 enum windows_driver_type {
     WINDOWS_DRIVER_UNSPECIFIED,
     WINDOWS_DRIVER_TAP_WINDOWS6,
-    WINDOWS_DRIVER_WINTUN
+    WINDOWS_DRIVER_WINTUN,
+    WINDOWS_DRIVER_DCO
 };
 #endif
 
@@ -63,6 +65,8 @@ enum windows_driver_type {
 struct tuntap_options {
     /* --ip-win32 options */
     bool ip_win32_defined;
+
+    bool disable_dco;
 
 #define IPW32_SET_MANUAL       0   /* "--ip-win32 manual" */
 #define IPW32_SET_NETSH        1   /* "--ip-win32 netsh" */
@@ -152,6 +156,7 @@ struct tuntap_options {
 
 struct tuntap_options {
     int dummy; /* not used */
+    bool disable_dco; /* not used, but removes the need in #ifdefs */
 };
 
 #endif /* if defined(_WIN32) || defined(TARGET_ANDROID) */
@@ -259,6 +264,11 @@ void open_tun(const char *dev, const char *dev_type, const char *dev_node,
 
 void close_tun(struct tuntap *tt, openvpn_net_ctx_t *ctx);
 
+void tun_open_device(struct tuntap *tt, const char *dev_node,
+                     const char **device_guid, struct gc_arena *gc);
+
+void close_tun_handle(struct tuntap *tt);
+
 int write_tun(struct tuntap *tt, uint8_t *buf, int len);
 
 int read_tun(struct tuntap *tt, uint8_t *buf, int len);
@@ -285,7 +295,8 @@ struct tuntap *init_tun(const char *dev,        /* --dev option */
                         struct addrinfo *remote_public,
                         const bool strict_warn,
                         struct env_set *es,
-                        openvpn_net_ctx_t *ctx);
+                        openvpn_net_ctx_t *ctx,
+                        struct tuntap *tt);
 
 void init_tun_post(struct tuntap *tt,
                    const struct frame *frame,
@@ -305,6 +316,14 @@ void do_ifconfig_setenv(const struct tuntap *tt,
  */
 void do_ifconfig(struct tuntap *tt, const char *ifname, int tun_mtu,
                  const struct env_set *es, openvpn_net_ctx_t *ctx);
+
+/**
+ * undo_ifconfig - undo configuration of the tunnel interface
+ *
+ * @param tt    the tuntap interface context
+ * @param ctx   the networking API opaque context
+ */
+void undo_ifconfig(struct tuntap *tt, openvpn_net_ctx_t *ctx);
 
 bool is_dev_type(const char *dev, const char *dev_type, const char *match_type);
 
@@ -630,6 +649,37 @@ write_tun_buffered(struct tuntap *tt, struct buffer *buf)
     }
 }
 
+static inline bool
+tuntap_is_dco_win(struct tuntap *tt)
+{
+    return tt && tt->windows_driver == WINDOWS_DRIVER_DCO;
+}
+
+static inline bool
+tuntap_is_dco_win_timeout(struct tuntap *tt, int status)
+{
+    return tuntap_is_dco_win(tt) && (status < 0) && (openvpn_errno() == ERROR_NETNAME_DELETED);
+}
+
+static const char *
+print_windows_driver(enum windows_driver_type windows_driver)
+{
+    switch (windows_driver)
+    {
+        case WINDOWS_DRIVER_TAP_WINDOWS6:
+            return "tap-windows6";
+
+        case WINDOWS_DRIVER_WINTUN:
+            return "wintun";
+
+        case WINDOWS_DRIVER_DCO:
+            return "ovpn-dco";
+
+        default:
+            return "unspecified";
+    }
+}
+
 #else  /* ifdef _WIN32 */
 
 static inline bool
@@ -655,6 +705,19 @@ tun_standby(struct tuntap *tt)
     return true;
 }
 
+
+static inline bool
+tuntap_is_dco_win(struct tuntap *tt)
+{
+    return false;
+}
+
+static inline bool
+tuntap_is_dco_win_timeout(struct tuntap *tt, int status)
+{
+    return false;
+}
+
 #endif /* ifdef _WIN32 */
 
 /*
@@ -678,28 +741,37 @@ tun_set(struct tuntap *tt,
         void *arg,
         unsigned int *persistent)
 {
-    if (tuntap_defined(tt))
+    if (!tuntap_defined(tt) || tuntap_is_dco_win(tt))
     {
-        /* if persistent is defined, call event_ctl only if rwflags has changed since last call */
-        if (!persistent || *persistent != rwflags)
-        {
-            event_ctl(es, tun_event_handle(tt), rwflags, arg);
-            if (persistent)
-            {
-                *persistent = rwflags;
-            }
-        }
-#ifdef _WIN32
-        if (tt->windows_driver == WINDOWS_DRIVER_TAP_WINDOWS6 && (rwflags & EVENT_READ))
-        {
-            tun_read_queue(tt, 0);
-        }
-#endif
-        tt->rwflags_debug = rwflags;
+        return;
     }
+
+    /* if persistent is defined, call event_ctl only if rwflags has changed since last call */
+    if (!persistent || *persistent != rwflags)
+    {
+        event_ctl(es, tun_event_handle(tt), rwflags, arg);
+        if (persistent)
+        {
+            *persistent = rwflags;
+        }
+    }
+#ifdef _WIN32
+    if (tt->windows_driver == WINDOWS_DRIVER_TAP_WINDOWS6 && (rwflags & EVENT_READ))
+    {
+        tun_read_queue(tt, 0);
+    }
+#endif
+    tt->rwflags_debug = rwflags;
+
 }
 
 const char *tun_stat(const struct tuntap *tt, unsigned int rwflags, struct gc_arena *gc);
 bool tun_name_is_fixed(const char *dev);
+
+static inline bool
+is_tun_type_set(const struct tuntap *tt)
+{
+    return tt && tt->type != DEV_TYPE_UNDEF;
+}
 
 #endif /* TUN_H */

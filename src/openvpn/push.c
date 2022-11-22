@@ -38,6 +38,7 @@
 
 #include "memdbg.h"
 #include "ssl_util.h"
+#include "options_util.h"
 
 static char push_reply_cmd[] = "PUSH_REPLY";
 
@@ -58,15 +59,35 @@ receive_auth_failed(struct context *c, const struct buffer *buffer)
         return;
     }
 
+    struct buffer buf = *buffer;
+
+    /* If the AUTH_FAIL message ends with a , it is an extended message that
+     * contains further flags */
+    bool authfail_extended = buf_string_compare_advance(&buf, "AUTH_FAILED,");
+
+    const char *reason = NULL;
+    if (authfail_extended && BLEN(&buf))
+    {
+        reason = BSTR(&buf);
+    }
+
+    if (authfail_extended && buf_string_match_head_str(&buf, "TEMP"))
+    {
+        parse_auth_failed_temp(&c->options, reason + strlen("TEMP"));
+        c->sig->signal_received = SIGUSR1;
+        c->sig->signal_text = "auth-temp-failure (server temporary reject)";
+    }
+
     /* Before checking how to react on AUTH_FAILED, first check if the
      * failed auth might be the result of an expired auth-token.
      * Note that a server restart will trigger a generic AUTH_FAILED
      * instead an AUTH_FAILED,SESSION so handle all AUTH_FAILED message
      * identical for this scenario */
-    if (ssl_clean_auth_token())
+    else if (ssl_clean_auth_token())
     {
         c->sig->signal_received = SIGUSR1;     /* SOFT-SIGUSR1 -- Auth failure error */
         c->sig->signal_text = "auth-failure (auth-token)";
+        c->options.no_advance = true;
     }
     else
     {
@@ -89,19 +110,8 @@ receive_auth_failed(struct context *c, const struct buffer *buffer)
         c->sig->signal_text = "auth-failure";
     }
 #ifdef ENABLE_MANAGEMENT
-    struct buffer buf = *buffer;
-
-    /* If the AUTH_FAIL message ends with a , it is an extended message that
-     * contains further flags */
-    bool authfail_extended = buf_string_compare_advance(&buf, "AUTH_FAILED,");
-
     if (management)
     {
-        const char *reason = NULL;
-        if (authfail_extended && BLEN(&buf))
-        {
-            reason = BSTR(&buf);
-        }
         management_auth_failure(management, UP_TYPE_AUTH, reason);
     }
     /*
@@ -180,6 +190,39 @@ server_pushed_signal(struct context *c, const struct buffer *buffer, const bool 
 }
 
 void
+receive_exit_message(struct context *c)
+{
+    dmsg(D_STREAM_ERRORS, "Exit message received by peer");
+    /* With control channel exit notification, we want to give the session
+     * enough time to handle retransmits and acknowledgment, so that eventual
+     * retries from the client to resend the exit or ACKs will not trigger
+     * a new session (we already forgot the session but the packet's HMAC
+     * is still valid).  This could happen for the entire period that the
+     * HMAC timeslot is still valid, but waiting five seconds here does not
+     * hurt much, takes care of the retransmits, and is easier code-wise.
+     *
+     * This does not affect OCC exit since the HMAC session code will
+     * ignore DATA packets
+     * */
+    if (c->options.mode == MODE_SERVER)
+    {
+        schedule_exit(c, c->options.scheduled_exit_interval, SIGTERM);
+    }
+    else
+    {
+        c->sig->signal_received = SIGUSR1;
+    }
+    c->sig->signal_text = "remote-exit";
+#ifdef ENABLE_MANAGEMENT
+    if (management)
+    {
+        management_notify(management, "info", c->sig->signal_text, "EXIT");
+    }
+#endif
+}
+
+
+void
 server_pushed_info(struct context *c, const struct buffer *buffer,
                    const int adv)
 {
@@ -229,6 +272,10 @@ receive_cr_response(struct context *c, const struct buffer *buffer)
 
     management_notify_client_cr_response(key_id, mda, es, m);
 #endif
+#if ENABLE_PLUGIN
+    verify_crresponse_plugin(c->c2.tls_multi, m);
+#endif
+    verify_crresponse_script(c->c2.tls_multi, m);
     msg(D_PUSH, "CR response was sent by client ('%s')", m);
 }
 
@@ -602,10 +649,46 @@ prepare_push_reply(struct context *c, struct gc_arena *gc,
     {
         push_option_fmt(gc, push_list, M_USAGE, "cipher %s", o->ciphername);
     }
-    if (o->data_channel_crypto_flags & CO_USE_TLS_KEY_MATERIAL_EXPORT)
+
+    struct buffer proto_flags = alloc_buf_gc(128, gc);
+
+    if (o->imported_protocol_flags & CO_USE_CC_EXIT_NOTIFY)
+    {
+        buf_printf(&proto_flags, " cc-exit");
+
+        /* if the cc exit flag is supported, pushing tls-ekm via protocol-flags
+         * is also supported */
+        if (o->imported_protocol_flags & CO_USE_TLS_KEY_MATERIAL_EXPORT)
+        {
+            buf_printf(&proto_flags, " tls-ekm");
+        }
+    }
+    else if (o->imported_protocol_flags & CO_USE_TLS_KEY_MATERIAL_EXPORT)
     {
         push_option_fmt(gc, push_list, M_USAGE, "key-derivation tls-ekm");
     }
+
+    if (buf_len(&proto_flags) > 0)
+    {
+        push_option_fmt(gc, push_list, M_USAGE, "protocol-flags%s", buf_str(&proto_flags));
+    }
+
+    /* Push our mtu to the peer if it supports pushable MTUs */
+    int client_max_mtu = 0;
+    const char *iv_mtu = extract_var_peer_info(tls_multi->peer_info, "IV_MTU=", gc);
+
+    if (iv_mtu && sscanf(iv_mtu, "%d", &client_max_mtu) == 1)
+    {
+        push_option_fmt(gc, push_list, M_USAGE, "tun-mtu %d", o->ce.tun_mtu);
+        if (client_max_mtu < o->ce.tun_mtu)
+        {
+            msg(M_WARN, "Warning: reported maximum MTU from client (%d) is lower "
+                "than MTU used on the server (%d). Add tun-max-mtu %d "
+                "to client configuration.", client_max_mtu,
+                o->ce.tun_mtu, o->ce.tun_mtu);
+        }
+    }
+
     return true;
 }
 
@@ -1005,7 +1088,7 @@ process_incoming_push_msg(struct context *c,
 void
 remove_iroutes_from_push_route_list(struct options *o)
 {
-    if (o && o->push_list.head && o->iroutes)
+    if (o && o->push_list.head && (o->iroutes || o->iroutes_ipv6))
     {
         struct gc_arena gc = gc_new();
         struct push_entry *e = o->push_list.head;
@@ -1022,7 +1105,7 @@ remove_iroutes_from_push_route_list(struct options *o)
                 && parse_line(e->option, p, SIZE(p), "[PUSH_ROUTE_REMOVE]", 1, D_ROUTE_DEBUG, &gc))
             {
                 /* is the push item a route directive? */
-                if (p[0] && !strcmp(p[0], "route") && !p[3])
+                if (p[0] && !strcmp(p[0], "route") && !p[3] && o->iroutes)
                 {
                     /* get route parameters */
                     bool status1, status2;
@@ -1038,6 +1121,30 @@ remove_iroutes_from_push_route_list(struct options *o)
                         for (ir = o->iroutes; ir != NULL; ir = ir->next)
                         {
                             if (network == ir->network && netmask == netbits_to_netmask(ir->netbits >= 0 ? ir->netbits : 32))
+                            {
+                                enable = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                else if (p[0] && !strcmp(p[0], "route-ipv6") && !p[2]
+                         && o->iroutes_ipv6)
+                {
+                    /* get route parameters */
+                    struct in6_addr network;
+                    unsigned int netbits;
+
+                    /* parse route-ipv6 arguments */
+                    if (get_ipv6_addr(p[1], &network, &netbits, D_ROUTE_DEBUG))
+                    {
+                        struct iroute_ipv6 *ir;
+
+                        /* does this route-ipv6 match an iroute-ipv6? */
+                        for (ir = o->iroutes_ipv6; ir != NULL; ir = ir->next)
+                        {
+                            if (!memcmp(&network, &ir->network, sizeof(network))
+                                && netbits == ir->netbits)
                             {
                                 enable = false;
                                 break;

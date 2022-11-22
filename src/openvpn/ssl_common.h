@@ -155,6 +155,7 @@ struct auth_deferred_status
 {
     char *auth_control_file;
     char *auth_pending_file;
+    char *auth_failed_reason_file;
     unsigned int auth_control_status;
 };
 
@@ -195,7 +196,7 @@ struct key_state
 {
     int state;
     /** The state of the auth-token sent from the client */
-    int auth_token_state_flags;
+    unsigned int auth_token_state_flags;
 
     /**
      * Key id for this key_state,  inherited from struct tls_session.
@@ -232,6 +233,7 @@ struct key_state
     struct reliable *send_reliable; /* holds a copy of outgoing packets until ACK received */
     struct reliable *rec_reliable; /* order incoming ciphertext packets before we pass to TLS */
     struct reliable_ack *rec_ack; /* buffers all packet IDs we want to ACK back to sender */
+    struct reliable_ack *lru_acks; /* keeps the most recently acked packages*/
 
     /** Holds outgoing message for the control channel until ks->state reaches
      * S_ACTIVE */
@@ -362,15 +364,18 @@ struct tls_options
 
     /* used for username/password authentication */
     const char *auth_user_pass_verify_script;
+    const char *client_crresponse_script;
     bool auth_user_pass_verify_script_via_file;
     const char *tmp_dir;
     const char *auth_user_pass_file;
+    bool auth_user_pass_file_inline;
 
     bool auth_token_generate;   /**< Generate auth-tokens on successful
                                  * user/pass auth,seet via
                                  * options->auth_token_generate. */
     bool auth_token_call_auth; /**< always call normal authentication */
     unsigned int auth_token_lifetime;
+    unsigned int auth_token_renewal;
 
     struct key_ctx auth_token_key;
 
