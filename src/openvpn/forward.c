@@ -174,7 +174,14 @@ check_tls(struct context *c)
         const int tmp_status = tls_multi_process
                                    (c->c2.tls_multi, &c->c2.to_link, &c->c2.to_link_addr,
                                    get_link_socket_info(c), &wakeup);
-        if (tmp_status == TLSMP_ACTIVE)
+
+        if (tmp_status == TLSMP_RECONNECT)
+        {
+            event_timeout_init(&c->c2.wait_for_connect, 1, now);
+            reset_coarse_timers(c);
+        }
+
+        if (tmp_status == TLSMP_ACTIVE || tmp_status == TLSMP_RECONNECT)
         {
             update_time();
             interval_action(&c->c2.tmp_int);
@@ -196,9 +203,15 @@ check_tls(struct context *c)
 
     interval_schedule_wakeup(&c->c2.tmp_int, &wakeup);
 
-    /* Our current code has no good hooks in the TLS machinery to update
+    /*
+     * Our current code has no good hooks in the TLS machinery to update
      * DCO keys. So we check the key status after the whole TLS machinery
      * has been completed and potentially update them
+     *
+     * We have a hidden state transition from secondary to primary key based
+     * on ks->auth_deferred_expire that DCO needs to check that the normal
+     * TLS state engine does not check. So we call the \c check_dco_key_status
+     * function even if tmp_status does not indicate that something has changed.
      */
     check_dco_key_status(c);
 
@@ -302,7 +315,6 @@ check_push_request(struct context *c)
 static void
 check_connection_established(struct context *c)
 {
-
     if (connection_established(c))
     {
         /* if --pull was specified, send a push request to server */
@@ -332,12 +344,14 @@ check_connection_established(struct context *c)
         }
         else
         {
-            do_up(c, false, 0);
+            if (!do_up(c, false, 0))
+            {
+                register_signal(c, SIGUSR1, "connection initialisation failed");
+            }
         }
 
         event_timeout_clear(&c->c2.wait_for_connect);
     }
-
 }
 
 bool
@@ -1160,9 +1174,22 @@ process_incoming_dco(struct context *c)
 
     dco_do_read(dco);
 
+    /* FreeBSD currently sends us removal notifcation with the old peer-id in
+     * p2p mode with the ping timeout reason, so ignore that one to not shoot
+     * ourselves in the foot and removing the just established session */
+    if (dco->dco_message_peer_id != c->c2.tls_multi->dco_peer_id)
+    {
+        msg(D_DCO_DEBUG, "%s: received message for mismatching peer-id %d, "
+            "expected %d", __func__, dco->dco_message_peer_id,
+            c->c2.tls_multi->dco_peer_id);
+        return;
+    }
+
     if ((dco->dco_message_type == OVPN_CMD_DEL_PEER)
         && (dco->dco_del_peer_reason == OVPN_DEL_PEER_REASON_EXPIRED))
     {
+        msg(D_DCO_DEBUG, "%s: received peer expired notification of for peer-id "
+            "%d", __func__, dco->dco_message_peer_id);
         trigger_ping_timeout_signal(c);
         return;
     }
@@ -1635,21 +1662,24 @@ process_ip_header(struct context *c, unsigned int flags, struct buffer *buf)
     }
 }
 
-/* Linux-like DCO implementations pass the socket to the kernel and
+/* Linux DCO implementations pass the socket to the kernel and
  * disallow usage of it from userland, so (control) packets sent and
  * received by OpenVPN need to go through the DCO interface.
  *
  * Windows DCO needs control packets to be sent via the normal
  * standard Overlapped I/O.
  *
+ * FreeBSD DCO allows control packets to pass through the socket in both
+ * directions.
+ *
  * Hide that complexity (...especially if more platforms show up
- * in future...) in a small inline function.
+ * in the future...) in a small inline function.
  */
 static inline bool
-should_use_dco_socket(struct link_socket *sock)
+should_use_dco_socket(struct link_socket_actual *actual)
 {
-#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
-    return sock->info.dco_installed;
+#if defined(TARGET_LINUX)
+    return actual->dco_installed;
 #else
     return false;
 #endif
@@ -1728,10 +1758,10 @@ process_outgoing_link(struct context *c)
                 socks_preprocess_outgoing_link(c, &to_addr, &size_delta);
 
                 /* Send packet */
-                if (should_use_dco_socket(c->c2.link_socket))
+                if (should_use_dco_socket(c->c2.to_link_addr))
                 {
                     size = dco_do_write(&c->c1.tuntap->dco,
-                                        c->c2.tls_multi->peer_id,
+                                        c->c2.tls_multi->dco_peer_id,
                                         &c->c2.to_link);
                 }
                 else

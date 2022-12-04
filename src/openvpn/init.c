@@ -2020,7 +2020,7 @@ do_close_tun(struct context *c, bool force)
         }
 
         /* Run the down script -- note that it will run at reduced
-         * privilege if, for example, "--user nobody" was used. */
+         * privilege if, for example, "--user" was used. */
         run_up_down(c->options.down_script,
                     c->plugins,
                     OPENVPN_PLUGIN_DOWN,
@@ -2151,14 +2151,14 @@ do_deferred_options_part2(struct context *c)
         && (c->options.ping_send_timeout || c->c2.frame.mss_fix))
     {
         int ret = dco_set_peer(&c->c1.tuntap->dco,
-                               c->c2.tls_multi->peer_id,
+                               c->c2.tls_multi->dco_peer_id,
                                c->options.ping_send_timeout,
                                c->options.ping_rec_timeout,
                                c->c2.frame.mss_fix);
         if (ret < 0)
         {
             msg(D_DCO, "Cannot set parameters for DCO peer (id=%u): %s",
-                c->c2.tls_multi->peer_id, strerror(-ret));
+                c->c2.tls_multi->dco_peer_id, strerror(-ret));
             return false;
         }
     }
@@ -2219,7 +2219,14 @@ do_up(struct context *c, bool pulled_options, unsigned int option_types_found)
                 }
             }
         }
+    }
 
+    /* This part needs to be run in p2p mode (without pull) when the client
+     * reconnects to setup various things (like DCO and NCP cipher) that
+     * might have changed from the previous connection.
+     */
+    if (!c->c2.do_up_ran || (c->c2.tls_multi && c->c2.tls_multi->multi_state == CAS_RECONNECT_PENDING))
+    {
         if (c->mode == MODE_POINT_TO_POINT)
         {
             /* ovpn-dco requires adding the peer now, before any option can be set,
@@ -3678,7 +3685,7 @@ do_close_link_socket(struct context *c)
      * closed in do_close_tun(). Set it to UNDEFINED so
      * we won't use WinSock API to close it. */
     if (tuntap_is_dco_win(c->c1.tuntap) && c->c2.link_socket
-        && c->c2.link_socket->info.dco_installed)
+        && c->c2.link_socket->info.lsa->actual.dco_installed)
     {
         c->c2.link_socket->sd = SOCKET_UNDEFINED;
     }
