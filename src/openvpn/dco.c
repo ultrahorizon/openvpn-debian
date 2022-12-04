@@ -55,7 +55,7 @@ dco_install_key(struct tls_multi *multi, struct key_state *ks,
                 const char *ciphername)
 
 {
-    msg(D_DCO_DEBUG, "%s: peer_id=%d keyid=%d", __func__, multi->peer_id,
+    msg(D_DCO_DEBUG, "%s: peer_id=%d keyid=%d", __func__, multi->dco_peer_id,
         ks->key_id);
 
     /* Install a key in the PRIMARY slot only when no other key exist.
@@ -69,7 +69,7 @@ dco_install_key(struct tls_multi *multi, struct key_state *ks,
         slot = OVPN_KEY_SLOT_SECONDARY;
     }
 
-    int ret = dco_new_key(multi->dco, multi->peer_id, ks->key_id, slot,
+    int ret = dco_new_key(multi->dco, multi->dco_peer_id, ks->key_id, slot,
                           encrypt_key, encrypt_iv,
                           decrypt_key, decrypt_iv,
                           ciphername);
@@ -133,7 +133,7 @@ dco_get_secondary_key(struct tls_multi *multi, const struct key_state *primary)
 void
 dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
 {
-    msg(D_DCO_DEBUG, "%s: peer_id=%d", __func__, multi->peer_id);
+    msg(D_DCO_DEBUG, "%s: peer_id=%d", __func__, multi->dco_peer_id);
 
     /* this function checks if keys have to be swapped or erased, therefore it
      * can't do much if we don't have any key installed
@@ -151,14 +151,14 @@ dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
     {
         msg(D_DCO, "No encryption key found. Purging data channel keys");
 
-        int ret = dco_del_key(dco, multi->peer_id, OVPN_KEY_SLOT_PRIMARY);
+        int ret = dco_del_key(dco, multi->dco_peer_id, OVPN_KEY_SLOT_PRIMARY);
         if (ret < 0)
         {
             msg(D_DCO, "Cannot delete primary key during wipe: %s (%d)", strerror(-ret), ret);
             return;
         }
 
-        ret = dco_del_key(dco, multi->peer_id, OVPN_KEY_SLOT_SECONDARY);
+        ret = dco_del_key(dco, multi->dco_peer_id, OVPN_KEY_SLOT_SECONDARY);
         if (ret < 0)
         {
             msg(D_DCO, "Cannot delete secondary key during wipe: %s (%d)", strerror(-ret), ret);
@@ -184,7 +184,7 @@ dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
         msg(D_DCO_DEBUG, "Swapping primary and secondary keys, now: id1=%d id2=%d",
             primary->key_id, secondary ? secondary->key_id : -1);
 
-        int ret = dco_swap_keys(dco, multi->peer_id);
+        int ret = dco_swap_keys(dco, multi->dco_peer_id);
         if (ret < 0)
         {
             msg(D_DCO, "Cannot swap keys: %s (%d)", strerror(-ret), ret);
@@ -202,7 +202,7 @@ dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
     /* if we have no secondary key anymore, inform DCO about it */
     if (!secondary && multi->dco_keys_installed == 2)
     {
-        int ret = dco_del_key(dco, multi->peer_id, OVPN_KEY_SLOT_SECONDARY);
+        int ret = dco_del_key(dco, multi->dco_peer_id, OVPN_KEY_SLOT_SECONDARY);
         if (ret < 0)
         {
             msg(D_DCO, "Cannot delete secondary key: %s (%d)", strerror(-ret), ret);
@@ -247,6 +247,14 @@ dco_check_option_ce(const struct connection_entry *ce, int msglevel)
     if (!proto_is_udp(ce->proto))
     {
         msg(msglevel, "NOTE: TCP transport disables data channel offload on FreeBSD.");
+        return false;
+    }
+#endif
+
+#if defined(_WIN32)
+    if (!ce->remote)
+    {
+        msg(msglevel, "NOTE: --remote is not defined, disabling data channel offload.");
         return false;
     }
 #endif
@@ -426,6 +434,22 @@ dco_check_pull_options(int msglevel, const struct options *o)
     return true;
 }
 
+static void
+addr_set_dco_installed(struct context *c)
+{
+    /* We ensure that all addresses we currently hold have the dco_installed
+     * bit set */
+    for (int i = 0; i < KEY_SCAN_SIZE; ++i)
+    {
+        struct key_state *ks = get_key_scan(c->c2.tls_multi, i);
+        if (ks)
+        {
+            ks->remote_addr.dco_installed = true;
+        }
+    }
+    get_link_socket_info(c)->lsa->actual.dco_installed = true;
+}
+
 int
 dco_p2p_add_new_peer(struct context *c)
 {
@@ -438,8 +462,19 @@ dco_p2p_add_new_peer(struct context *c)
 
     ASSERT(ls->info.connection_established);
 
+    addr_set_dco_installed(c);
+
     struct sockaddr *remoteaddr = &ls->info.lsa->actual.dest.addr.sa;
     struct tls_multi *multi = c->c2.tls_multi;
+#ifdef TARGET_FREEBSD
+    /* In Linux in P2P mode the kernel automatically removes an existing peer
+     * when adding a new peer. FreeBSD needs to explicitly be told to do that */
+    if (c->c2.tls_multi->dco_peer_id != -1)
+    {
+        dco_del_peer(&c->c1.tuntap->dco, c->c2.tls_multi->dco_peer_id);
+        c->c2.tls_multi->dco_peer_id = -1;
+    }
+#endif
     int ret = dco_new_peer(&c->c1.tuntap->dco, multi->peer_id,
                            c->c2.link_socket->sd, NULL, remoteaddr, NULL, NULL);
     if (ret < 0)
@@ -447,8 +482,8 @@ dco_p2p_add_new_peer(struct context *c)
         return ret;
     }
 
-    c->c2.tls_multi->dco_peer_added = true;
-    c->c2.link_socket->info.dco_installed = true;
+    c->c2.tls_multi->dco_peer_id = multi->peer_id;
+    c->c2.link_socket->info.lsa->actual.dco_installed = true;
 
     return 0;
 }
@@ -461,10 +496,10 @@ dco_remove_peer(struct context *c)
         return;
     }
 
-    if (c->c1.tuntap && c->c2.tls_multi && c->c2.tls_multi->dco_peer_added)
+    if (c->c1.tuntap && c->c2.tls_multi && c->c2.tls_multi->dco_peer_id != -1)
     {
-        dco_del_peer(&c->c1.tuntap->dco, c->c2.tls_multi->peer_id);
-        c->c2.tls_multi->dco_peer_added = false;
+        dco_del_peer(&c->c1.tuntap->dco, c->c2.tls_multi->dco_peer_id);
+        c->c2.tls_multi->dco_peer_id = -1;
     }
 }
 
@@ -522,10 +557,11 @@ dco_multi_add_new_peer(struct multi_context *m, struct multi_instance *mi)
 {
     struct context *c = &mi->context;
 
-    int peer_id = mi->context.c2.tls_multi->peer_id;
+    int peer_id = c->c2.tls_multi->peer_id;
     struct sockaddr *remoteaddr, *localaddr = NULL;
     struct sockaddr_storage local = { 0 };
     int sd = c->c2.link_socket->sd;
+
 
     if (c->mode == CM_CHILD_TCP)
     {
@@ -537,9 +573,9 @@ dco_multi_add_new_peer(struct multi_context *m, struct multi_instance *mi)
         ASSERT(c->c2.link_socket_info->connection_established);
         remoteaddr = &c->c2.link_socket_info->lsa->actual.dest.addr.sa;
     }
+    addr_set_dco_installed(c);
 
     /* In server mode we need to fetch the remote addresses from the push config */
-
     struct in_addr vpn_ip4 = { 0 };
     struct in_addr *vpn_addr4 = NULL;
     if (c->c2.push_ifconfig_defined)
@@ -566,7 +602,7 @@ dco_multi_add_new_peer(struct multi_context *m, struct multi_instance *mi)
         return ret;
     }
 
-    c->c2.tls_multi->dco_peer_added = true;
+    c->c2.tls_multi->dco_peer_id = peer_id;
 
     if (c->mode == CM_CHILD_TCP)
     {
@@ -575,7 +611,7 @@ dco_multi_add_new_peer(struct multi_context *m, struct multi_instance *mi)
         {
             msg(D_DCO|M_ERRNO, "error closing TCP socket after DCO handover");
         }
-        c->c2.link_socket->info.dco_installed = true;
+        c->c2.link_socket->info.lsa->actual.dco_installed = true;
         c->c2.link_socket->sd = SOCKET_UNDEFINED;
     }
 
