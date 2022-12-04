@@ -1,9 +1,21 @@
-openvpn (2.6.0~git20220518+dco-2) unstable; urgency=medium
+openvpn (2.6.0~git20221201-1) unstable; urgency=medium
 
     OpenVPN 2.6 has changed several defaults that might lead to connection
     problems, especially when the remote side runs an old OpenVPN version
-    or cipher negotiations (NCP) are not in effect. Please read the release
-    notes installed as /usr/share/doc/openvpn/changelog.gz.
+    or cipher negotiations (NCP) are not in effect. This especially affects
+    connecting to OpenVPN 2.3.x or earlier, and several limitations around
+    old cryptographic algorithms and keys, mostly caused by the switch to
+    OpenSSL 3.0
+
+    These include but are not limited to
+
+    - weak SHA1 or MD5 signature on certificates
+    - 1024 bit RSA certificates, 1024 bit DH parameters, other weak keys
+    - Use of a legacy or deprecated cipher (e.g. 64bit block ciphers)
+    - remote OpenVPN version not supporting TLS 1.2 or later
+
+    Please read the release notes installed as
+    /usr/share/doc/openvpn/changelog.gz.
 
     With an optional kernel module (available as package openvpn-dco-dkms)
     the data plane encryption/decryption is performed in kernel space,
