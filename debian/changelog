@@ -2,6 +2,8 @@ openvpn (2.6.0~git20221201-1) unstable; urgency=medium
 
   * New upstream version 2.6.0~git20221201, also known as 2.6_beta1
   * Update d/NEWS to list known backwards compatibility issues
+  * Fix national encoding on d/po/{es,sv}.po
+  * Drop obsolete patches
 
  -- Bernhard Schmidt <berni@debian.org>  Sun, 04 Dec 2022 21:32:37 +0100
 
