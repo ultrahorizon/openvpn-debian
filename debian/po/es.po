@@ -8,20 +8,20 @@
 #
 #
 #  Traductores, si no conoce el formato PO, merece la pena leer la
-#  documentación de gettext, especialmente las secciones dedicadas a este
+#  documentaciÃ³n de gettext, especialmente las secciones dedicadas a este
 #  formato, por ejemplo ejecutando:
 #         info -n '(gettext)PO Files'
 #         info -n '(gettext)Header Entry'
 #
-# Equipo de traducción al español, por favor lean antes de traducir
+# Equipo de traducciÃ³n al espaÃ±ol, por favor lean antes de traducir
 # los siguientes documentos:
 #
-# - El proyecto de traducción de Debian al español
+# - El proyecto de traducciÃ³n de Debian al espaÃ±ol
 #   http://www.debian.org/intl/spanish/coordinacion
-#   especialmente las notas de traducción en
+#   especialmente las notas de traducciÃ³n en
 #   http://www.debian.org/intl/spanish/notas
 #
-# - La guía de traducción de po's de debconf:
+# - La guÃ­a de traducciÃ³n de po's de debconf:
 #   /usr/share/doc/po-debconf/README-trans
 #   o http://www.debian.org/intl/l10n/po-debconf/README-trans
 #
@@ -43,7 +43,7 @@ msgstr ""
 #. Description
 #: ../templates:2001
 msgid "Create the TUN/TAP device?"
-msgstr "¿Crear dispositivo TUN/TAP?"
+msgstr "Â¿Crear dispositivo TUN/TAP?"
 
 #. Type: boolean
 #. Description
@@ -52,17 +52,17 @@ msgid ""
 "If you choose this option, the /dev/net/tun device needed by OpenVPN will be "
 "created."
 msgstr ""
-"Si elije esta opción, se creará el dispositivo «/dev/net/tun» requerido por "
+"Si elije esta opciÃ³n, se crearÃ¡ el dispositivo Â«/dev/net/tunÂ» requerido por "
 "OpenVPN."
 
 #. Type: boolean
 #. Description
 #: ../templates:2001
 msgid "You should not choose this option if you're using devfs."
-msgstr "No elija esta opción si está utilizando devfs."
+msgstr "No elija esta opciÃ³n si estÃ¡ utilizando devfs."
 
 #~ msgid "Vulnerable random number generator"
-#~ msgstr "Vulnerabilidad de generador de número aleatorio"
+#~ msgstr "Vulnerabilidad de generador de nÃºmero aleatorio"
 
 #~ msgid ""
 #~ "A weakness has been discovered in the random number generator used by "
@@ -71,11 +71,11 @@ msgstr "No elija esta opción si está utilizando devfs."
 #~ "should be, such that an attacker could guess the key through a brute-"
 #~ "force attack given minimal knowledge of the system."
 #~ msgstr ""
-#~ "Se ha descubierto un problema en el generador de número aleatorio "
+#~ "Se ha descubierto un problema en el generador de nÃºmero aleatorio "
 #~ "utilizado por OpenSSL en los sistemas Debian y Ubuntu. Como resultado de "
-#~ "esto, ciertas claves de cifrado se generan de forma mucho más frecuente "
-#~ "de las que deberían, esto posibilita que un atacante pueda adivinar la "
-#~ "clave mediante un ataque de fuerza bruta si posee información básica "
+#~ "esto, ciertas claves de cifrado se generan de forma mucho mÃ¡s frecuente "
+#~ "de las que deberÃ­an, esto posibilita que un atacante pueda adivinar la "
+#~ "clave mediante un ataque de fuerza bruta si posee informaciÃ³n bÃ¡sica "
 #~ "sobre el sistema objetivo."
 
 #~ msgid ""
@@ -85,15 +85,15 @@ msgstr "No elija esta opción si está utilizando devfs."
 #~ "secret keys. Users are urged to verify their keys or simply regenerate "
 #~ "any server or client certificates and keys in use on the system."
 #~ msgstr ""
-#~ "Todas las claves creadas en un sistema vulnerable están afectas por este "
-#~ "problema. Puede utilizar la orden «openssl-vulnkey» para realizar una "
-#~ "prueba parcial para claves RSA con cierto tamaño y la orden «openvpn-"
-#~ "vulnkey» para claves secretas compartidas de OpenVPN. Se insta a los "
+#~ "Todas las claves creadas en un sistema vulnerable estÃ¡n afectas por este "
+#~ "problema. Puede utilizar la orden Â«openssl-vulnkeyÂ» para realizar una "
+#~ "prueba parcial para claves RSA con cierto tamaÃ±o y la orden Â«openvpn-"
+#~ "vulnkeyÂ» para claves secretas compartidas de OpenVPN. Se insta a los "
 #~ "usuarios a verificar sus claves o simplemente volver a generar cualquier "
 #~ "clave y certificado de cliente y servidor que se usa en el sistema."
 
 #~ msgid "Would you like to start openvpn sooner?"
-#~ msgstr "¿Desea iniciar openvpn más pronto?"
+#~ msgstr "Â¿Desea iniciar openvpn mÃ¡s pronto?"
 
 #~ msgid ""
 #~ "Previous versions of openvpn started at the same time as most of other "
@@ -103,9 +103,9 @@ msgstr "No elija esta opción si está utilizando devfs."
 #~ "[235].d instead of a S20openvpn)"
 #~ msgstr ""
 #~ "Las versiones antiguas de openvpn arrancaban al mismo tiempo que otros\n"
-#~ "servicios. Esto significa que muchos de estos servicios no podían usar\n"
-#~ "openvpn puesto que éste podía no estar disponible cuando arrancaban. Las\n"
-#~ "versiones recientes de openvpn arrancarán mucho antes. (es decir, un\n"
+#~ "servicios. Esto significa que muchos de estos servicios no podÃ­an usar\n"
+#~ "openvpn puesto que Ã©ste podÃ­a no estar disponible cuando arrancaban. Las\n"
+#~ "versiones recientes de openvpn arrancarÃ¡n mucho antes. (es decir, un\n"
 #~ "enlace S18openvpn en rc[2345].d en vez de S20openvpn)"
 
 #~ msgid ""
@@ -113,21 +113,21 @@ msgstr "No elija esta opción si está utilizando devfs."
 #~ "you refuse, nothing will change, and openvpn will be working just like it "
 #~ "did before."
 #~ msgstr ""
-#~ "Si acepta ahora, la actualización del paquete activará este cambio. Si\n"
-#~ "no acepta, no se cambiará nada, y openvpn funcionará como lo hacia\n"
+#~ "Si acepta ahora, la actualizaciÃ³n del paquete activarÃ¡ este cambio. Si\n"
+#~ "no acepta, no se cambiarÃ¡ nada, y openvpn funcionarÃ¡ como lo hacia\n"
 #~ "hasta ahora."
 
 #~ msgid "Stop OpenVPN when upgraded?"
-#~ msgstr "¿Parar OpenVPN cuando se actualice?"
+#~ msgstr "Â¿Parar OpenVPN cuando se actualice?"
 
 #~ msgid ""
 #~ "The upgrade process stops the running daemon before  installing the new "
 #~ "version. If you are installing or upgrading the system remotely, that "
 #~ "could break the upgrade process."
 #~ msgstr ""
-#~ "El proceso de actualización para el demonio antes de instalar la nueva "
-#~ "versión. Si está instalado o actualizando el sistema remotamente, esto "
-#~ "podría interrumpir el proceso de actualización."
+#~ "El proceso de actualizaciÃ³n para el demonio antes de instalar la nueva "
+#~ "versiÃ³n. Si estÃ¡ instalado o actualizando el sistema remotamente, esto "
+#~ "podrÃ­a interrumpir el proceso de actualizaciÃ³n."
 
 #~ msgid ""
 #~ "Unless upgrades are performed locally, you should choose to not stop "
@@ -135,11 +135,11 @@ msgstr "No elija esta opción si está utilizando devfs."
 #~ "once the upgrade is completed."
 #~ msgstr ""
 #~ "A menos de que haga las actualizaciones de forma local, se aconseja no\n"
-#~ "parar openvpn antes de que se actualice. El proceso de instalación lo\n"
-#~ "reiniciara una vez que haya finalizado la actualización."
+#~ "parar openvpn antes de que se actualice. El proceso de instalaciÃ³n lo\n"
+#~ "reiniciara una vez que haya finalizado la actualizaciÃ³n."
 
 #~ msgid "This option will take effect for the next upgrade."
-#~ msgstr "Esta opción tomará efecto a partir de la siguiente actualización."
+#~ msgstr "Esta opciÃ³n tomarÃ¡ efecto a partir de la siguiente actualizaciÃ³n."
 
 #~ msgid "Default port has changed"
 #~ msgstr "El puerto predeterminado ha cambiado"
@@ -150,20 +150,20 @@ msgstr "No elija esta opción si está utilizando devfs."
 #~ "break them."
 #~ msgstr ""
 #~ "El puerto predeterminado de OpenVPN ha cambiado del 5000 al 1194 (por\n"
-#~ "asignación de IANA). Si no especifica el puerto a usar en sus VPNs,\n"
-#~ "esto podría podría inutilizarlas."
+#~ "asignaciÃ³n de IANA). Si no especifica el puerto a usar en sus VPNs,\n"
+#~ "esto podrÃ­a podrÃ­a inutilizarlas."
 
 #~ msgid ""
 #~ "Use the option 'port 5000' if you want to keep the old port "
 #~ "configuration, or take a look at your firewall rules to allow the new "
 #~ "default port configuration to work."
 #~ msgstr ""
-#~ "Use la opción «port 5000» si quiere continuar usando el antiguo\n"
+#~ "Use la opciÃ³n Â«port 5000Â» si quiere continuar usando el antiguo\n"
 #~ "puerto, o compruebe las reglas de su cortafuegos para permitir el\n"
 #~ "funcionamiento con el nuevo puerto predeterminado."
 
 #~ msgid "Would you like to stop openvpn later?"
-#~ msgstr "¿Desearía parar openvpn después?"
+#~ msgstr "Â¿DesearÃ­a parar openvpn despuÃ©s?"
 
 #~ msgid ""
 #~ "Previous versions of openvpn stopped at the same time as most of other "
@@ -173,14 +173,14 @@ msgstr "No elija esta opción si está utilizando devfs."
 #~ "rc[06].d instead of a K20openvpn)"
 #~ msgstr ""
 #~ "Las versiones antiguas de openvpn paraban al mismo tiempo que la\n"
-#~ "mayoría de otros servicios. Esto significa que algunos de estos\n"
-#~ "servicios que se paraban después no podían usar openvpn ya que éste\n"
-#~ "podía haber sido parado antes. Las versiones recientes del paquete\n"
-#~ "openvpn pararán el servicio después. (es decir, un enlace K80openvpn\n"
+#~ "mayorÃ­a de otros servicios. Esto significa que algunos de estos\n"
+#~ "servicios que se paraban despuÃ©s no podÃ­an usar openvpn ya que Ã©ste\n"
+#~ "podÃ­a haber sido parado antes. Las versiones recientes del paquete\n"
+#~ "openvpn pararÃ¡n el servicio despuÃ©s. (es decir, un enlace K80openvpn\n"
 #~ "en rc[06].d en lugar de K20openvpn)"
 
 #~ msgid "Would you like a TUN/TAP device to be created?"
-#~ msgstr "¿Desea que la instalación cree un dispositivo TUN/TAP?"
+#~ msgstr "Â¿Desea que la instalaciÃ³n cree un dispositivo TUN/TAP?"
 
 #~ msgid ""
 #~ "If you accept here, the package will make a special device called /dev/"
@@ -188,14 +188,14 @@ msgstr "No elija esta opción si está utilizando devfs."
 #~ "Read README.Debian for details on how to make it. If you are using devfs "
 #~ "refuse here."
 #~ msgstr ""
-#~ "Si acepta, el paquete creará un dispositivo especial llamado\n"
+#~ "Si acepta, el paquete crearÃ¡ un dispositivo especial llamado\n"
 #~ "/dev/net/tun necesario para el funcionamiento de openvpn. Si rechaza\n"
-#~ "esta opción, el dispositivo no se creará ahora. Lea el fichero\n"
-#~ "README.Debian para saber como crearlo. Si está usando devfs no elija\n"
-#~ "esta opción"
+#~ "esta opciÃ³n, el dispositivo no se crearÃ¡ ahora. Lea el fichero\n"
+#~ "README.Debian para saber como crearlo. Si estÃ¡ usando devfs no elija\n"
+#~ "esta opciÃ³n"
 
 #~ msgid "Would you like to stop openvpn before it gets upgraded?"
-#~ msgstr "¿Desea parar openvpn antes de actualizar?"
+#~ msgstr "Â¿Desea parar openvpn antes de actualizar?"
 
 #~ msgid ""
 #~ "In some cases you may be upgrading openvpn in a remote server using a VPN "
@@ -205,7 +205,7 @@ msgstr "No elija esta opción si está utilizando devfs."
 #~ "host."
 #~ msgstr ""
 #~ "En algunos casos, puede estar actualizando openvpn en un servidor\n"
-#~ "remoto utilizando la propia VPN. El proceso de actualización para el\n"
-#~ "demonio openvpn antes de instalar la nueva versión, en ese caso podría\n"
-#~ "perder la conexión y la actualización quedar interrumpida. Esto podría\n"
-#~ "impedirle que pueda volver a conectar a la máquina remota."
+#~ "remoto utilizando la propia VPN. El proceso de actualizaciÃ³n para el\n"
+#~ "demonio openvpn antes de instalar la nueva versiÃ³n, en ese caso podrÃ­a\n"
+#~ "perder la conexiÃ³n y la actualizaciÃ³n quedar interrumpida. Esto podrÃ­a\n"
+#~ "impedirle que pueda volver a conectar a la mÃ¡quina remota."
