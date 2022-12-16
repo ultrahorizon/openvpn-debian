@@ -61,6 +61,14 @@ print_link_socket_actual(const struct link_socket_actual *act, struct gc_arena *
     return "dummy print_link_socket_actual from unit test";
 }
 
+#ifdef _WIN32
+int
+openvpn_execve(const struct argv *a, const struct env_set *es, const unsigned int flags)
+{
+    ASSERT(0);
+}
+#endif
+
 struct test_pkt_context {
     struct tls_auth_standalone tas_tls_auth;
     struct tls_auth_standalone tas_crypt;
@@ -435,6 +443,8 @@ test_verify_hmac_none(void **ut_state)
     hmac_ctx_t *hmac = session_id_hmac_init();
 
     struct link_socket_actual from = { 0 };
+    from.dest.addr.sa.sa_family = AF_INET;
+
     struct tls_auth_standalone tas = { 0 };
     struct tls_pre_decrypt_state state = { 0 };
 
@@ -463,7 +473,7 @@ init_static_hmac(void)
     ASSERT(md_valid("SHA256"));
     hmac_ctx_t *hmac_ctx = hmac_ctx_new();
 
-    uint8_t key[SHA256_DIGEST_LENGTH] = {1, 2, 3};
+    uint8_t key[SHA256_DIGEST_LENGTH] = {1, 2, 3, 0};
 
     hmac_ctx_init(hmac_ctx, key, "SHA256");
     return hmac_ctx;
@@ -475,22 +485,29 @@ test_calc_session_id_hmac_static(void **ut_state)
     hmac_ctx_t *hmac = init_static_hmac();
     static const int handwindow = 100;
 
-    struct openvpn_sockaddr addr = {0 };
+    struct openvpn_sockaddr addr = { 0 };
 
-    /* we do not use htons functions here since the hmac calculate function
-     * also does not care about the endianness of the data but just assumes
-     * the endianness doesn't change between calls */
     addr.addr.in4.sin_family = AF_INET;
-    addr.addr.in4.sin_addr.s_addr = 0xff000ff;
-    addr.addr.in4.sin_port = 1194;
-
+    addr.addr.in4.sin_addr.s_addr = ntohl(0xff000ff);
+    addr.addr.in4.sin_port = ntohs(1195);
 
     struct session_id client_id = { {0, 1, 2, 3, 4, 5, 6, 7}};
 
     now = 1005;
     struct session_id server_id = calculate_session_id_hmac(client_id, &addr, hmac, handwindow, 0);
 
-    struct session_id expected_server_id = { {0xba,  0x83, 0xa9, 0x00, 0x72, 0xbd, 0x93, 0xba }};
+
+    struct session_id expected_server_id = {{0x84, 0x73, 0x52, 0x2b, 0x5b, 0xa9, 0x2a, 0x70}};
+    /* We have to deal with different structs here annoyingly */
+    /* Linux has an unsigned short int as family_t and this is field is always
+     * stored in host endianness even though the rest of the struct isn't...,
+     * so Linux little endian differs from all BSD and Linux big endian */
+    if (sizeof(addr.addr.in4.sin_family) == sizeof(unsigned short int)
+        && ntohs(AF_INET) != AF_INET)
+    {
+        struct session_id linuxle = {{0x8b, 0xeb, 0x3d, 0x20, 0x14, 0x53, 0xbe, 0x0a }};
+        expected_server_id = linuxle;
+    }
     assert_memory_equal(expected_server_id.id, server_id.id, SID_SIZE);
 
     struct session_id server_id_m1 = calculate_session_id_hmac(client_id, &addr, hmac, handwindow, -1);

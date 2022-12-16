@@ -37,6 +37,7 @@
 #include "dco.h"
 #include "tun.h"
 #include "crypto.h"
+#include "multi.h"
 #include "ssl_common.h"
 
 static nvlist_t *
@@ -488,8 +489,7 @@ dco_do_read(dco_context_t *dco)
     struct ifdrv drv;
     uint8_t buf[4096];
     nvlist_t *nvl;
-    const uint8_t *pkt;
-    size_t pktlen;
+    enum ovpn_notif_type type;
     int ret;
 
     /* Flush any pending data from the pipe. */
@@ -517,17 +517,39 @@ dco_do_read(dco_context_t *dco)
 
     dco->dco_message_peer_id = nvlist_get_number(nvl, "peerid");
 
-    if (nvlist_exists_binary(nvl, "packet"))
+    type = nvlist_get_number(nvl, "notification");
+    switch (type)
     {
-        pkt = nvlist_get_binary(nvl, "packet", &pktlen);
-        memcpy(BPTR(&dco->dco_packet_in), pkt, pktlen);
-        dco->dco_packet_in.len = pktlen;
-        dco->dco_message_type = OVPN_CMD_PACKET;
-    }
-    else
-    {
-        dco->dco_del_peer_reason = OVPN_DEL_PEER_REASON_EXPIRED;
-        dco->dco_message_type = OVPN_CMD_DEL_PEER;
+        case OVPN_NOTIF_DEL_PEER:
+            dco->dco_del_peer_reason = OVPN_DEL_PEER_REASON_EXPIRED;
+
+            if (nvlist_exists_number(nvl, "del_reason"))
+            {
+                uint32_t reason = nvlist_get_number(nvl, "del_reason");
+                if (reason == OVPN_DEL_REASON_TIMEOUT)
+                {
+                    dco->dco_del_peer_reason = OVPN_DEL_PEER_REASON_EXPIRED;
+                }
+                else
+                {
+                    dco->dco_del_peer_reason = OVPN_DEL_PEER_REASON_USERSPACE;
+                }
+            }
+
+            if (nvlist_exists_nvlist(nvl, "bytes"))
+            {
+                const nvlist_t *bytes = nvlist_get_nvlist(nvl, "bytes");
+
+                dco->dco_read_bytes = nvlist_get_number(bytes, "in");
+                dco->dco_write_bytes = nvlist_get_number(bytes, "out");
+            }
+
+            dco->dco_message_type = OVPN_CMD_DEL_PEER;
+            break;
+
+        default:
+            msg(M_WARN, "Unknown kernel notification %d", type);
+            break;
     }
 
     nvlist_destroy(nvl);
@@ -639,6 +661,93 @@ dco_event_set(dco_context_t *dco, struct event_set *es, void *arg)
     }
 
     nvlist_destroy(nvl);
+}
+
+static void
+dco_update_peer_stat(struct multi_context *m, uint32_t peerid, const nvlist_t *nvl)
+{
+    struct hash_element *he;
+    struct hash_iterator hi;
+
+    hash_iterator_init(m->hash, &hi);
+
+    while ((he = hash_iterator_next(&hi)))
+    {
+        struct multi_instance *mi = (struct multi_instance *) he->value;
+
+        if (mi->context.c2.tls_multi->peer_id != peerid)
+        {
+            continue;
+        }
+
+        mi->context.c2.dco_read_bytes = nvlist_get_number(nvl, "in");
+        mi->context.c2.dco_write_bytes = nvlist_get_number(nvl, "out");
+
+        return;
+    }
+
+    msg(M_INFO, "Peer %d returned by kernel, but not found locally", peerid);
+}
+
+int
+dco_get_peer_stats_multi(dco_context_t *dco, struct multi_context *m)
+{
+
+    struct ifdrv drv;
+    uint8_t buf[4096];
+    nvlist_t *nvl;
+    const nvlist_t *const *nvpeers;
+    size_t npeers;
+    int ret;
+
+    if (!dco || !dco->open)
+    {
+        return 0;
+    }
+
+    CLEAR(drv);
+    snprintf(drv.ifd_name, IFNAMSIZ, "%s", dco->ifname);
+    drv.ifd_cmd = OVPN_GET_PEER_STATS;
+    drv.ifd_len = sizeof(buf);
+    drv.ifd_data = buf;
+
+    ret = ioctl(dco->fd, SIOCGDRVSPEC, &drv);
+    if (ret)
+    {
+        msg(M_WARN | M_ERRNO, "Failed to get peer stats");
+        return -EINVAL;
+    }
+
+    nvl = nvlist_unpack(buf, drv.ifd_len, 0);
+    if (!nvl)
+    {
+        msg(M_WARN, "Failed to unpack nvlist");
+        return -EINVAL;
+    }
+
+    if (!nvlist_exists_nvlist_array(nvl, "peers"))
+    {
+        /* no peers */
+        return 0;
+    }
+
+    nvpeers = nvlist_get_nvlist_array(nvl, "peers", &npeers);
+    for (size_t i = 0; i < npeers; i++)
+    {
+        const nvlist_t *peer = nvpeers[i];
+        uint32_t peerid = nvlist_get_number(peer, "peerid");
+
+        dco_update_peer_stat(m, peerid, nvlist_get_nvlist(peer, "bytes"));
+    }
+
+    return 0;
+}
+
+int
+dco_get_peer_stats(struct context *c)
+{
+    /* Not implemented. */
+    return 0;
 }
 
 const char *

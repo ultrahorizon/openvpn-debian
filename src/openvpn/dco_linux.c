@@ -216,9 +216,15 @@ dco_new_peer(dco_context_t *dco, unsigned int peerid, int sd,
              struct sockaddr *localaddr, struct sockaddr *remoteaddr,
              struct in_addr *remote_in4, struct in6_addr *remote_in6)
 {
-    msg(D_DCO_DEBUG, "%s: peer-id %d, fd %d", __func__, peerid, sd);
-
     struct gc_arena gc = gc_new();
+    const char *remotestr = "[undefined]";
+    if (remoteaddr)
+    {
+        remotestr = print_sockaddr(remoteaddr, &gc);
+    }
+    msg(D_DCO_DEBUG, "%s: peer-id %d, fd %d, remote addr: %s", __func__,
+        peerid, sd, remotestr);
+
     struct nl_msg *nl_msg = ovpn_dco_nlmsg_create(dco, OVPN_CMD_NEW_PEER);
     struct nlattr *attr = nla_nest_start(nl_msg, OVPN_ATTR_NEW_PEER);
     int ret = -EMSGSIZE;
@@ -909,6 +915,20 @@ dco_do_write(dco_context_t *dco, int peer_id, struct buffer *buf)
 nla_put_failure:
     nlmsg_free(nl_msg);
     return ret;
+}
+
+int
+dco_get_peer_stats_multi(dco_context_t *dco, struct multi_context *m)
+{
+    /* Not implemented. */
+    return 0;
+}
+
+int
+dco_get_peer_stats(struct context *c)
+{
+    /* Not implemented. */
+    return 0;
 }
 
 bool

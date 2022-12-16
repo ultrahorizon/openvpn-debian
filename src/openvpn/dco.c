@@ -55,8 +55,8 @@ dco_install_key(struct tls_multi *multi, struct key_state *ks,
                 const char *ciphername)
 
 {
-    msg(D_DCO_DEBUG, "%s: peer_id=%d keyid=%d", __func__, multi->dco_peer_id,
-        ks->key_id);
+    msg(D_DCO_DEBUG, "%s: peer_id=%d keyid=%d, currently %d keys installed",
+        __func__, multi->dco_peer_id, ks->key_id, multi->dco_keys_installed);
 
     /* Install a key in the PRIMARY slot only when no other key exist.
      * From that moment on, any new key will be installed in the SECONDARY
@@ -130,7 +130,7 @@ dco_get_secondary_key(struct tls_multi *multi, const struct key_state *primary)
     return NULL;
 }
 
-void
+bool
 dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
 {
     msg(D_DCO_DEBUG, "%s: peer_id=%d", __func__, multi->dco_peer_id);
@@ -140,7 +140,7 @@ dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
      */
     if (multi->dco_keys_installed == 0)
     {
-        return;
+        return true;
     }
 
     struct key_state *primary = tls_select_encryption_key(multi);
@@ -155,18 +155,18 @@ dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
         if (ret < 0)
         {
             msg(D_DCO, "Cannot delete primary key during wipe: %s (%d)", strerror(-ret), ret);
-            return;
+            return false;
         }
 
         ret = dco_del_key(dco, multi->dco_peer_id, OVPN_KEY_SLOT_SECONDARY);
         if (ret < 0)
         {
             msg(D_DCO, "Cannot delete secondary key during wipe: %s (%d)", strerror(-ret), ret);
-            return;
+            return false;
         }
 
         multi->dco_keys_installed = 0;
-        return;
+        return true;
     }
 
     /* if we have a primary key, it must have been installed already (keys
@@ -181,14 +181,24 @@ dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
      */
     if (primary->dco_status == DCO_INSTALLED_SECONDARY)
     {
-        msg(D_DCO_DEBUG, "Swapping primary and secondary keys, now: id1=%d id2=%d",
-            primary->key_id, secondary ? secondary->key_id : -1);
+        if (secondary)
+        {
+            msg(D_DCO_DEBUG, "Swapping primary and secondary keys to "
+                "primary-id=%d secondary-id=%d",
+                primary->key_id, secondary->key_id);
+        }
+        else
+        {
+            msg(D_DCO_DEBUG, "Swapping primary and secondary keys to"
+                "primary-id=%d secondary-id=(to be deleted)",
+                primary->key_id);
+        }
 
         int ret = dco_swap_keys(dco, multi->dco_peer_id);
         if (ret < 0)
         {
             msg(D_DCO, "Cannot swap keys: %s (%d)", strerror(-ret), ret);
-            return;
+            return false;
         }
 
         primary->dco_status = DCO_INSTALLED_PRIMARY;
@@ -206,20 +216,25 @@ dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
         if (ret < 0)
         {
             msg(D_DCO, "Cannot delete secondary key: %s (%d)", strerror(-ret), ret);
-            return;
+            return false;
         }
         multi->dco_keys_installed = 1;
     }
 
-    /* all keys that are not installed are set to NOT installed */
-    for (int i = 0; i < KEY_SCAN_SIZE; ++i)
+    /* all keys that are not installed are set to NOT installed. Include also
+     * keys that might even be considered as active keys to be sure*/
+    for (int i = 0; i < TM_SIZE; ++i)
     {
-        struct key_state *ks = get_key_scan(multi, i);
-        if (ks != primary && ks != secondary)
+        for (int j = 0; j < KS_SIZE; j++)
         {
-            ks->dco_status = DCO_NOT_INSTALLED;
+            struct key_state *ks = &multi->session[i].key[j];
+            if (ks != primary && ks != secondary)
+            {
+                ks->dco_status = DCO_NOT_INSTALLED;
+            }
         }
     }
+    return true;
 }
 
 static bool
@@ -271,6 +286,13 @@ dco_check_startup_option(int msglevel, const struct options *o)
      */
     if (!o->dev)
     {
+        return false;
+    }
+
+    if (!o->tls_client && !o->tls_server)
+    {
+        msg(msglevel, "No tls-client or tls-server option in configuration "
+            "detected. Disabling data channel offload.");
         return false;
     }
 
