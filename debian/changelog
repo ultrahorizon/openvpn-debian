@@ -1,3 +1,9 @@
+openvpn (2.6.0~git20221215+beta2-1) unstable; urgency=medium
+
+  * New upstream version 2.6.0~git20221215+beta2
+
+ -- Bernhard Schmidt <berni@debian.org>  Fri, 16 Dec 2022 11:54:27 +0100
+
 openvpn (2.6.0~git20221201-1) unstable; urgency=medium
 
   * New upstream version 2.6.0~git20221201, also known as 2.6_beta1
