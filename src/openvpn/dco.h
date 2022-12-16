@@ -164,9 +164,11 @@ int init_key_dco_bi(struct tls_multi *multi, struct key_state *ks,
  *
  * @param dco           DCO device context
  * @param multi         TLS multi instance
+ *
+ * @return              returns false if an error occurred that is not
+ *                      recoverable and should reset the connection
  */
-void dco_update_keys(dco_context_t *dco, struct tls_multi *multi);
-
+bool dco_update_keys(dco_context_t *dco, struct tls_multi *multi);
 /**
  * Install a new peer in DCO - to be called by a CLIENT (or P2P) instance
  *
@@ -224,6 +226,21 @@ void dco_install_iroute(struct multi_context *m, struct multi_instance *mi,
  * @param mi        the client instance for which routes have to be removed
  */
 void dco_delete_iroutes(struct multi_context *m, struct multi_instance *mi);
+
+/**
+ * Update traffic statistics for all peers
+ *
+ * @param dco   DCO device context
+ * @param m     the server context
+ **/
+int dco_get_peer_stats_multi(dco_context_t *dco, struct multi_context *m);
+
+/**
+ * Update traffic statistics for single peer
+ *
+ * @param c   instance context of the peer
+ **/
+int dco_get_peer_stats(struct context *c);
 
 /**
  * Retrieve the list of ciphers supported by the current platform
@@ -304,10 +321,11 @@ init_key_dco_bi(struct tls_multi *multi, struct key_state *ks,
     return 0;
 }
 
-static inline void
+static inline bool
 dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
 {
     ASSERT(false);
+    return false;
 }
 
 static inline int
@@ -343,6 +361,18 @@ dco_install_iroute(struct multi_context *m, struct multi_instance *mi,
 static inline void
 dco_delete_iroutes(struct multi_context *m, struct multi_instance *mi)
 {
+}
+
+static inline int
+dco_get_peer_stats_multi(dco_context_t *dco, struct multi_context *m)
+{
+    return 0;
+}
+
+static inline int
+dco_get_peer_stats(struct context *c)
+{
+    return 0;
 }
 
 static inline const char *
