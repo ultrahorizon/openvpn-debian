@@ -1,3 +1,12 @@
+openvpn (2.6.0~git20221222-1) unstable; urgency=medium
+
+  * New upstream version 2.6.0~git20221222
+  * Import pending upstream fix for race conditions in DCO servers
+  * d/openvpn@.service: Replace LimitNPROC=100 with TasksMax=10
+    (see Bug#961923 for discussion)
+
+ -- Bernhard Schmidt <berni@debian.org>  Fri, 23 Dec 2022 22:43:39 +0100
+
 openvpn (2.6.0~git20221215+beta2-1) unstable; urgency=medium
 
   * New upstream version 2.6.0~git20221215+beta2
