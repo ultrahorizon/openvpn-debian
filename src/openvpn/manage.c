@@ -198,7 +198,12 @@ man_check_password(struct management *man, const char *line)
 {
     if (man_password_needed(man))
     {
-        if (streq(line, man->settings.up.password))
+        /* This comparison is not fixed time but since strlen(time) is based on
+         * the attacker choice, it should not give any indication of the real
+         * password length, use + 1 to include the NUL byte that terminates the
+         * string*/
+        size_t compare_len = min_uint(strlen(line) + 1, sizeof(man->settings.up.password));
+        if (memcmp_constant_time(line, man->settings.up.password, compare_len) == 0)
         {
             man->connection.password_verified = true;
             msg(M_CLIENT, "SUCCESS: password is correct");
@@ -4065,6 +4070,19 @@ management_check_bytecount(struct context *c, struct management *man, struct tim
         {
             man_bytecount_output_client(man, dco_read_bytes, dco_write_bytes);
         }
+    }
+}
+
+/* DCO resets stats on reconnect. Since client expects stats
+ * to be preserved across reconnects, we need to save DCO
+ * stats before tearing the tunnel down.
+ */
+void
+man_persist_client_stats(struct management *man, struct context *c)
+{
+    if (dco_enabled(&c->options) && (dco_get_peer_stats(c) == 0))
+    {
+        management_bytes_client(man, c->c2.dco_read_bytes, c->c2.dco_write_bytes);
     }
 }
 

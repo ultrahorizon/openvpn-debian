@@ -815,7 +815,7 @@ init_options(struct options *o, const bool init_gc)
     o->ce.proto = PROTO_UDP;
     o->ce.af = AF_UNSPEC;
     o->ce.bind_ipv6_only = false;
-    o->ce.connect_retry_seconds = 5;
+    o->ce.connect_retry_seconds = 1;
     o->ce.connect_retry_seconds_max = 300;
     o->ce.connect_timeout = 120;
     o->connect_retry_max = 0;
@@ -2973,10 +2973,7 @@ options_postprocess_verify_ce(const struct options *options,
                             "--auth-user-pass");
                     }
                 }
-                else if (sum == 2)
-                {
-                }
-                else
+                else if (sum != 2)
                 {
                     msg(M_USAGE, "If you use one of --cert or --key, you must use them both");
                 }
@@ -5310,8 +5307,6 @@ parse_argv(struct options *options,
            unsigned int *option_types_found,
            struct env_set *es)
 {
-    int i, j;
-
     /* usage message */
     if (argc <= 1)
     {
@@ -5321,7 +5316,7 @@ parse_argv(struct options *options,
     /* config filename specified only? */
     if (argc == 2 && strncmp(argv[1], "--", 2))
     {
-        char *p[MAX_PARMS];
+        char *p[MAX_PARMS+1];
         CLEAR(p);
         p[0] = "config";
         p[1] = argv[1];
@@ -5331,9 +5326,9 @@ parse_argv(struct options *options,
     else
     {
         /* parse command line */
-        for (i = 1; i < argc; ++i)
+        for (int i = 1; i < argc; ++i)
         {
-            char *p[MAX_PARMS];
+            char *p[MAX_PARMS+1];
             CLEAR(p);
             p[0] = argv[i];
             if (strncmp(p[0], "--", 2))
@@ -5345,6 +5340,7 @@ parse_argv(struct options *options,
                 p[0] += 2;
             }
 
+            int j;
             for (j = 1; j < MAX_PARMS; ++j)
             {
                 if (i + j < argc)

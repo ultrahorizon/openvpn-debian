@@ -2119,6 +2119,26 @@ options_hash_changed_or_zero(const struct sha256_digest *a,
            || !memcmp(a, &zero, sizeof(struct sha256_digest));
 }
 
+static bool
+p2p_set_dco_keepalive(struct context *c)
+{
+    if (dco_enabled(&c->options)
+        && (c->options.ping_send_timeout || c->c2.frame.mss_fix))
+    {
+        int ret = dco_set_peer(&c->c1.tuntap->dco,
+                               c->c2.tls_multi->dco_peer_id,
+                               c->options.ping_send_timeout,
+                               c->options.ping_rec_timeout,
+                               c->c2.frame.mss_fix);
+        if (ret < 0)
+        {
+            msg(D_DCO, "Cannot set parameters for DCO peer (id=%u): %s",
+                c->c2.tls_multi->dco_peer_id, strerror(-ret));
+            return false;
+        }
+    }
+    return true;
+}
 /**
  * This function is expected to be invoked after open_tun() was performed.
  *
@@ -2145,22 +2165,6 @@ do_deferred_options_part2(struct context *c)
     {
         msg(D_TLS_ERRORS, "OPTIONS ERROR: failed to import crypto options");
         return false;
-    }
-
-    if (dco_enabled(&c->options)
-        && (c->options.ping_send_timeout || c->c2.frame.mss_fix))
-    {
-        int ret = dco_set_peer(&c->c1.tuntap->dco,
-                               c->c2.tls_multi->dco_peer_id,
-                               c->options.ping_send_timeout,
-                               c->options.ping_rec_timeout,
-                               c->c2.frame.mss_fix);
-        if (ret < 0)
-        {
-            msg(D_DCO, "Cannot set parameters for DCO peer (id=%u): %s",
-                c->c2.tls_multi->dco_peer_id, strerror(-ret));
-            return false;
-        }
     }
 
     return true;
@@ -2263,6 +2267,12 @@ do_up(struct context *c, bool pulled_options, unsigned int option_types_found)
                     return false;
                 }
             }
+        }
+
+        if (c->mode == MODE_POINT_TO_POINT && !p2p_set_dco_keepalive(c))
+        {
+            msg(D_TLS_ERRORS, "ERROR: Failed to apply DCO keepalive or MSS fix parameters");
+            return false;
         }
 
         if (c->c2.did_open_tun)
@@ -2921,6 +2931,7 @@ do_init_crypto_tls_c1(struct context *c)
 
                 case AR_INTERACT:
                     ssl_purge_auth(false);
+                /* Intentional [[fallthrough]]; */
 
                 case AR_NOINTERACT:
                     c->sig->signal_received = SIGUSR1; /* SOFT-SIGUSR1 -- Password failure error */
@@ -4160,6 +4171,17 @@ uninit_management_callback(void)
     if (management)
     {
         management_clear_callback(management);
+    }
+#endif
+}
+
+void
+persist_client_stats(struct context *c)
+{
+#ifdef ENABLE_MANAGEMENT
+    if (management)
+    {
+        man_persist_client_stats(management, c);
     }
 #endif
 }
