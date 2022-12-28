@@ -1194,6 +1194,8 @@ process_incoming_dco(struct context *c)
         msg(D_DCO_DEBUG, "%s: received message for mismatching peer-id %d, "
             "expected %d", __func__, dco->dco_message_peer_id,
             c->c2.tls_multi->dco_peer_id);
+        /* ensure we also drop a message if there is one in the buffer */
+        buf_init(&dco->dco_packet_in, 0);
         return;
     }
 
@@ -1674,9 +1676,10 @@ process_ip_header(struct context *c, unsigned int flags, struct buffer *buf)
     }
 }
 
-/* Linux DCO implementations pass the socket to the kernel and
- * disallow usage of it from userland, so (control) packets sent and
- * received by OpenVPN need to go through the DCO interface.
+/*
+ * Linux DCO implementations pass the socket to the kernel and
+ * disallow usage of it from userland for TCP, so (control) packets
+ * sent and received by OpenVPN need to go through the DCO interface.
  *
  * Windows DCO needs control packets to be sent via the normal
  * standard Overlapped I/O.
@@ -1688,10 +1691,10 @@ process_ip_header(struct context *c, unsigned int flags, struct buffer *buf)
  * in the future...) in a small inline function.
  */
 static inline bool
-should_use_dco_socket(struct link_socket_actual *actual)
+should_use_dco_socket(struct link_socket *ls)
 {
 #if defined(TARGET_LINUX)
-    return actual->dco_installed;
+    return ls->dco_installed && proto_is_tcp(ls->info.proto);
 #else
     return false;
 #endif
@@ -1770,7 +1773,7 @@ process_outgoing_link(struct context *c)
                 socks_preprocess_outgoing_link(c, &to_addr, &size_delta);
 
                 /* Send packet */
-                if (should_use_dco_socket(c->c2.to_link_addr))
+                if (should_use_dco_socket(c->c2.link_socket))
                 {
                     size = dco_do_write(&c->c1.tuntap->dco,
                                         c->c2.tls_multi->dco_peer_id,

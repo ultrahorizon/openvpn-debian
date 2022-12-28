@@ -3235,10 +3235,19 @@ process_incoming_del_peer(struct multi_context *m, struct multi_instance *mi,
             break;
 
         case OVPN_DEL_PEER_REASON_USERSPACE:
-            /* This very likely ourselves but might be another process, so
-             * still process it */
-            reason = "ovpn-dco: userspace request";
-            break;
+            /* We assume that is ourselves. Unfortunately, sometimes these
+             * events happen with enough delay that they can have an order of
+             *
+             * dco_del_peer x
+             * [new client connecting]
+             * dco_new_peer x
+             * event from dco_del_peer arrives.
+             *
+             * if we do not ignore this we get desynced with the kernel
+             * since we assume the peer-id is free again. The other way would
+             * be to send a dco_del_peer again
+             */
+            return;
     }
 
     /* When kernel already deleted the peer, the socket is no longer
@@ -3275,7 +3284,19 @@ multi_process_incoming_dco(struct multi_context *m)
     }
     else
     {
-        msg(D_DCO, "Received packet for peer-id unknown to OpenVPN: %d", peer_id);
+        int msglevel = D_DCO;
+        if (dco->dco_message_type == OVPN_CMD_DEL_PEER
+            && dco->dco_del_peer_reason == OVPN_DEL_PEER_REASON_USERSPACE)
+        {
+            /* we get notified after we kill the peer ourselves and probably
+             * have already forgotten about it. This is expected */
+            msglevel = D_DCO_DEBUG;
+        }
+        msg(msglevel, "Received packet for peer-id unknown to OpenVPN: %d, "
+            "type %d, reason %d", peer_id, dco->dco_message_type,
+            dco->dco_del_peer_reason);
+        /* Also clear the buffer if this was incoming packet for a dropped peer */
+        buf_init(&dco->dco_packet_in, 0);
     }
 
     dco->dco_message_type = 0;
