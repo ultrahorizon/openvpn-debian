@@ -329,6 +329,48 @@ management_callback_send_cc_message(void *arg,
     return status;
 }
 
+static unsigned int
+management_callback_remote_entry_count(void *arg)
+{
+    assert(arg);
+    struct context *c = (struct context *) arg;
+    struct connection_list *l = c->options.connection_list;
+
+    return l->len;
+}
+
+static bool
+management_callback_remote_entry_get(void *arg, unsigned int index, char **remote)
+{
+    assert(arg);
+    assert(remote);
+
+    struct context *c = (struct context *) arg;
+    struct connection_list *l = c->options.connection_list;
+    bool ret = true;
+
+    if (index < l->len)
+    {
+        struct connection_entry *ce = l->array[index];
+        const char *proto = proto2ascii(ce->proto, ce->af, false);
+
+        /* space for output including 2 commas and a nul */
+        int len = strlen(ce->remote) + strlen(ce->remote_port) + strlen(proto) + 2 + 1;
+        char *out = malloc(len);
+        check_malloc_return(out);
+
+        openvpn_snprintf(out, len, "%s,%s,%s", ce->remote, ce->remote_port, proto);
+        *remote = out;
+    }
+    else
+    {
+        ret = false;
+        msg(M_WARN, "Out of bounds index in management query for remote entry: index = %u", index);
+    }
+
+    return ret;
+}
+
 static bool
 management_callback_remote_cmd(void *arg, const char **p)
 {
@@ -347,6 +389,7 @@ management_callback_remote_cmd(void *arg, const char **p)
         {
             flags = CE_MAN_QUERY_REMOTE_SKIP;
             ret = true;
+            c->options.ce_advance_count = (p[2]) ? atoi(p[2]) : 1;
         }
         else if (!strcmp(p[1], "MOD") && p[2] && p[3])
         {
@@ -521,18 +564,28 @@ next_connection_entry(struct context *c)
                         c->c1.link_socket_addr.remote_list;
                 }
 
+                int advance_count = 1;
+
+                /* If previous connection entry was skipped by management client
+                 * with a count to advance by, apply it.
+                 */
+                if (c->options.ce_advance_count > 0)
+                {
+                    advance_count = c->options.ce_advance_count;
+                }
+
                 /*
                  * Increase the number of connection attempts
                  * If this is connect-retry-max * size(l)
                  * OpenVPN will quit
                  */
 
-                c->options.unsuccessful_attempts++;
+                c->options.unsuccessful_attempts += advance_count;
+                l->current += advance_count;
 
-                if (++l->current >= l->len)
+                if (l->current >= l->len)
                 {
-
-                    l->current = 0;
+                    l->current %= l->len;
                     if (++n_cycles >= 2)
                     {
                         msg(M_FATAL, "No usable connection profiles are present");
@@ -541,6 +594,7 @@ next_connection_entry(struct context *c)
             }
         }
 
+        c->options.ce_advance_count = 1;
         ce = l->array[l->current];
 
         if (ce->flags & CE_DISABLED)
@@ -3696,7 +3750,7 @@ do_close_link_socket(struct context *c)
      * closed in do_close_tun(). Set it to UNDEFINED so
      * we won't use WinSock API to close it. */
     if (tuntap_is_dco_win(c->c1.tuntap) && c->c2.link_socket
-        && c->c2.link_socket->info.lsa->actual.dco_installed)
+        && c->c2.link_socket->dco_installed)
     {
         c->c2.link_socket->sd = SOCKET_UNDEFINED;
     }
@@ -4085,6 +4139,8 @@ init_management_callback_p2p(struct context *c)
 #ifdef TARGET_ANDROID
         cb.network_change = management_callback_network_change;
 #endif
+        cb.remote_entry_count = management_callback_remote_entry_count;
+        cb.remote_entry_get = management_callback_remote_entry_get;
         management_set_callback(management, &cb);
     }
 #endif

@@ -2147,7 +2147,7 @@ create_socket_dco_win(struct context *c, struct link_socket *sock,
                       get_server_poll_remaining_time(sock->server_poll_timeout),
                       signal_received);
 
-    sock->info.lsa->actual.dco_installed = true;
+    sock->dco_installed = true;
 
     if (*signal_received)
     {
@@ -3228,6 +3228,18 @@ link_socket_read_tcp(struct link_socket *sock,
 
     if (!sock->stream_buf.residual_fully_formed)
     {
+        /* with Linux-DCO, we sometimes try to access a socket that is
+         * already installed in the kernel and has no valid file descriptor
+         * anymore.  This is a bug.
+         * Handle by resetting client instance instead of crashing.
+         */
+        if (sock->sd == SOCKET_UNDEFINED)
+        {
+            msg(M_INFO, "BUG: link_socket_read_tcp(): sock->sd==-1, reset client instance" );
+            sock->stream_reset = true;              /* reset client instance */
+            return buf->len = 0;                    /* nothing to read */
+        }
+
 #ifdef _WIN32
         sockethandle_t sh = { .s = sock->sd };
         len = sockethandle_finalize(sh, &sock->reads, buf, NULL);
@@ -3284,6 +3296,8 @@ link_socket_read_udp_posix_recvmsg(struct link_socket *sock,
     uint8_t pktinfo_buf[PKTINFO_BUF_SIZE];
     struct msghdr mesg;
     socklen_t fromlen = sizeof(from->dest.addr);
+
+    ASSERT(sock->sd >= 0);                      /* can't happen */
 
     iov.iov_base = BPTR(buf);
     iov.iov_len = buf_forward_capacity_total(buf);
@@ -3351,6 +3365,9 @@ link_socket_read_udp_posix(struct link_socket *sock,
     socklen_t fromlen = sizeof(from->dest.addr);
     socklen_t expectedlen = af_addr_size(sock->info.af);
     addr_zero_host(&from->dest);
+
+    ASSERT(sock->sd >= 0);                      /* can't happen */
+
 #if ENABLE_IP_PKTINFO
     /* Both PROTO_UDPv4 and PROTO_UDPv6 */
     if (sock->info.proto == PROTO_UDP && sock->sockflags & SF_USE_IP_PKTINFO)
@@ -3480,7 +3497,7 @@ link_socket_write_udp_posix_sendmsg(struct link_socket *sock,
 static int
 socket_get_last_error(const struct link_socket *sock)
 {
-    if (sock->info.lsa->actual.dco_installed)
+    if (sock->dco_installed)
     {
         return GetLastError();
     }
@@ -3521,7 +3538,7 @@ socket_recv_queue(struct link_socket *sock, int maxsize)
         ASSERT(ResetEvent(sock->reads.overlapped.hEvent));
         sock->reads.flags = 0;
 
-        if (sock->info.lsa->actual.dco_installed)
+        if (sock->dco_installed)
         {
             status = ReadFile((HANDLE)sock->sd, wsabuf[0].buf, wsabuf[0].len,
                               &sock->reads.size, &sock->reads.overlapped);
@@ -3626,7 +3643,7 @@ socket_send_queue(struct link_socket *sock, struct buffer *buf, const struct lin
         ASSERT(ResetEvent(sock->writes.overlapped.hEvent));
         sock->writes.flags = 0;
 
-        if (sock->info.lsa->actual.dco_installed)
+        if (sock->dco_installed)
         {
             status = WriteFile((HANDLE)sock->sd, wsabuf[0].buf, wsabuf[0].len,
                                &sock->writes.size, &sock->writes.overlapped);

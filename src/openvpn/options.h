@@ -183,15 +183,17 @@ struct remote_entry
 
 struct connection_list
 {
+    int capacity;
     int len;
     int current;
-    struct connection_entry *array[CONNECTION_LIST_SIZE];
+    struct connection_entry **array;
 };
 
 struct remote_list
 {
+    int capacity;
     int len;
-    struct remote_entry *array[CONNECTION_LIST_SIZE];
+    struct remote_entry **array;
 };
 
 struct provider_list
@@ -283,6 +285,8 @@ struct options
     bool advance_next_remote;
     /* Counts the number of unsuccessful connection attempts */
     unsigned int unsuccessful_attempts;
+    /* count of connection entries to advance by when no_advance is not set */
+    int ce_advance_count;
     /* the server can suggest a backoff time to the client, it
      * will still be capped by the max timeout between connections
      * (300s by default) */

@@ -96,6 +96,8 @@ man_help(void)
     msg(M_CLIENT, "net                    : (Windows only) Show network info and routing table.");
     msg(M_CLIENT, "password type p        : Enter password p for a queried OpenVPN password.");
     msg(M_CLIENT, "remote type [host port] : Override remote directive, type=ACCEPT|MOD|SKIP.");
+    msg(M_CLIENT, "remote-entry-count     : Get number of available remote entries.");
+    msg(M_CLIENT, "remote-entry-get  i|all [j]: Get remote entry at index = i to to j-1 or all.");
     msg(M_CLIENT, "proxy type [host port flags] : Enter dynamic proxy server info.");
     msg(M_CLIENT, "pid                    : Show process ID of the current OpenVPN process.");
 #ifdef ENABLE_PKCS11
@@ -452,6 +454,12 @@ man_signal(struct management *man, const char *name)
 }
 
 static void
+man_command_unsupported(const char *command_name)
+{
+    msg(M_CLIENT, "ERROR: The '%s' command is not supported by the current daemon mode", command_name);
+}
+
+static void
 man_status(struct management *man, const int version, struct status_output *so)
 {
     if (man->persist.callback.status)
@@ -460,7 +468,7 @@ man_status(struct management *man, const int version, struct status_output *so)
     }
     else
     {
-        msg(M_CLIENT, "ERROR: The 'status' command is not supported by the current daemon mode");
+        man_command_unsupported("status");
     }
 }
 
@@ -581,7 +589,7 @@ man_kill(struct management *man, const char *victim)
     }
     else
     {
-        msg(M_CLIENT, "ERROR: The 'kill' command is not supported by the current daemon mode");
+        man_command_unsupported("kill");
     }
 
     gc_free(&gc);
@@ -787,7 +795,7 @@ man_net(struct management *man)
     }
     else
     {
-        msg(M_CLIENT, "ERROR: The 'net' command is not supported by the current daemon mode");
+        man_command_unsupported("net");
     }
 }
 
@@ -809,7 +817,7 @@ man_send_cc_message(struct management *man, const char *message, const char *par
     }
     else
     {
-        msg(M_CLIENT, "ERROR: This command is not supported by the current daemon mode");
+        man_command_unsupported("cr-repsonse");
     }
 }
 #ifdef ENABLE_PKCS11
@@ -840,6 +848,59 @@ man_pkcs11_id_get(struct management *man, const int index)
 }
 
 #endif /* ifdef ENABLE_PKCS11 */
+
+static void
+man_remote_entry_count(struct management *man)
+{
+    unsigned count = 0;
+    if (man->persist.callback.remote_entry_count)
+    {
+        count = (*man->persist.callback.remote_entry_count)(man->persist.callback.arg);
+        msg(M_CLIENT, "%u", count);
+        msg(M_CLIENT, "END");
+    }
+    else
+    {
+        man_command_unsupported("remote-entry-count");
+    }
+}
+
+static void
+man_remote_entry_get(struct management *man, const char *p1, const char *p2)
+{
+    ASSERT(p1);
+
+    if (man->persist.callback.remote_entry_get
+        && man->persist.callback.remote_entry_count)
+    {
+        unsigned int count = (*man->persist.callback.remote_entry_count)(man->persist.callback.arg);
+
+        unsigned int from = (unsigned int) atoi(p1);
+        unsigned int to = p2 ? (unsigned int) atoi(p2) : from + 1;
+
+        if (!strcmp(p1, "all"))
+        {
+            from = 0;
+            to = count;
+        }
+
+        for (unsigned int i = from; i < min_uint(to, count); i++)
+        {
+            char *remote = NULL;
+            bool res = (*man->persist.callback.remote_entry_get)(man->persist.callback.arg, i, &remote);
+            if (res && remote)
+            {
+                msg(M_CLIENT, "%u,%s", i, remote);
+            }
+            free(remote);
+        }
+        msg(M_CLIENT, "END");
+    }
+    else
+    {
+        man_command_unsupported("remote-entry-get");
+    }
+}
 
 static void
 man_hold(struct management *man, const char *cmd)
@@ -926,7 +987,7 @@ in_extra_dispatch(struct management *man)
             }
             else
             {
-                msg(M_CLIENT, "ERROR: The client-auth command is not supported by the current daemon mode");
+                man_command_unsupported("client-auth");
             }
             break;
 
@@ -1010,7 +1071,7 @@ man_client_pending_auth(struct management *man, const char *cid_str,
         }
         else
         {
-            msg(M_CLIENT, "ERROR: The client-pending-auth command is not supported by the current daemon mode");
+            man_command_unsupported("client-pending-auth");
         }
     }
 }
@@ -1061,7 +1122,7 @@ man_client_deny(struct management *man, const char *cid_str, const char *kid_str
         }
         else
         {
-            msg(M_CLIENT, "ERROR: The client-deny command is not supported by the current daemon mode");
+            man_command_unsupported("client-deny");
         }
     }
 }
@@ -1086,7 +1147,7 @@ man_client_kill(struct management *man, const char *cid_str, const char *kill_ms
         }
         else
         {
-            msg(M_CLIENT, "ERROR: The client-kill command is not supported by the current daemon mode");
+            man_command_unsupported("client-kill");
         }
     }
 }
@@ -1101,7 +1162,7 @@ man_client_n_clients(struct management *man)
     }
     else
     {
-        msg(M_CLIENT, "ERROR: The nclients command is not supported by the current daemon mode");
+        man_command_unsupported("nclients");
     }
 }
 
@@ -1209,7 +1270,7 @@ man_proxy(struct management *man, const char **p)
     }
     else
     {
-        msg(M_CLIENT, "ERROR: The proxy command is not supported by the current daemon mode");
+        man_command_unsupported("proxy");
     }
 }
 
@@ -1230,7 +1291,7 @@ man_remote(struct management *man, const char **p)
     }
     else
     {
-        msg(M_CLIENT, "ERROR: The remote command is not supported by the current daemon mode");
+        man_command_unsupported("remote");
     }
 }
 
@@ -1563,6 +1624,17 @@ man_dispatch_command(struct management *man, struct status_output *so, const cha
         }
     }
 #endif
+    else if (streq(p[0], "remote-entry-count"))
+    {
+        man_remote_entry_count(man);
+    }
+    else if (streq(p[0], "remote-entry-get"))
+    {
+        if (man_need(man, p, 1, MN_AT_LEAST))
+        {
+            man_remote_entry_get(man, p[1], p[2]);
+        }
+    }
     else if (streq(p[0], "proxy"))
     {
         if (man_need(man, p, 1, MN_AT_LEAST))
