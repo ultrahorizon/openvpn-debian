@@ -1,3 +1,10 @@
+openvpn (2.6.0~rc1-1) unstable; urgency=medium
+
+  * New upstream version 2.6.0~rc1 (Closes: #1014376)
+  * Drop DCO workaround applied upstream
+
+ -- Bernhard Schmidt <berni@debian.org>  Wed, 28 Dec 2022 22:51:31 +0100
+
 openvpn (2.6.0~git20221222-1) unstable; urgency=medium
 
   * New upstream version 2.6.0~git20221222
