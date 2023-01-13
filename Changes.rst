@@ -1,3 +1,52 @@
+Overview of changes in 2.6_rc2
+==============================
+New features
+------------
+- ``remote-entry-get`` management command will now show enabled/disabled
+  status for each connection entry
+
+- report ``CONNECTED,ROUTE_ERROR`` to management GUI if connection to
+  server succeeds but not all routes can be installed (Windows and
+  Linux/Netlink only, so far)
+
+- add rate limiter for incoming "initial handshake packets", enabled by
+  default with a limit of 100 packets per 10 seconds.  New option
+  ``--connect-freq-initial`` to configure values.  This change makes
+  OpenVPN servers uninteresting as an UDP reflection DDoS engine.
+
+User-Visible Changes
+--------------------
+- OCC (options compatibility check) log messages are considered obsolete
+  and are only shown on loglevel 7 or higher now
+
+- copyright line has been updated in all files to "xxx-2023"
+
+- include peer-id=nn in multi prefix for DCO servers if loglevel is 7+
+  (helps with DCO debugging)
+
+Bugfixes / minor improvements
+-----------------------------
+- improve documentation on no-longer-supported options
+
+- reduce amount of log messages about "dco_update_keys: peer_id=-1"
+
+- undo FreeBSD "ipv6 ifconfig" workaround for FreeBSD 12.4 and up (Trac 1226)
+
+- fix signal handling issues where a SIGUSR1 "restart" signal could overwrite
+  a SIGTERM/SIGINT "please end!" signal already queued, making OpenVPN hard
+  to stop (Trac 311, Trac 639, GH issue #205)
+
+- fix signal handling issues on windows, where OpenVPN could not be
+  interrupted by ctrl-c when sleep()ing between connection attempts
+
+- use IPAPI for IPv6 route installation on Windows, if OpenVPN runs without
+  service pipe ("run as admin from cmd.exe")
+
+- fix spurious DCO log messages about "peer-id unknown to OpenVPN: -1"
+
+- on Windows, repair wintun buffer cleanup on program end
+
+
 Overview of changes in 2.6_rc1
 ==============================
 
@@ -166,6 +215,10 @@ Cookie based handshake for UDP server
     shake. The tls-crypt-v2 option allows controlling if older clients are
     accepted.
 
+    By default the rate of initial packet responses is limited to 100 per 10s
+    interval to avoid OpenVPN servers being abused in reflection attacks
+    (see ``--connect-freq-initial``).
+
 Data channel offloading with ovpn-dco
     2.6.0+ implements support for data-channel offloading where the data packets
     are directly processed and forwarded in kernel space thanks to the ovpn-dco
@@ -253,6 +306,12 @@ PF (Packet Filtering) support has been removed
    This implies that also ``--management-client-pf`` and any other compile
    time or run time related option do not exist any longer.
 
+Option conflict checking is being deprecated and phased out
+    The static option checking (OCC) is no longer useful in typical setups
+    that negotiate most connection parameters. The ``--opt-verify`` and
+    ``--occ-disable`` options are deprecated, and the configure option
+    ``--enable-strict-options`` has been removed. Logging of mismatched
+    options has been moved to debug logging (verb 7).
 
 User-visible Changes
 --------------------
