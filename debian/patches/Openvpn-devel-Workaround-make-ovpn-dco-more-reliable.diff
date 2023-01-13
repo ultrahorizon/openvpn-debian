@@ -1,0 +1,30 @@
+Description: Workaround: make ovpn-dco more reliable
+Origin: https://patchwork.openvpn.net/project/openvpn2/patch/20230112163737.1240059-1-arne@rfc2549.org/
+Author: Arne Schwabe <arne@rfc2549.org>
+
+This workaround avoids the kernel trigger ENOBUFS when the kernel
+internal queue is overrun with events of disconnectingh clients or
+similar. This is a workaround until we come up with a more permanent
+solution.
+
+Signed-off-by: Arne Schwabe <arne@rfc2549.org>
+---
+ src/openvpn/dco_linux.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/openvpn/dco_linux.c b/src/openvpn/dco_linux.c
+index 5524cdbcd..c84f9cfe1 100644
+--- a/src/openvpn/dco_linux.c
++++ b/src/openvpn/dco_linux.c
+@@ -375,6 +375,11 @@ ovpn_dco_init_netlink(dco_context_t *dco)
+      * wrong sequence numbers (NLE_SEQ_MISMATCH), so disable libnl's sequence
+      * number check */
+     nl_socket_disable_seq_check(dco->nl_sock);
++
++    /* nl library sets the buffer size to 32k/32k by default which is sometimes
++     * overrun with very fast connecting/disconnecting clients.
++     * TODO: fix this in a better and more reliable way */
++    ASSERT(!nl_socket_set_buffer_size(dco->nl_sock, 1024*1024, 1024*1024));
+ }
+ 
+ bool
