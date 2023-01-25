@@ -1,3 +1,11 @@
+openvpn (2.6.0-1) unstable; urgency=medium
+
+  * New upstream version 2.6.0
+  * Drop dco netlink buffer overflow patch applied upstream
+  * Drop obsolete lsb-base dependency
+
+ -- Bernhard Schmidt <berni@debian.org>  Wed, 25 Jan 2023 22:27:04 +0100
+
 openvpn (2.6.0~rc2-1) unstable; urgency=medium
 
   * New upstream version 2.6.0~rc2
