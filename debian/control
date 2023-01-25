@@ -32,7 +32,6 @@ Depends:
  ${shlibs:Depends},
  ${misc:Depends},
  net-tools [!linux-any],
- lsb-base (>= 3.0-6)
 Suggests:
  openssl,
  resolvconf,
