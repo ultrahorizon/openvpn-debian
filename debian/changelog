@@ -1,3 +1,10 @@
+openvpn (2.6.1-1~exp1) experimental; urgency=medium
+
+  * New upstream version 2.6.1
+    - target experimental due to the freeze
+
+ -- Bernhard Schmidt <berni@debian.org>  Fri, 10 Mar 2023 09:02:22 +0100
+
 openvpn (2.6.0-1) unstable; urgency=medium
 
   * New upstream version 2.6.0
