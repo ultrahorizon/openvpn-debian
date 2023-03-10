@@ -129,10 +129,11 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(sbindir)"
 PROGRAMS = $(sbin_PROGRAMS)
+am__dirstamp = $(am__leading_dot)dirstamp
 am_openvpnserv_OBJECTS = openvpnserv-common.$(OBJEXT) \
 	openvpnserv-interactive.$(OBJEXT) \
 	openvpnserv-service.$(OBJEXT) openvpnserv-validate.$(OBJEXT) \
-	openvpnserv-block_dns.$(OBJEXT) \
+	$(top_builddir)/src/openvpn/openvpnserv-block_dns.$(OBJEXT) \
 	openvpnserv_resources.$(OBJEXT)
 openvpnserv_OBJECTS = $(am_openvpnserv_OBJECTS)
 openvpnserv_DEPENDENCIES =
@@ -158,7 +159,7 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir) -I$(top_builddir)/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = ./$(DEPDIR)/openvpnserv-block_dns.Po \
+am__depfiles_remade = $(top_builddir)/src/openvpn/$(DEPDIR)/openvpnserv-block_dns.Po \
 	./$(DEPDIR)/openvpnserv-common.Po \
 	./$(DEPDIR)/openvpnserv-interactive.Po \
 	./$(DEPDIR)/openvpnserv-service.Po \
@@ -510,6 +511,15 @@ clean-sbinPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
+$(top_builddir)/src/openvpn/$(am__dirstamp):
+	@$(MKDIR_P) $(top_builddir)/src/openvpn
+	@: > $(top_builddir)/src/openvpn/$(am__dirstamp)
+$(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) $(top_builddir)/src/openvpn/$(DEPDIR)
+	@: > $(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)
+$(top_builddir)/src/openvpn/openvpnserv-block_dns.$(OBJEXT):  \
+	$(top_builddir)/src/openvpn/$(am__dirstamp) \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)
 
 openvpnserv$(EXEEXT): $(openvpnserv_OBJECTS) $(openvpnserv_DEPENDENCIES) $(EXTRA_openvpnserv_DEPENDENCIES) 
 	@rm -f openvpnserv$(EXEEXT)
@@ -517,11 +527,12 @@ openvpnserv$(EXEEXT): $(openvpnserv_OBJECTS) $(openvpnserv_DEPENDENCIES) $(EXTRA
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
+	-rm -f $(top_builddir)/src/openvpn/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/openvpnserv-block_dns.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(top_builddir)/src/openvpn/$(DEPDIR)/openvpnserv-block_dns.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/openvpnserv-common.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/openvpnserv-interactive.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/openvpnserv-service.Po@am__quote@ # am--include-marker
@@ -534,22 +545,25 @@ $(am__depfiles_remade):
 am--depfiles: $(am__depfiles_remade)
 
 .c.o:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ $<
 
 .c.obj:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ `$(CYGPATH_W) '$<'` &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
 .c.lo:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LTCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Plo
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.lo$$||'`;\
+@am__fastdepCC_TRUE@	$(LTCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Plo
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
@@ -610,19 +624,19 @@ openvpnserv-validate.obj: validate.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(openvpnserv_CFLAGS) $(CFLAGS) -c -o openvpnserv-validate.obj `if test -f 'validate.c'; then $(CYGPATH_W) 'validate.c'; else $(CYGPATH_W) '$(srcdir)/validate.c'; fi`
 
-openvpnserv-block_dns.o: $(top_srcdir)/src/openvpn/block_dns.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(openvpnserv_CFLAGS) $(CFLAGS) -MT openvpnserv-block_dns.o -MD -MP -MF $(DEPDIR)/openvpnserv-block_dns.Tpo -c -o openvpnserv-block_dns.o `test -f '$(top_srcdir)/src/openvpn/block_dns.c' || echo '$(srcdir)/'`$(top_srcdir)/src/openvpn/block_dns.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/openvpnserv-block_dns.Tpo $(DEPDIR)/openvpnserv-block_dns.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/src/openvpn/block_dns.c' object='openvpnserv-block_dns.o' libtool=no @AMDEPBACKSLASH@
+$(top_builddir)/src/openvpn/openvpnserv-block_dns.o: $(top_builddir)/src/openvpn/block_dns.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(openvpnserv_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/openvpnserv-block_dns.o -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/openvpnserv-block_dns.Tpo -c -o $(top_builddir)/src/openvpn/openvpnserv-block_dns.o `test -f '$(top_builddir)/src/openvpn/block_dns.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/block_dns.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/openvpnserv-block_dns.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/openvpnserv-block_dns.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/block_dns.c' object='$(top_builddir)/src/openvpn/openvpnserv-block_dns.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(openvpnserv_CFLAGS) $(CFLAGS) -c -o openvpnserv-block_dns.o `test -f '$(top_srcdir)/src/openvpn/block_dns.c' || echo '$(srcdir)/'`$(top_srcdir)/src/openvpn/block_dns.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(openvpnserv_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/openvpnserv-block_dns.o `test -f '$(top_builddir)/src/openvpn/block_dns.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/block_dns.c
 
-openvpnserv-block_dns.obj: $(top_srcdir)/src/openvpn/block_dns.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(openvpnserv_CFLAGS) $(CFLAGS) -MT openvpnserv-block_dns.obj -MD -MP -MF $(DEPDIR)/openvpnserv-block_dns.Tpo -c -o openvpnserv-block_dns.obj `if test -f '$(top_srcdir)/src/openvpn/block_dns.c'; then $(CYGPATH_W) '$(top_srcdir)/src/openvpn/block_dns.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/src/openvpn/block_dns.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/openvpnserv-block_dns.Tpo $(DEPDIR)/openvpnserv-block_dns.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/src/openvpn/block_dns.c' object='openvpnserv-block_dns.obj' libtool=no @AMDEPBACKSLASH@
+$(top_builddir)/src/openvpn/openvpnserv-block_dns.obj: $(top_builddir)/src/openvpn/block_dns.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(openvpnserv_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/openvpnserv-block_dns.obj -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/openvpnserv-block_dns.Tpo -c -o $(top_builddir)/src/openvpn/openvpnserv-block_dns.obj `if test -f '$(top_builddir)/src/openvpn/block_dns.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/block_dns.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/block_dns.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/openvpnserv-block_dns.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/openvpnserv-block_dns.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/block_dns.c' object='$(top_builddir)/src/openvpn/openvpnserv-block_dns.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(openvpnserv_CFLAGS) $(CFLAGS) -c -o openvpnserv-block_dns.obj `if test -f '$(top_srcdir)/src/openvpn/block_dns.c'; then $(CYGPATH_W) '$(top_srcdir)/src/openvpn/block_dns.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/src/openvpn/block_dns.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(openvpnserv_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/openvpnserv-block_dns.obj `if test -f '$(top_builddir)/src/openvpn/block_dns.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/block_dns.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/block_dns.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -747,6 +761,8 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
+	-test -z "$(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)" || rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)
+	-test -z "$(top_builddir)/src/openvpn/$(am__dirstamp)" || rm -f $(top_builddir)/src/openvpn/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -758,7 +774,7 @@ clean-am: clean-generic clean-libtool clean-sbinPROGRAMS \
 	mostlyclean-am
 
 distclean: distclean-am
-		-rm -f ./$(DEPDIR)/openvpnserv-block_dns.Po
+		-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/openvpnserv-block_dns.Po
 	-rm -f ./$(DEPDIR)/openvpnserv-common.Po
 	-rm -f ./$(DEPDIR)/openvpnserv-interactive.Po
 	-rm -f ./$(DEPDIR)/openvpnserv-service.Po
@@ -808,7 +824,7 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-		-rm -f ./$(DEPDIR)/openvpnserv-block_dns.Po
+		-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/openvpnserv-block_dns.Po
 	-rm -f ./$(DEPDIR)/openvpnserv-common.Po
 	-rm -f ./$(DEPDIR)/openvpnserv-interactive.Po
 	-rm -f ./$(DEPDIR)/openvpnserv-service.Po

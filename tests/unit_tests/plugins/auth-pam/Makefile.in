@@ -105,9 +105,10 @@ CONFIG_HEADER = $(top_builddir)/config.h \
 	$(top_builddir)/include/openvpn-plugin.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
+am__dirstamp = $(am__leading_dot)dirstamp
 am_auth_pam_testdriver_OBJECTS =  \
 	auth_pam_testdriver-test_search_and_replace.$(OBJEXT) \
-	auth_pam_testdriver-utils.$(OBJEXT)
+	$(sut_sourcedir)/auth_pam_testdriver-utils.$(OBJEXT)
 auth_pam_testdriver_OBJECTS = $(am_auth_pam_testdriver_OBJECTS)
 auth_pam_testdriver_LDADD = $(LDADD)
 AM_V_lt = $(am__v_lt_@AM_V@)
@@ -134,8 +135,8 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir) -I$(top_builddir)/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade =  \
-	./$(DEPDIR)/auth_pam_testdriver-test_search_and_replace.Po \
-	./$(DEPDIR)/auth_pam_testdriver-utils.Po
+	$(sut_sourcedir)/$(DEPDIR)/auth_pam_testdriver-utils.Po \
+	./$(DEPDIR)/auth_pam_testdriver-test_search_and_replace.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -443,6 +444,15 @@ clean-checkPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
+$(sut_sourcedir)/$(am__dirstamp):
+	@$(MKDIR_P) $(sut_sourcedir)
+	@: > $(sut_sourcedir)/$(am__dirstamp)
+$(sut_sourcedir)/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) $(sut_sourcedir)/$(DEPDIR)
+	@: > $(sut_sourcedir)/$(DEPDIR)/$(am__dirstamp)
+$(sut_sourcedir)/auth_pam_testdriver-utils.$(OBJEXT):  \
+	$(sut_sourcedir)/$(am__dirstamp) \
+	$(sut_sourcedir)/$(DEPDIR)/$(am__dirstamp)
 
 auth_pam_testdriver$(EXEEXT): $(auth_pam_testdriver_OBJECTS) $(auth_pam_testdriver_DEPENDENCIES) $(EXTRA_auth_pam_testdriver_DEPENDENCIES) 
 	@rm -f auth_pam_testdriver$(EXEEXT)
@@ -450,12 +460,13 @@ auth_pam_testdriver$(EXEEXT): $(auth_pam_testdriver_OBJECTS) $(auth_pam_testdriv
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
+	-rm -f $(sut_sourcedir)/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@$(sut_sourcedir)/$(DEPDIR)/auth_pam_testdriver-utils.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/auth_pam_testdriver-test_search_and_replace.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/auth_pam_testdriver-utils.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -464,22 +475,25 @@ $(am__depfiles_remade):
 am--depfiles: $(am__depfiles_remade)
 
 .c.o:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ $<
 
 .c.obj:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ `$(CYGPATH_W) '$<'` &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
 .c.lo:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LTCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Plo
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.lo$$||'`;\
+@am__fastdepCC_TRUE@	$(LTCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Plo
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
@@ -498,19 +512,19 @@ auth_pam_testdriver-test_search_and_replace.obj: test_search_and_replace.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(auth_pam_testdriver_CFLAGS) $(CFLAGS) -c -o auth_pam_testdriver-test_search_and_replace.obj `if test -f 'test_search_and_replace.c'; then $(CYGPATH_W) 'test_search_and_replace.c'; else $(CYGPATH_W) '$(srcdir)/test_search_and_replace.c'; fi`
 
-auth_pam_testdriver-utils.o: $(sut_sourcedir)/utils.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(auth_pam_testdriver_CFLAGS) $(CFLAGS) -MT auth_pam_testdriver-utils.o -MD -MP -MF $(DEPDIR)/auth_pam_testdriver-utils.Tpo -c -o auth_pam_testdriver-utils.o `test -f '$(sut_sourcedir)/utils.c' || echo '$(srcdir)/'`$(sut_sourcedir)/utils.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/auth_pam_testdriver-utils.Tpo $(DEPDIR)/auth_pam_testdriver-utils.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(sut_sourcedir)/utils.c' object='auth_pam_testdriver-utils.o' libtool=no @AMDEPBACKSLASH@
+$(sut_sourcedir)/auth_pam_testdriver-utils.o: $(sut_sourcedir)/utils.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(auth_pam_testdriver_CFLAGS) $(CFLAGS) -MT $(sut_sourcedir)/auth_pam_testdriver-utils.o -MD -MP -MF $(sut_sourcedir)/$(DEPDIR)/auth_pam_testdriver-utils.Tpo -c -o $(sut_sourcedir)/auth_pam_testdriver-utils.o `test -f '$(sut_sourcedir)/utils.c' || echo '$(srcdir)/'`$(sut_sourcedir)/utils.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(sut_sourcedir)/$(DEPDIR)/auth_pam_testdriver-utils.Tpo $(sut_sourcedir)/$(DEPDIR)/auth_pam_testdriver-utils.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(sut_sourcedir)/utils.c' object='$(sut_sourcedir)/auth_pam_testdriver-utils.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(auth_pam_testdriver_CFLAGS) $(CFLAGS) -c -o auth_pam_testdriver-utils.o `test -f '$(sut_sourcedir)/utils.c' || echo '$(srcdir)/'`$(sut_sourcedir)/utils.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(auth_pam_testdriver_CFLAGS) $(CFLAGS) -c -o $(sut_sourcedir)/auth_pam_testdriver-utils.o `test -f '$(sut_sourcedir)/utils.c' || echo '$(srcdir)/'`$(sut_sourcedir)/utils.c
 
-auth_pam_testdriver-utils.obj: $(sut_sourcedir)/utils.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(auth_pam_testdriver_CFLAGS) $(CFLAGS) -MT auth_pam_testdriver-utils.obj -MD -MP -MF $(DEPDIR)/auth_pam_testdriver-utils.Tpo -c -o auth_pam_testdriver-utils.obj `if test -f '$(sut_sourcedir)/utils.c'; then $(CYGPATH_W) '$(sut_sourcedir)/utils.c'; else $(CYGPATH_W) '$(srcdir)/$(sut_sourcedir)/utils.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/auth_pam_testdriver-utils.Tpo $(DEPDIR)/auth_pam_testdriver-utils.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(sut_sourcedir)/utils.c' object='auth_pam_testdriver-utils.obj' libtool=no @AMDEPBACKSLASH@
+$(sut_sourcedir)/auth_pam_testdriver-utils.obj: $(sut_sourcedir)/utils.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(auth_pam_testdriver_CFLAGS) $(CFLAGS) -MT $(sut_sourcedir)/auth_pam_testdriver-utils.obj -MD -MP -MF $(sut_sourcedir)/$(DEPDIR)/auth_pam_testdriver-utils.Tpo -c -o $(sut_sourcedir)/auth_pam_testdriver-utils.obj `if test -f '$(sut_sourcedir)/utils.c'; then $(CYGPATH_W) '$(sut_sourcedir)/utils.c'; else $(CYGPATH_W) '$(srcdir)/$(sut_sourcedir)/utils.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(sut_sourcedir)/$(DEPDIR)/auth_pam_testdriver-utils.Tpo $(sut_sourcedir)/$(DEPDIR)/auth_pam_testdriver-utils.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(sut_sourcedir)/utils.c' object='$(sut_sourcedir)/auth_pam_testdriver-utils.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(auth_pam_testdriver_CFLAGS) $(CFLAGS) -c -o auth_pam_testdriver-utils.obj `if test -f '$(sut_sourcedir)/utils.c'; then $(CYGPATH_W) '$(sut_sourcedir)/utils.c'; else $(CYGPATH_W) '$(srcdir)/$(sut_sourcedir)/utils.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(auth_pam_testdriver_CFLAGS) $(CFLAGS) -c -o $(sut_sourcedir)/auth_pam_testdriver-utils.obj `if test -f '$(sut_sourcedir)/utils.c'; then $(CYGPATH_W) '$(sut_sourcedir)/utils.c'; else $(CYGPATH_W) '$(srcdir)/$(sut_sourcedir)/utils.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -727,6 +741,8 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
+	-test -z "$(sut_sourcedir)/$(DEPDIR)/$(am__dirstamp)" || rm -f $(sut_sourcedir)/$(DEPDIR)/$(am__dirstamp)
+	-test -z "$(sut_sourcedir)/$(am__dirstamp)" || rm -f $(sut_sourcedir)/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -737,8 +753,8 @@ clean-am: clean-checkPROGRAMS clean-generic clean-libtool \
 	mostlyclean-am
 
 distclean: distclean-am
-		-rm -f ./$(DEPDIR)/auth_pam_testdriver-test_search_and_replace.Po
-	-rm -f ./$(DEPDIR)/auth_pam_testdriver-utils.Po
+		-rm -f $(sut_sourcedir)/$(DEPDIR)/auth_pam_testdriver-utils.Po
+	-rm -f ./$(DEPDIR)/auth_pam_testdriver-test_search_and_replace.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -784,8 +800,8 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-		-rm -f ./$(DEPDIR)/auth_pam_testdriver-test_search_and_replace.Po
-	-rm -f ./$(DEPDIR)/auth_pam_testdriver-utils.Po
+		-rm -f $(sut_sourcedir)/$(DEPDIR)/auth_pam_testdriver-utils.Po
+	-rm -f ./$(DEPDIR)/auth_pam_testdriver-test_search_and_replace.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

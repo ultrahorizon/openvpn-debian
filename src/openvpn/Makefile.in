@@ -146,31 +146,31 @@ am__openvpn_SOURCES_DIST = argv.c argv.h auth_token.c auth_token.h \
 	gremlin.c gremlin.h helper.c helper.h httpdigest.c \
 	httpdigest.h lladdr.c lladdr.h init.c init.h integer.h \
 	interval.c interval.h list.c list.h lzo.c lzo.h manage.c \
-	manage.h mbuf.c mbuf.h memdbg.h misc.c misc.h ovpn_dco_linux.h \
-	ovpn_dco_win.h platform.c platform.h console.c console.h \
-	console_builtin.c console_systemd.c mroute.c mroute.h mss.c \
-	mss.h mstats.c mstats.h mtcp.c mtcp.h mtu.c mtu.h mudp.c \
-	mudp.h multi.c multi.h networking_freebsd.c \
-	networking_iproute2.c networking_iproute2.h networking_sitnl.c \
-	networking_sitnl.h networking.h ntlm.c ntlm.h occ.c occ.h \
-	openssl_compat.h pkcs11.c pkcs11.h pkcs11_backend.h \
-	pkcs11_openssl.c pkcs11_mbedtls.c openvpn.c openvpn.h \
-	options.c options.h options_util.c options_util.h otime.c \
-	otime.h packet_id.c packet_id.h perf.c perf.h ping.c ping.h \
-	plugin.c plugin.h pool.c pool.h proto.c proto.h proxy.c \
-	proxy.h ps.c ps.h push.c push.h pushlist.h reflect_filter.c \
-	reflect_filter.h reliable.c reliable.h route.c route.h \
-	run_command.c run_command.h schedule.c schedule.h session_id.c \
-	session_id.h shaper.c shaper.h sig.c sig.h socket.c socket.h \
-	socks.c socks.h ssl.c ssl.h ssl_backend.h ssl_openssl.c \
-	ssl_openssl.h ssl_mbedtls.c ssl_mbedtls.h ssl_ncp.c ssl_ncp.h \
-	ssl_pkt.c ssl_pkt.h ssl_util.c ssl_util.h ssl_common.h \
-	ssl_verify.c ssl_verify.h ssl_verify_backend.h \
-	ssl_verify_openssl.c ssl_verify_openssl.h ssl_verify_mbedtls.c \
-	ssl_verify_mbedtls.h status.c status.h syshead.h tls_crypt.c \
-	tls_crypt.h tun.c tun.h vlan.c vlan.h xkey_provider.c \
-	xkey_common.h xkey_helper.c win32.h win32.c win32-util.h \
-	win32-util.c cryptoapi.h cryptoapi.c \
+	manage.h mbuf.c mbuf.h memdbg.h misc.c misc.h \
+	ovpn_dco_freebsd.h ovpn_dco_linux.h ovpn_dco_win.h platform.c \
+	platform.h console.c console.h console_builtin.c \
+	console_systemd.c mroute.c mroute.h mss.c mss.h mstats.c \
+	mstats.h mtcp.c mtcp.h mtu.c mtu.h mudp.c mudp.h multi.c \
+	multi.h networking_freebsd.c networking_iproute2.c \
+	networking_iproute2.h networking_sitnl.c networking_sitnl.h \
+	networking.h ntlm.c ntlm.h occ.c occ.h openssl_compat.h \
+	pkcs11.c pkcs11.h pkcs11_backend.h pkcs11_openssl.c \
+	pkcs11_mbedtls.c openvpn.c openvpn.h options.c options.h \
+	options_util.c options_util.h otime.c otime.h packet_id.c \
+	packet_id.h perf.c perf.h ping.c ping.h plugin.c plugin.h \
+	pool.c pool.h proto.c proto.h proxy.c proxy.h ps.c ps.h push.c \
+	push.h pushlist.h reflect_filter.c reflect_filter.h reliable.c \
+	reliable.h route.c route.h run_command.c run_command.h \
+	schedule.c schedule.h session_id.c session_id.h shaper.c \
+	shaper.h sig.c sig.h socket.c socket.h socks.c socks.h ssl.c \
+	ssl.h ssl_backend.h ssl_openssl.c ssl_openssl.h ssl_mbedtls.c \
+	ssl_mbedtls.h ssl_ncp.c ssl_ncp.h ssl_pkt.c ssl_pkt.h \
+	ssl_util.c ssl_util.h ssl_common.h ssl_verify.c ssl_verify.h \
+	ssl_verify_backend.h ssl_verify_openssl.c ssl_verify_openssl.h \
+	ssl_verify_mbedtls.c ssl_verify_mbedtls.h status.c status.h \
+	syshead.h tls_crypt.c tls_crypt.h tun.c tun.h vlan.c vlan.h \
+	xkey_provider.c xkey_common.h xkey_helper.c win32.h win32.c \
+	win32-util.h win32-util.c cryptoapi.h cryptoapi.c \
 	openvpn_win32_resources.rc block_dns.c block_dns.h \
 	ring_buffer.h
 @WIN32_TRUE@am__objects_1 = openvpn_win32_resources.$(OBJEXT) \
@@ -550,31 +550,32 @@ openvpn_SOURCES = argv.c argv.h auth_token.c auth_token.h base64.c \
 	gremlin.c gremlin.h helper.c helper.h httpdigest.c \
 	httpdigest.h lladdr.c lladdr.h init.c init.h integer.h \
 	interval.c interval.h list.c list.h lzo.c lzo.h manage.c \
-	manage.h mbuf.c mbuf.h memdbg.h misc.c misc.h ovpn_dco_linux.h \
-	ovpn_dco_win.h platform.c platform.h console.c console.h \
-	console_builtin.c console_systemd.c mroute.c mroute.h mss.c \
-	mss.h mstats.c mstats.h mtcp.c mtcp.h mtu.c mtu.h mudp.c \
-	mudp.h multi.c multi.h networking_freebsd.c \
-	networking_iproute2.c networking_iproute2.h networking_sitnl.c \
-	networking_sitnl.h networking.h ntlm.c ntlm.h occ.c occ.h \
-	openssl_compat.h pkcs11.c pkcs11.h pkcs11_backend.h \
-	pkcs11_openssl.c pkcs11_mbedtls.c openvpn.c openvpn.h \
-	options.c options.h options_util.c options_util.h otime.c \
-	otime.h packet_id.c packet_id.h perf.c perf.h ping.c ping.h \
-	plugin.c plugin.h pool.c pool.h proto.c proto.h proxy.c \
-	proxy.h ps.c ps.h push.c push.h pushlist.h reflect_filter.c \
-	reflect_filter.h reliable.c reliable.h route.c route.h \
-	run_command.c run_command.h schedule.c schedule.h session_id.c \
-	session_id.h shaper.c shaper.h sig.c sig.h socket.c socket.h \
-	socks.c socks.h ssl.c ssl.h ssl_backend.h ssl_openssl.c \
-	ssl_openssl.h ssl_mbedtls.c ssl_mbedtls.h ssl_ncp.c ssl_ncp.h \
-	ssl_pkt.c ssl_pkt.h ssl_util.c ssl_util.h ssl_common.h \
-	ssl_verify.c ssl_verify.h ssl_verify_backend.h \
-	ssl_verify_openssl.c ssl_verify_openssl.h ssl_verify_mbedtls.c \
-	ssl_verify_mbedtls.h status.c status.h syshead.h tls_crypt.c \
-	tls_crypt.h tun.c tun.h vlan.c vlan.h xkey_provider.c \
-	xkey_common.h xkey_helper.c win32.h win32.c win32-util.h \
-	win32-util.c cryptoapi.h cryptoapi.c $(am__append_2)
+	manage.h mbuf.c mbuf.h memdbg.h misc.c misc.h \
+	ovpn_dco_freebsd.h ovpn_dco_linux.h ovpn_dco_win.h platform.c \
+	platform.h console.c console.h console_builtin.c \
+	console_systemd.c mroute.c mroute.h mss.c mss.h mstats.c \
+	mstats.h mtcp.c mtcp.h mtu.c mtu.h mudp.c mudp.h multi.c \
+	multi.h networking_freebsd.c networking_iproute2.c \
+	networking_iproute2.h networking_sitnl.c networking_sitnl.h \
+	networking.h ntlm.c ntlm.h occ.c occ.h openssl_compat.h \
+	pkcs11.c pkcs11.h pkcs11_backend.h pkcs11_openssl.c \
+	pkcs11_mbedtls.c openvpn.c openvpn.h options.c options.h \
+	options_util.c options_util.h otime.c otime.h packet_id.c \
+	packet_id.h perf.c perf.h ping.c ping.h plugin.c plugin.h \
+	pool.c pool.h proto.c proto.h proxy.c proxy.h ps.c ps.h push.c \
+	push.h pushlist.h reflect_filter.c reflect_filter.h reliable.c \
+	reliable.h route.c route.h run_command.c run_command.h \
+	schedule.c schedule.h session_id.c session_id.h shaper.c \
+	shaper.h sig.c sig.h socket.c socket.h socks.c socks.h ssl.c \
+	ssl.h ssl_backend.h ssl_openssl.c ssl_openssl.h ssl_mbedtls.c \
+	ssl_mbedtls.h ssl_ncp.c ssl_ncp.h ssl_pkt.c ssl_pkt.h \
+	ssl_util.c ssl_util.h ssl_common.h ssl_verify.c ssl_verify.h \
+	ssl_verify_backend.h ssl_verify_openssl.c ssl_verify_openssl.h \
+	ssl_verify_mbedtls.c ssl_verify_mbedtls.h status.c status.h \
+	syshead.h tls_crypt.c tls_crypt.h tun.c tun.h vlan.c vlan.h \
+	xkey_provider.c xkey_common.h xkey_helper.c win32.h win32.c \
+	win32-util.h win32-util.c cryptoapi.h cryptoapi.c \
+	$(am__append_2)
 openvpn_LDADD = $(top_builddir)/src/compat/libcompat.la \
 	$(SOCKETS_LIBS) $(OPTIONAL_LZO_LIBS) $(OPTIONAL_LZ4_LIBS) \
 	$(OPTIONAL_PKCS11_HELPER_LIBS) $(OPTIONAL_CRYPTO_LIBS) \
@@ -777,22 +778,25 @@ $(am__depfiles_remade):
 am--depfiles: $(am__depfiles_remade)
 
 .c.o:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ $<
 
 .c.obj:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ `$(CYGPATH_W) '$<'` &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
 .c.lo:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LTCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Plo
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.lo$$||'`;\
+@am__fastdepCC_TRUE@	$(LTCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Plo
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
