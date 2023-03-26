@@ -5,3 +5,4 @@ openvpn-pkcs11warn.patch
 systemd.patch
 Fix-ASSERT-in-tls-crypt.patch
 Fix-Memory-Leaks-in-HMAC-initial-packet-generation.patch
+Set-netlink-socket-to-be-non-blocking.patch
