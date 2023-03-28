@@ -1,0 +1,38 @@
+From d01b9d751d6a5b4dc3737b339ec1ca5c23705243 Mon Sep 17 00:00:00 2001
+From: Selva Nair <selva.nair@gmail.com>
+Date: Mon, 27 Mar 2023 13:12:36 -0400
+Subject: [PATCH] Bug-fix: segfault in dco_get_peer_stats()
+
+  We persist peer-stats when restarting, but an early restart
+  before open_tun results in a segfault in dco_get_peer_stats().
+  To reproduce, trigger a TLS handshake error due to lack of common
+  protocols, for example.
+
+  Fix by checking  that tuntap is defined before dereferencing it.
+
+Signed-off-by: Selva Nair <selva.nair@gmail.com>
+Acked-by: Antonio Quartulli <a@unstable.cc>
+Message-Id: <20230327171236.51771-1-selva.nair@gmail.com>
+URL: https://www.mail-archive.com/openvpn-devel@lists.sourceforge.net/msg26530.html
+Signed-off-by: Gert Doering <gert@greenie.muc.de>
+(cherry picked from commit 10c3f25a26bce480f80624c5ef4cb6774a31c305)
+---
+ src/openvpn/dco_linux.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/openvpn/dco_linux.c b/src/openvpn/dco_linux.c
+index 317f9dc0317..41540c0f8c2 100644
+--- a/src/openvpn/dco_linux.c
++++ b/src/openvpn/dco_linux.c
+@@ -975,6 +975,11 @@ dco_get_peer_stats(struct context *c)
+     uint32_t peer_id = c->c2.tls_multi->dco_peer_id;
+     msg(D_DCO_DEBUG, "%s: peer-id %d", __func__, peer_id);
+ 
++    if (!c->c1.tuntap)
++    {
++        return 0;
++    }
++
+     dco_context_t *dco = &c->c1.tuntap->dco;
+     struct nl_msg *nl_msg = ovpn_dco_nlmsg_create(dco, OVPN_CMD_GET_PEER);
+     struct nlattr *attr = nla_nest_start(nl_msg, OVPN_ATTR_GET_PEER);
