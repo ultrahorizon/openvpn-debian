@@ -497,6 +497,7 @@ dist_noinst_DATA = README.plugins interactive-service-notes.rst \
 
 ######  GENERIC  RULES  ##########
 SUFFIXES = .8.rst .8 .8.html .5.rst .5 .5.html
+RST_FLAGS = --strict
 MAINTAINERCLEANFILES = \
 	$(srcdir)/Makefile.in
 
@@ -969,11 +970,11 @@ openvpn.8 openvpn.8.html: $(openvpn_sections)
 openvpn-examples.5 openvpn-examples.5.html: $(openvpn_examples_sections)
 
 .8.rst.8 .5.rst.5 :
-@HAVE_PYDOCUTILS_TRUE@	$(RST2MAN) $< > $@
+@HAVE_PYDOCUTILS_TRUE@	$(RST2MAN) $(RST_FLAGS) $< > $@
 @HAVE_PYDOCUTILS_FALSE@	@echo "Missing python-docutils - skipping man page generation ($@)"
 
 .8.rst.8.html .5.rst.5.html :
-@HAVE_PYDOCUTILS_TRUE@	$(RST2HTML) $< > $@
+@HAVE_PYDOCUTILS_TRUE@	$(RST2HTML) $(RST_FLAGS) $< > $@
 @HAVE_PYDOCUTILS_FALSE@	@echo "Missing python-docutils - skipping html page generation ($@)"
 
 dist-hook : $(build_man_pages) $(build_html_pages)
