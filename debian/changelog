@@ -1,11 +1,11 @@
-openvpn (2.6.2-1) unstable; urgency=medium
+openvpn (2.6.3-1) unstable; urgency=medium
 
   * New upstream version 2.6.2
     - drop patches applied upstream
     - needs new openvpn-dco-dkms version. Not adding a versioned dependency
       to untangle testing migration, because it will just not use the
       "wrong" version and run unaccelerated.
-  * Cherry-pick upstream commit to fix segfault in dco_get_peer_stats()
+  * New upstream version 2.6.3
 
  -- Bernhard Schmidt <berni@debian.org>  Thu, 13 Apr 2023 09:19:40 +0200
 
