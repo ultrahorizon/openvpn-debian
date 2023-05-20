@@ -1,0 +1,33 @@
+From 5e8a571af165c867ccb9c4c9e6334620f42013ac Mon Sep 17 00:00:00 2001
+From: Frank Lichtenheld <frank@lichtenheld.com>
+Date: Mon, 15 May 2023 16:21:16 +0200
+Subject: [PATCH] DCO: fix memory leak in dco_get_peer_stats_multi for Linux
+
+Leaks a small amount of memory every 15s.
+
+Signed-off-by: Frank Lichtenheld <frank@lichtenheld.com>
+Acked-by: Antonio Quartulli <a@unstable.cc>
+Message-Id: <20230515142116.33135-1-frank@lichtenheld.com>
+URL: https://www.mail-archive.com/openvpn-devel@lists.sourceforge.net/msg26659.html
+Signed-off-by: Gert Doering <gert@greenie.muc.de>
+(cherry picked from commit 276f7c86d70666bc2ab4e6192ef5f1dcbd6a230f)
+---
+ src/openvpn/dco_linux.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/openvpn/dco_linux.c b/src/openvpn/dco_linux.c
+index 796e6f25da4..2bfdf980a3a 100644
+--- a/src/openvpn/dco_linux.c
++++ b/src/openvpn/dco_linux.c
+@@ -925,7 +925,10 @@ dco_get_peer_stats_multi(dco_context_t *dco, struct multi_context *m)
+ 
+     nlmsg_hdr(nl_msg)->nlmsg_flags |= NLM_F_DUMP;
+ 
+-    return ovpn_nl_msg_send(dco, nl_msg, dco_parse_peer_multi, m, __func__);
++    int ret = ovpn_nl_msg_send(dco, nl_msg, dco_parse_peer_multi, m, __func__);
++
++    nlmsg_free(nl_msg);
++    return ret;
+ }
+ 
+ static int
