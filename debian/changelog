@@ -1,3 +1,11 @@
+openvpn (2.6.3-2) unstable; urgency=medium
+
+  * Cherry-pick two bugfix commits from upstream
+    - Memory leak in dco_get_peer_stats_multi for Linux
+    - dangling pointer passed to pkcs11-helper
+
+ -- Bernhard Schmidt <berni@debian.org>  Sat, 20 May 2023 17:43:32 +0200
+
 openvpn (2.6.3-1) unstable; urgency=medium
 
   * New upstream version 2.6.2
