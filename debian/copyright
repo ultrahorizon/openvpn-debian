@@ -168,6 +168,8 @@ Copyright: 2002-2017 Alberto Gonzalez Iniesta <agi@inittab.org>
            2017-2021 Jörg Frings-Fürst <debian@jff.email>
 License: GPL-3+
 
+Files: src/openvpn/ovpn_dco_freebsd.h
+Copyright: 2021 Rubicon Communications, LLC (Netgate)
 License: BSD-2
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are
