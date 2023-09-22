@@ -3,6 +3,7 @@
 
 [Unit]
 Description=OpenVPN service
+Documentation=man:openvpn(8)
 After=network.target
 
 [Service]
