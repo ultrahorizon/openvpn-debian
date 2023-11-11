@@ -5,3 +5,4 @@ openvpn-pkcs11warn.patch
 systemd.patch
 fix-spelling-error-in-openvpn-binary.patch
 fix-typos-in-manpages.patch
+fix-segfault-in-check_session_buf_not_used.patch
