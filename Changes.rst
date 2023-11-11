@@ -1,3 +1,210 @@
+Overview of changes in 2.6.7
+============================
+
+Bug fixes / Code cleanup
+------------------------
+- CVE-2023-46850 OpenVPN versions between 2.6.0 and 2.6.6 incorrectly use
+  a send buffer after it has been free()d in some circumstances, causing
+  some free()d memory to be sent to the peer.  All configurations using TLS
+  (e.g. not using --secret) are affected by this issue.
+  (found while tracking down CVE-2023-46849 / Github #400, #417)
+
+- CVE-2023-46849 OpenVPN versions between 2.6.0 and 2.6.6 incorrectly
+  restore "--fragment" configuration in some circumstances, leading to
+  a division by zero when "--fragment" is used.  On platforms where
+  division by zero is fatal, this will cause an OpenVPN crash.
+
+  Reported by Niccolo Belli <niccolo.belli@linuxsystems.it> and WIPocket
+  (Github #400, #417).
+
+- cleanup bits and pieces of documentation
+
+- cleanup code to remove strlen() related warnings in buf_catrunc()
+
+- DCO on Linux: fix NULL-pointer crash if "--multihome" is used together
+  with "--proto tcp"
+
+- work around build fails caused by LibreSSL not longer having engine support
+
+
+User visible changes
+--------------------
+- DCO: warn if DATA_V1 packets are sent by the other side - this a hard
+  incompatibility between a 2.6.x client connecting to a 2.4.0-2.4.4 server,
+  and the only fix is to use "--disable-dco".
+
+- Remove OpenSSL Engine method for loading a key.  This had to be removed
+  because the original author did not agree to relicensing the code with
+  the new linking exception added.  This was a somewhat obsolete feature
+  anyway as it only worked with OpenSSL 1.x, which is end-of-support.
+
+- add warning if p2p NCP client connects to a p2mp server - this is a
+  combination that used to work without cipher negotiation (pre 2.6 on
+  both ends), but would fail in non-obvious ways with 2.6 to 2.6.
+
+- add warning to "--show-groups" that not all supported groups are listed
+  (this is due the internal enumeration in OpenSSL being a bit weird,
+  omitting X448 and X25519 curves).
+
+- "--dns": remove support for "exclude-domains" argument
+  (this was a new 2.6 option, with no backend support implemented yet
+  on any platform, and it turns out that no platform supported it at all -
+  so remove option again)
+
+- warn user if INFO control message too long, do not forward to management
+  client (safeguard against protocol-violating server implementations)
+
+
+New features
+------------
+- DCO-WIN: get and log driver version (for easier debugging).
+
+- print "peer temporary key details" in TLS handshake
+
+- log OpenSSL errors on failure to set certificate, for example if the
+  algorithms used are in acceptable to OpenSSL (misleading message would
+  be printed in cryptoapi / pkcs#11 scenarios)
+
+- add CMake build system for MinGW and MSVC builds
+
+- remove old MSVC build system
+
+- improve cmocka unit test building for Windows
+
+
+Overview of changes in 2.6.6
+============================
+
+User visible changes
+--------------------
+- OCC exit messages are now logged more visibly
+  (Github #391)
+
+- OpenSSL error messages are now logged with more details (for example,
+  when loading a provider fails, which .so was tried, and why did it fail)
+  (Github #361)
+
+- print a more user-friendly message when tls-crypt-v2 client auth fails
+
+- packaging now includes all documentation in the tarball
+
+
+New features
+------------
+- set WINS server via interactive service - this adds support for
+  "dhcp-option WINS 192.0.2.1" for DCO + wintun interfaces where no
+  DHCP server is used (Github #373).
+
+Bug fixes / Code cleanup
+------------------------
+- route.c was sometimes ignoring return values of add_route3()
+  (found by coverity)
+
+- ntlm: clarify use of buffer in case of truncated NTLM challenge,
+  no actual code change (reported by Trial of Bits, TOB-OVPN-14)
+
+- pkcs11_openssl.c: disable unused code (found by coverity)
+
+- options.c: do not hide variable from parent scope (found by coverity)
+
+- configure: fix typo in LIBCAPNG_CFALGS (Github #371)
+
+- ignore IPv6 route deletion request on Android, reduce IPv4 route-related
+  message verbosity on Android
+
+- manage.c: document missing KID parameter of "client-pending-auth"
+  (new addition in da083c3b (2.6.2)) in manage interface help text
+
+- vpn-network-options.rst: fix typo of "dhcp-option" (Github #313)
+
+- tun.c/windows: quote WMIC call to set DHCP/DNS domain with hyphen
+  (Github #363)
+
+- fix CR_RESPONSE management message using wrong key_id
+
+- work around false positive compiler warnings with MinGW 12
+
+- work around false positive compiler warnings with GCC 12.2.0
+
+- fix more compiler warnings on FreeBSD
+
+- test_tls_crypt: improve cmocka testing portability
+
+- dco-linux: fix counter print format (signed/unsigned)
+
+- packaging: include everything that is needed for a MSVC build in tarballs
+  (Github #344)
+
+
+Overview of changes in 2.6.5
+============================
+
+User visible changes
+--------------------
+- tapctl (windows): generate driver-specific names (if using tapctl to
+  create additional tap/wintun/dco devices, and not using --name)
+  (Github #337)
+
+- interactive service (windows): do not force target desktop for
+  openvpn.exe - this has no impact for normal use, but enables running
+  of OpenVPN in a scripted way when no user is logged on (for example,
+  via task scheduler) (Github OpenVPN/openvpn-gui#626)
+
+Bug fixes
+---------
+- fix use-after-free with EVP_CIPHER_free
+
+- fix building with MSVC from release tarball (missing version.m4.in)
+
+- dco-win: repair use of --dev-node to select specific DCO drivers
+  (Github #336)
+
+- fix missing malloc() return check in dco_freebsd.c
+
+- windows: correctly handle unicode names for "exit event"
+
+- fix memleak in client-connect example plugin
+
+- fix fortify build problem in keying-material-exporter-demo plugin
+
+- fix memleak in dco_linux.c/dco_get_peer_stats_multi() - this will
+  leak a small amount of memory every 15s on DCO enabled servers,
+  leading to noticeable memory waste for long-running processes.
+
+- dco_linux.c: properly close dco version file (fd leak)
+
+
+Overview of changes in 2.6.4
+============================
+
+User visible changes
+--------------------
+- License amendment: all NEW commits fall under a modified license that
+  explicitly permits linking with Apache2 libraries (mbedTLS, OpenSSL) -
+  see COPYING for details.  Existing code will fall under the new license
+  as soon as all contributors have agreed to the change - work ongoing.
+
+New features
+------------
+- DCO: support kernel-triggered key rotation (avoid IV reuse after 2^32
+  packets).  This is the userland side, accepting a message from kernel,
+  and initiating a TLS renegotiation.  As of release, only implemented in
+  FreeBSD kernel.
+
+Bug fixes
+---------
+- fix pkcs#11 usage with OpenSSL 3.x and PSS signing (Github #323)
+
+- fix compile error on TARGET_ANDROID
+
+- fix typo in help text
+
+- manpage updates (--topology)
+
+- encoding of non-ASCII windows error messages in log + management fixed
+  (use UTF8 "as for everything else", not ANSI codepages)  (Github #319)
+
+
 Overview of changes in 2.6.3
 ============================
 
@@ -21,7 +228,7 @@ Bug fixes
 
 - Windows DCO driver: use correct crypto library so it loads on x86,
   see GH OpenVPN/ovpn-dco-win#43
-  
+
 
 
 Overview of changes in 2.6.2

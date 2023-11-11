@@ -23,8 +23,6 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#elif defined(_MSC_VER)
-#include "config-msvc.h"
 #endif
 
 #include "syshead.h"
@@ -608,7 +606,6 @@ ifconfig_pool_read(struct ifconfig_pool_persist *persist, struct ifconfig_pool *
         struct gc_arena gc = gc_new();
         struct buffer in = alloc_buf_gc(256, &gc);
         char *cn_buf, *ip_buf, *ip6_buf;
-        int line = 0;
 
         ALLOC_ARRAY_CLEAR_GC(cn_buf, char, buf_size, &gc);
         ALLOC_ARRAY_CLEAR_GC(ip_buf, char, buf_size, &gc);
@@ -621,7 +618,6 @@ ifconfig_pool_read(struct ifconfig_pool_persist *persist, struct ifconfig_pool *
             {
                 break;
             }
-            ++line;
             if (!BLEN(&in))
             {
                 continue;

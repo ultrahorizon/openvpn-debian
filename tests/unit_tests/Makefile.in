@@ -87,7 +87,6 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-@ENABLE_UNITTESTS_TRUE@@OPENSSL_ENGINE_TRUE@am__append_1 = engine-key
 subdir = tests/unit_tests
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_socklen_t.m4 \
@@ -156,7 +155,7 @@ am__define_uniq_tagged_files = \
   unique=`for i in $$list; do \
     if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
   done | $(am__uniquify_input)`
-DIST_SUBDIRS = example_test openvpn plugins engine-key
+DIST_SUBDIRS = example_test openvpn plugins
 am__DIST_COMMON = $(srcdir)/Makefile.in README.md
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 am__relativize = \
@@ -217,6 +216,7 @@ ENABLE_UNITTESTS = @ENABLE_UNITTESTS@
 ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
+FILECMD = @FILECMD@
 GIT = @GIT@
 GREP = @GREP@
 IFCONFIG = @IFCONFIG@
@@ -377,8 +377,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
-@ENABLE_UNITTESTS_TRUE@SUBDIRS = example_test openvpn plugins \
-@ENABLE_UNITTESTS_TRUE@	$(am__append_1)
+@ENABLE_UNITTESTS_TRUE@SUBDIRS = example_test openvpn plugins
 all: all-recursive
 
 .SUFFIXES:
