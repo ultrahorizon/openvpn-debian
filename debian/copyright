@@ -50,13 +50,8 @@ Copyright: 2019-2021 Arne Schwabe <arne@rfc2549.org>
 License: GPL-2
 
 Files: build/ltrc.inc
-       build/msvc/msvc-generate/Makefile.mak
 Copyright: 2008-2012 Alon Bar-Lev <alon.barlev@gmail.com>
 License: GPL-2
-
-Files: build/msvc/msvc-generate/msvc-generate.js
-Copyright: 2008-2012 Alon Bar-Lev <alon.barlev@gmail.com>
-License: BSD-3
 
 Files: src/openvpnmsica/*
 Copyright: 2018-2021 Simon Rozman <simon@rozman.si>
