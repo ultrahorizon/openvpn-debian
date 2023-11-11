@@ -9,11 +9,9 @@ Forwarded: yes, https://github.com/OpenVPN/openvpn/pull/433
  doc/openvpn.8.html                   |  4 ++--
  4 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/doc/man-sections/generic-options.rst b/doc/man-sections/generic-options.rst
-index 97e1b5a..95e4ca2 100644
 --- a/doc/man-sections/generic-options.rst
 +++ b/doc/man-sections/generic-options.rst
-@@ -483,7 +483,7 @@ which mode OpenVPN is configured as.
+@@ -483,7 +483,7 @@
  
    * :code:`OPENVPN_PLUGIN_AUTH_USER_PASS_VERIFY` plug-in hooks returns
      success/failure via :code:`auth_control_file` when using deferred auth
@@ -22,11 +20,9 @@ index 97e1b5a..95e4ca2 100644
  
  --use-prediction-resistance
    Enable prediction resistance on mbed TLS's RNG.
-diff --git a/doc/man-sections/server-options.rst b/doc/man-sections/server-options.rst
-index 6b9ad21..e7a7b2d 100644
 --- a/doc/man-sections/server-options.rst
 +++ b/doc/man-sections/server-options.rst
-@@ -739,7 +739,7 @@ fast hardware. SSL/TLS authentication must be used in this mode.
+@@ -739,7 +739,7 @@
  
  --vlan-pvid v
    Specifies which VLAN identifier a "port" is associated with. Only valid
@@ -35,11 +31,9 @@ index 6b9ad21..e7a7b2d 100644
  
    In the client context, the setting specifies which VLAN ID a client is
    associated with. In the global context, the VLAN ID of the server TAP
-diff --git a/doc/openvpn.8 b/doc/openvpn.8
-index 2c446d0..5769945 100644
 --- a/doc/openvpn.8
 +++ b/doc/openvpn.8
-@@ -655,7 +655,7 @@ method
+@@ -655,7 +655,7 @@
  .IP \(bu 2
  \fBOPENVPN_PLUGIN_AUTH_USER_PASS_VERIFY\fP plug\-in hooks returns
  success/failure via \fBauth_control_file\fP when using deferred auth
@@ -48,7 +42,7 @@ index 2c446d0..5769945 100644
  .UNINDENT
  .TP
  .B  \-\-use\-prediction\-resistance
-@@ -1147,9 +1147,9 @@ after a failed auth. Older clients will keep using the token value and
+@@ -1147,9 +1147,9 @@
  react according to \fB\-\-auth\-retry\fP
  .TP
  .BI \-\-auth\-token\-user \ base64username
@@ -60,16 +54,16 @@ index 2c446d0..5769945 100644
  username and password.
  .sp
  The username has to be base64 encoded.
-@@ -2692,7 +2692,7 @@ are tagged with 1 by default.
+@@ -2688,7 +2688,7 @@
  .TP
  .BI \-\-vlan\-pvid \ v
- Specifies which VLAN identifier a "port" is associated with. Only valid
+ Specifies which VLAN identifier a \(dqport\(dq is associated with. Only valid
 -when \fB\-\-vlan\-tagging\fP is speficied.
 +when \fB\-\-vlan\-tagging\fP is specified.
  .sp
  In the client context, the setting specifies which VLAN ID a client is
  associated with. In the global context, the VLAN ID of the server TAP
-@@ -5290,7 +5290,7 @@ periods of active usage.
+@@ -5286,7 +5286,7 @@
  It\(aqs best to use the \fB\-\-fragment\fP and/or \fB\-\-mssfix\fP options to deal
  with MTU sizing issues.
  .sp
@@ -78,11 +72,9 @@ index 2c446d0..5769945 100644
  packets larger than \fBtun\-mtu\fP (e.g. Linux and FreeBSD) but other platforms
  (like macOS) limit received packets to the same size as the MTU.
  .TP
-diff --git a/doc/openvpn.8.html b/doc/openvpn.8.html
-index e0ffd5f..ce11cba 100644
 --- a/doc/openvpn.8.html
 +++ b/doc/openvpn.8.html
-@@ -871,7 +871,7 @@ plug-in hook to dynamically generate client-specific configuration
+@@ -871,7 +871,7 @@
  method</li>
  <li><code>OPENVPN_PLUGIN_AUTH_USER_PASS_VERIFY</code> plug-in hooks returns
  success/failure via <code>auth_control_file</code> when using deferred auth
@@ -91,7 +83,7 @@ index e0ffd5f..ce11cba 100644
  </ul>
  </td></tr>
  <tr><td class="option-group" colspan="2">
-@@ -2540,7 +2540,7 @@ are tagged with 1 by default.</p>
+@@ -2536,7 +2536,7 @@
  <tr><td class="option-group">
  <kbd><span class="option">--vlan-pvid <var>v</var></span></kbd></td>
  <td><p class="first">Specifies which VLAN identifier a &quot;port&quot; is associated with. Only valid
