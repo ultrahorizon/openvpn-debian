@@ -1,3 +1,27 @@
+openvpn (2.6.7-1) unstable; urgency=medium
+
+  [ Aquila Macedo ]
+  * d/control: bump debhelper-compat level to 13.
+  * d/patches: Remove outdated patches
+  * d/patches: fix typo in openvpn binary
+  * d/patches: fix typo in manpages
+  * d/copyright: Update license to BSD-2
+  * d/openvpn.service: add documentation
+
+  [ Bernhard Schmidt ]
+  * New upstream version 2.6.7, fixing two CVEs (Closes: #1055805)
+    - CVE-2023-46849: Use of --fragment option can lead to a division by zero
+      error which can be fatal
+    - CVE-2023-46850: Incorrect use of send buffer can cause memory to be sent
+      to peer
+  * Pick patch recommended by upstream in GH#449 to fix segfault
+    introduced in 2.6.7
+
+  [ Remus-Gabriel Chelu ]
+  * Add Romanian templates translation (Closes: #1033179)
+
+ -- Bernhard Schmidt <berni@debian.org>  Sat, 11 Nov 2023 22:01:15 +0100
+
 openvpn (2.6.3-2.1) unstable; urgency=medium
 
   * Non-maintainer upload.
