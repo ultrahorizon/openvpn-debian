@@ -23,8 +23,6 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#elif defined(_MSC_VER)
-#include "config-msvc.h"
 #endif
 
 #ifdef HAVE_SYS_INOTIFY_H
@@ -1813,6 +1811,15 @@ multi_client_set_protocol_options(struct context *c)
         return false;
     }
 
+    /* Print a warning if we detect the client being in P2P mode and will
+     * not accept our pushed ciphers */
+    if (proto & IV_PROTO_NCP_P2P)
+    {
+        msg(M_WARN, "Note: peer reports running in P2P mode (no --pull/--client"
+            "option). It will not negotiate ciphers with this server. "
+            "Expect this connection to fail.");
+    }
+
     if (proto & IV_PROTO_REQUEST_PUSH)
     {
         c->c2.push_request_received = true;
@@ -3283,6 +3290,10 @@ multi_process_incoming_dco(struct multi_context *m)
         if (dco->dco_message_type == OVPN_CMD_DEL_PEER)
         {
             process_incoming_del_peer(m, mi, dco);
+        }
+        else if (dco->dco_message_type == OVPN_CMD_SWAP_KEYS)
+        {
+            tls_session_soft_reset(mi->context.c2.tls_multi);
         }
     }
     else

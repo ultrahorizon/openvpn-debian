@@ -23,8 +23,6 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#elif defined(_MSC_VER)
-#include "config-msvc.h"
 #endif
 
 #include "syshead.h"
@@ -1165,7 +1163,7 @@ protect_fd_nonlocal(int fd, const struct sockaddr *addr)
 {
     if (!management)
     {
-        msg(M_FATAL, "Required management interface not available.")
+        msg(M_FATAL, "Required management interface not available.");
     }
 
     /* pass socket FD to management interface to pass on to VPNService API

@@ -29,8 +29,6 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#elif defined(_MSC_VER)
-#include "config-msvc.h"
 #endif
 #ifdef HAVE_CONFIG_VERSION_H
 #include "config-version.h"
@@ -248,7 +246,7 @@ static const char usage_message[] =
     "--setenv name value : Set a custom environmental variable to pass to script.\n"
     "--setenv FORWARD_COMPATIBLE 1 : Relax config file syntax checking to allow\n"
     "                  directives for future OpenVPN versions to be ignored.\n"
-    "--ignore-unkown-option opt1 opt2 ...: Relax config file syntax. Allow\n"
+    "--ignore-unknown-option opt1 opt2 ...: Relax config file syntax. Allow\n"
     "                  these options to be ignored when unknown\n"
     "--script-security level: Where level can be:\n"
     "                  0 -- strictly no calling of external programs\n"
@@ -514,7 +512,6 @@ static const char usage_message[] =
     "                  Valid options are :\n"
     "                  address <addr[:port]> [addr[:port] ...] : server addresses 4/6\n"
     "                  resolve-domains <domain> [domain ...] : split domains\n"
-    "                  exclude-domains <domain> [domain ...] : domains not to resolve\n"
     "                  dnssec <yes|no|optional> : option to use DNSSEC\n"
     "                  type <DoH|DoT> : query server over HTTPS / TLS\n"
     "                  sni <domain> : DNS server name indication\n"
@@ -569,8 +566,6 @@ static const char usage_message[] =
     "(These options are meaningful only for TLS-mode)\n"
     "--tls-server    : Enable TLS and assume server role during TLS handshake.\n"
     "--tls-client    : Enable TLS and assume client role during TLS handshake.\n"
-    "--key-method m  : (DEPRECATED) Data channel key exchange method.  m should be a method\n"
-    "                  number, such as 1 (default), 2, etc.\n"
     "--ca file       : Certificate authority file in .pem format containing\n"
     "                  root certificate.\n"
 #ifndef ENABLE_CRYPTO_MBEDTLS
@@ -3771,14 +3766,14 @@ options_postprocess_mutate(struct options *o, struct env_set *es)
             o->windows_driver = WINDOWS_DRIVER_TAP_WINDOWS6;
         }
     }
-#endif
-
+#else  /* _WIN32 */
     if (dco_enabled(o) && o->dev_node)
     {
         msg(M_WARN, "Note: ignoring --dev-node as it has no effect when using "
             "data channel offload");
         o->dev_node = NULL;
     }
+#endif /* _WIN32 */
 
     /* this depends on o->windows_driver, which is set above */
     options_postprocess_mutate_invariant(o);
@@ -8044,22 +8039,6 @@ add_option(struct options *options,
             }
             else if (streq(p[3], "resolve-domains"))
             {
-                if (server->domain_type == DNS_EXCLUDE_DOMAINS)
-                {
-                    msg(msglevel, "--dns server %ld: cannot use resolve-domains and exclude-domains", priority);
-                    goto err;
-                }
-                server->domain_type = DNS_RESOLVE_DOMAINS;
-                dns_domain_list_append(&server->domains, &p[4], &options->dns_options.gc);
-            }
-            else if (streq(p[3], "exclude-domains"))
-            {
-                if (server->domain_type == DNS_RESOLVE_DOMAINS)
-                {
-                    msg(msglevel, "--dns server %ld: cannot use exclude-domains and resolve-domains", priority);
-                    goto err;
-                }
-                server->domain_type = DNS_EXCLUDE_DOMAINS;
                 dns_domain_list_append(&server->domains, &p[4], &options->dns_options.gc);
             }
             else if (streq(p[3], "dnssec") && !p[5])
@@ -9480,24 +9459,24 @@ add_option(struct options *options,
     else
     {
         int i;
-        int msglevel = msglevel_fc;
+        int msglevel_unknown = msglevel_fc;
         /* Check if an option is in --ignore-unknown-option and
          * set warning level to non fatal */
         for (i = 0; options->ignore_unknown_option && options->ignore_unknown_option[i]; i++)
         {
             if (streq(p[0], options->ignore_unknown_option[i]))
             {
-                msglevel = M_WARN;
+                msglevel_unknown = M_WARN;
                 break;
             }
         }
         if (file)
         {
-            msg(msglevel, "Unrecognized option or missing or extra parameter(s) in %s:%d: %s (%s)", file, line, p[0], PACKAGE_VERSION);
+            msg(msglevel_unknown, "Unrecognized option or missing or extra parameter(s) in %s:%d: %s (%s)", file, line, p[0], PACKAGE_VERSION);
         }
         else
         {
-            msg(msglevel, "Unrecognized option or missing or extra parameter(s): --%s (%s)", p[0], PACKAGE_VERSION);
+            msg(msglevel_unknown, "Unrecognized option or missing or extra parameter(s): --%s (%s)", p[0], PACKAGE_VERSION);
         }
     }
 err:

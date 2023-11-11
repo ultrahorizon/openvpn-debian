@@ -360,6 +360,7 @@ ENABLE_UNITTESTS = @ENABLE_UNITTESTS@
 ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
+FILECMD = @FILECMD@
 GIT = @GIT@
 GREP = @GREP@
 IFCONFIG = @IFCONFIG@
@@ -527,7 +528,6 @@ MAINTAINERCLEANFILES = \
 	$(srcdir)/Makefile.in
 
 EXTRA_DIST = \
-	openvpn.vcxproj \
 	openvpn.manifest
 
 AM_CPPFLAGS = \

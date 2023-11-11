@@ -179,9 +179,10 @@ man8dir = $(mandir)/man8
 NROFF = nroff
 MANS = $(dist_man_MANS)
 am__dist_html_DATA_DIST = openvpn.8.html openvpn-examples.5.html
-am__dist_noinst_DATA_DIST = README.plugins \
-	interactive-service-notes.rst openvpn.8.rst \
-	openvpn-examples.5.rst man-sections/advanced-options.rst \
+am__dist_noinst_DATA_DIST = android.txt interactive-service-notes.rst \
+	keying-material-exporter.txt openvpn.8.rst \
+	openvpn-examples.5.rst README.man README.plugins \
+	tls-crypt-v2.txt man-sections/advanced-options.rst \
 	man-sections/cipher-negotiation.rst \
 	man-sections/client-options.rst \
 	man-sections/connection-profiles.rst \
@@ -201,7 +202,7 @@ am__dist_noinst_DATA_DIST = README.plugins \
 	man-sections/vpn-network-options.rst \
 	man-sections/windows-options.rst \
 	man-sections/example-fingerprint.rst man-sections/examples.rst \
-	openvpn.8 openvpn-examples.5
+	CMakeLists.txt openvpn.8 openvpn-examples.5
 DATA = $(dist_doc_DATA) $(dist_html_DATA) $(dist_noinst_DATA)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
@@ -289,6 +290,7 @@ ENABLE_UNITTESTS = @ENABLE_UNITTESTS@
 ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
+FILECMD = @FILECMD@
 GIT = @GIT@
 GREP = @GREP@
 IFCONFIG = @IFCONFIG@
@@ -491,9 +493,12 @@ openvpn_examples_sections = \
 	man-sections/example-fingerprint.rst \
 	man-sections/examples.rst
 
-dist_noinst_DATA = README.plugins interactive-service-notes.rst \
-	openvpn.8.rst openvpn-examples.5.rst $(openvpn_sections) \
-	$(openvpn_examples_sections) $(am__append_1)
+dist_noinst_DATA = android.txt interactive-service-notes.rst \
+	keying-material-exporter.txt openvpn.8.rst \
+	openvpn-examples.5.rst README.man README.plugins \
+	tls-crypt-v2.txt $(openvpn_sections) \
+	$(openvpn_examples_sections) CMakeLists.txt $(am__append_1)
+EXTRA_DIST = tests
 
 ######  GENERIC  RULES  ##########
 SUFFIXES = .8.rst .8 .8.html .5.rst .5 .5.html

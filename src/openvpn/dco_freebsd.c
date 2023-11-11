@@ -20,8 +20,6 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#elif defined(_MSC_VER)
-#include "config-msvc.h"
 #endif
 
 #if defined(ENABLE_DCO) && defined(TARGET_FREEBSD)
@@ -550,6 +548,10 @@ dco_do_read(dco_context_t *dco)
             dco->dco_message_type = OVPN_CMD_DEL_PEER;
             break;
 
+        case OVPN_NOTIF_ROTATE_KEY:
+            dco->dco_message_type = OVPN_CMD_SWAP_KEYS;
+            break;
+
         default:
             msg(M_WARN, "Unknown kernel notification %d", type);
             break;
@@ -590,6 +592,10 @@ dco_available(int msglevel)
     }
 
     buf = malloc(ifcr.ifcr_total * IFNAMSIZ);
+    if (!buf)
+    {
+        goto out;
+    }
 
     ifcr.ifcr_count = ifcr.ifcr_total;
     ifcr.ifcr_buffer = buf;

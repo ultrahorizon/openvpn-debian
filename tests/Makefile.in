@@ -111,15 +111,13 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/ax_socklen_t.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-DIST_COMMON = $(srcdir)/Makefile.am $(am__dist_noinst_SCRIPTS_DIST) \
+DIST_COMMON = $(srcdir)/Makefile.am $(dist_noinst_SCRIPTS) \
 	$(dist_noinst_DATA) $(am__DIST_COMMON)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h \
 	$(top_builddir)/include/openvpn-plugin.h
 CONFIG_CLEAN_FILES = t_client.sh
 CONFIG_CLEAN_VPATH_FILES =
-am__dist_noinst_SCRIPTS_DIST = t_client.sh t_lpback.sh t_cltsrv.sh \
-	t_net.sh t_cltsrv-down.sh update_t_client_ips.sh
 SCRIPTS = $(dist_noinst_SCRIPTS)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -257,6 +255,7 @@ ENABLE_UNITTESTS = @ENABLE_UNITTESTS@
 ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
+FILECMD = @FILECMD@
 GIT = @GIT@
 GREP = @GREP@
 IFCONFIG = @IFCONFIG@
@@ -425,8 +424,10 @@ SUBDIRS = unit_tests
 TESTS_ENVIRONMENT = top_srcdir="$(top_srcdir)"
 TESTS = $(test_scripts)
 dist_noinst_SCRIPTS = \
-	$(test_scripts) \
+	t_cltsrv.sh \
 	t_cltsrv-down.sh \
+	t_lpback.sh \
+	t_net.sh \
 	update_t_client_ips.sh
 
 dist_noinst_DATA = \

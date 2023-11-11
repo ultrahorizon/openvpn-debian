@@ -23,8 +23,6 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#elif defined(_MSC_VER)
-#include "config-msvc.h"
 #endif
 
 #include "syshead.h"
@@ -1049,6 +1047,24 @@ process_incoming_link_part1(struct context *c, struct link_socket_info *lsi, boo
 
         if (c->c2.tls_multi)
         {
+            uint8_t opcode = *BPTR(&c->c2.buf) >> P_OPCODE_SHIFT;
+
+            /*
+             * If DCO is enabled, the kernel drivers require that the
+             * other end only sends P_DATA_V2 packets. V1 are unknown
+             * to kernel and passed to userland, but we cannot handle them
+             * either because crypto context is missing - so drop the packet.
+             *
+             * This can only happen with particular old (2.4.0-2.4.4) servers.
+             */
+            if ((opcode == P_DATA_V1) && dco_enabled(&c->options))
+            {
+                msg(D_LINK_ERRORS,
+                    "Data Channel Offload doesn't support DATA_V1 packets. "
+                    "Upgrade your server to 2.4.5 or newer.");
+                c->c2.buf.len = 0;
+            }
+
             /*
              * If tls_pre_decrypt returns true, it means the incoming
              * packet was a good TLS control channel packet.  If so, TLS code
@@ -1059,19 +1075,9 @@ process_incoming_link_part1(struct context *c, struct link_socket_info *lsi, boo
              * will load crypto_options with the correct encryption key
              * and return false.
              */
-            uint8_t opcode = *BPTR(&c->c2.buf) >> P_OPCODE_SHIFT;
             if (tls_pre_decrypt(c->c2.tls_multi, &c->c2.from, &c->c2.buf, &co,
                                 floated, &ad_start))
             {
-                /* Restore pre-NCP frame parameters */
-                if (is_hard_reset_method2(opcode))
-                {
-                    c->c2.frame = c->c2.frame_initial;
-#ifdef ENABLE_FRAGMENT
-                    c->c2.frame_fragment = c->c2.frame_fragment_initial;
-#endif
-                }
-
                 interval_action(&c->c2.tmp_int);
 
                 /* reset packet received timer if TLS packet */
@@ -1232,20 +1238,30 @@ process_incoming_dco(struct context *c)
         return;
     }
 
-    if (dco->dco_message_type != OVPN_CMD_DEL_PEER)
+    switch (dco->dco_message_type)
     {
-        msg(D_DCO_DEBUG, "%s: received message of type %u - ignoring", __func__,
-            dco->dco_message_type);
-        return;
+        case OVPN_CMD_DEL_PEER:
+            if (dco->dco_del_peer_reason == OVPN_DEL_PEER_REASON_EXPIRED)
+            {
+                msg(D_DCO_DEBUG, "%s: received peer expired notification of for peer-id "
+                    "%d", __func__, dco->dco_message_peer_id);
+                trigger_ping_timeout_signal(c);
+                return;
+            }
+            break;
+
+        case OVPN_CMD_SWAP_KEYS:
+            msg(D_DCO_DEBUG, "%s: received key rotation notification for peer-id %d",
+                __func__, dco->dco_message_peer_id);
+            tls_session_soft_reset(c->c2.tls_multi);
+            break;
+
+        default:
+            msg(D_DCO_DEBUG, "%s: received message of type %u - ignoring", __func__,
+                dco->dco_message_type);
+            return;
     }
 
-    if (dco->dco_del_peer_reason == OVPN_DEL_PEER_REASON_EXPIRED)
-    {
-        msg(D_DCO_DEBUG, "%s: received peer expired notification of for peer-id "
-            "%d", __func__, dco->dco_message_peer_id);
-        trigger_ping_timeout_signal(c);
-        return;
-    }
 #endif /* if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD)) */
 }
 

@@ -243,6 +243,7 @@ ENABLE_UNITTESTS = @ENABLE_UNITTESTS@
 ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
+FILECMD = @FILECMD@
 GIT = @GIT@
 GREP = @GREP@
 IFCONFIG = @IFCONFIG@
@@ -407,11 +408,11 @@ RCCOMPILE = $(RC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 
 LTRCCOMPILE = $(LIBTOOL) --mode=compile --tag=RC $(RCCOMPILE)
 MAINTAINERCLEANFILES = $(srcdir)/Makefile.in
-EXTRA_DIST = \
-	openvpnserv.vcxproj
-
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/include -I$(top_srcdir)/src/openvpn -I$(top_srcdir)/src/compat
+
+EXTRA_DIST = \
+	CMakeLists.txt
 
 @WIN32_TRUE@openvpnserv_CFLAGS = \
 @WIN32_TRUE@	-municode -D_UNICODE \

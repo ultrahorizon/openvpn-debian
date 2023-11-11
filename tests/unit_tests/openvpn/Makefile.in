@@ -191,7 +191,7 @@ crypto_testdriver_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(crypto_testdriver_CFLAGS) $(CFLAGS) \
 	$(crypto_testdriver_LDFLAGS) $(LDFLAGS) -o $@
 am__cryptoapi_testdriver_SOURCES_DIST = test_cryptoapi.c mock_msg.c \
-	$(top_srcdir)/src/openvpn/xkey_helper.c \
+	cert_data.h $(top_srcdir)/src/openvpn/xkey_helper.c \
 	$(top_srcdir)/src/openvpn/xkey_provider.c \
 	$(top_srcdir)/src/openvpn/buffer.c \
 	$(top_srcdir)/src/openvpn/base64.c \
@@ -294,6 +294,7 @@ packet_id_testdriver_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(packet_id_testdriver_LDFLAGS) $(LDFLAGS) -o $@
 am_pkt_testdriver_OBJECTS = pkt_testdriver-test_pkt.$(OBJEXT) \
 	pkt_testdriver-mock_msg.$(OBJEXT) \
+	pkt_testdriver-mock_win32_execve.$(OBJEXT) \
 	$(top_builddir)/src/openvpn/pkt_testdriver-argv.$(OBJEXT) \
 	$(top_builddir)/src/openvpn/pkt_testdriver-base64.$(OBJEXT) \
 	$(top_builddir)/src/openvpn/pkt_testdriver-buffer.$(OBJEXT) \
@@ -335,7 +336,8 @@ provider_testdriver_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(provider_testdriver_CFLAGS) $(CFLAGS) \
 	$(provider_testdriver_LDFLAGS) $(LDFLAGS) -o $@
 am__tls_crypt_testdriver_SOURCES_DIST = test_tls_crypt.c mock_msg.c \
-	mock_msg.h $(top_srcdir)/src/openvpn/argv.c \
+	mock_msg.h mock_win32_execve.c \
+	$(top_srcdir)/src/openvpn/argv.c \
 	$(top_srcdir)/src/openvpn/base64.c \
 	$(top_srcdir)/src/openvpn/buffer.c \
 	$(top_srcdir)/src/openvpn/crypto.c \
@@ -349,6 +351,7 @@ am__tls_crypt_testdriver_SOURCES_DIST = test_tls_crypt.c mock_msg.c \
 @WIN32_FALSE@am_tls_crypt_testdriver_OBJECTS =  \
 @WIN32_FALSE@	tls_crypt_testdriver-test_tls_crypt.$(OBJEXT) \
 @WIN32_FALSE@	tls_crypt_testdriver-mock_msg.$(OBJEXT) \
+@WIN32_FALSE@	tls_crypt_testdriver-mock_win32_execve.$(OBJEXT) \
 @WIN32_FALSE@	$(top_builddir)/src/openvpn/tls_crypt_testdriver-argv.$(OBJEXT) \
 @WIN32_FALSE@	$(top_builddir)/src/openvpn/tls_crypt_testdriver-base64.$(OBJEXT) \
 @WIN32_FALSE@	$(top_builddir)/src/openvpn/tls_crypt_testdriver-buffer.$(OBJEXT) \
@@ -500,11 +503,13 @@ am__depfiles_remade = $(top_builddir)/src/compat/$(DEPDIR)/ncp_testdriver-compat
 	./$(DEPDIR)/packet_id_testdriver-mock_msg.Po \
 	./$(DEPDIR)/packet_id_testdriver-test_packet_id.Po \
 	./$(DEPDIR)/pkt_testdriver-mock_msg.Po \
+	./$(DEPDIR)/pkt_testdriver-mock_win32_execve.Po \
 	./$(DEPDIR)/pkt_testdriver-test_pkt.Po \
 	./$(DEPDIR)/provider_testdriver-mock_get_random.Po \
 	./$(DEPDIR)/provider_testdriver-mock_msg.Po \
 	./$(DEPDIR)/provider_testdriver-test_provider.Po \
 	./$(DEPDIR)/tls_crypt_testdriver-mock_msg.Po \
+	./$(DEPDIR)/tls_crypt_testdriver-mock_win32_execve.Po \
 	./$(DEPDIR)/tls_crypt_testdriver-test_tls_crypt.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
@@ -619,6 +624,7 @@ ENABLE_UNITTESTS = @ENABLE_UNITTESTS@
 ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
+FILECMD = @FILECMD@
 GIT = @GIT@
 GREP = @GREP@
 IFCONFIG = @IFCONFIG@
@@ -834,7 +840,7 @@ pkt_testdriver_CFLAGS = @TEST_CFLAGS@ \
 	-I$(top_srcdir)/include -I$(top_srcdir)/src/compat -I$(top_srcdir)/src/openvpn
 
 pkt_testdriver_LDFLAGS = @TEST_LDFLAGS@
-pkt_testdriver_SOURCES = test_pkt.c mock_msg.c mock_msg.h \
+pkt_testdriver_SOURCES = test_pkt.c mock_msg.c mock_msg.h mock_win32_execve.c \
 	$(top_srcdir)/src/openvpn/argv.c \
 	$(top_srcdir)/src/openvpn/base64.c \
 	$(top_srcdir)/src/openvpn/buffer.c \
@@ -862,6 +868,7 @@ pkt_testdriver_SOURCES = test_pkt.c mock_msg.c mock_msg.h \
 @WIN32_FALSE@	-Wl,--wrap=rand_bytes
 
 @WIN32_FALSE@tls_crypt_testdriver_SOURCES = test_tls_crypt.c mock_msg.c mock_msg.h \
+@WIN32_FALSE@	mock_win32_execve.c \
 @WIN32_FALSE@	$(top_srcdir)/src/openvpn/argv.c \
 @WIN32_FALSE@	$(top_srcdir)/src/openvpn/base64.c \
 @WIN32_FALSE@	$(top_srcdir)/src/openvpn/buffer.c \
@@ -915,6 +922,7 @@ provider_testdriver_SOURCES = test_provider.c mock_msg.c \
 @WIN32_TRUE@	$(OPTIONAL_CRYPTO_LIBS) -lcrypt32 -lncrypt
 
 @WIN32_TRUE@cryptoapi_testdriver_SOURCES = test_cryptoapi.c mock_msg.c \
+@WIN32_TRUE@	cert_data.h \
 @WIN32_TRUE@	$(top_srcdir)/src/openvpn/xkey_helper.c \
 @WIN32_TRUE@	$(top_srcdir)/src/openvpn/xkey_provider.c \
 @WIN32_TRUE@	$(top_srcdir)/src/openvpn/buffer.c \
@@ -1483,11 +1491,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/packet_id_testdriver-mock_msg.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/packet_id_testdriver-test_packet_id.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pkt_testdriver-mock_msg.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pkt_testdriver-mock_win32_execve.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pkt_testdriver-test_pkt.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/provider_testdriver-mock_get_random.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/provider_testdriver-mock_msg.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/provider_testdriver-test_provider.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tls_crypt_testdriver-mock_msg.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tls_crypt_testdriver-mock_win32_execve.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tls_crypt_testdriver-test_tls_crypt.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
@@ -2724,6 +2734,20 @@ pkt_testdriver-mock_msg.obj: mock_msg.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(pkt_testdriver_CFLAGS) $(CFLAGS) -c -o pkt_testdriver-mock_msg.obj `if test -f 'mock_msg.c'; then $(CYGPATH_W) 'mock_msg.c'; else $(CYGPATH_W) '$(srcdir)/mock_msg.c'; fi`
 
+pkt_testdriver-mock_win32_execve.o: mock_win32_execve.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(pkt_testdriver_CFLAGS) $(CFLAGS) -MT pkt_testdriver-mock_win32_execve.o -MD -MP -MF $(DEPDIR)/pkt_testdriver-mock_win32_execve.Tpo -c -o pkt_testdriver-mock_win32_execve.o `test -f 'mock_win32_execve.c' || echo '$(srcdir)/'`mock_win32_execve.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pkt_testdriver-mock_win32_execve.Tpo $(DEPDIR)/pkt_testdriver-mock_win32_execve.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mock_win32_execve.c' object='pkt_testdriver-mock_win32_execve.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(pkt_testdriver_CFLAGS) $(CFLAGS) -c -o pkt_testdriver-mock_win32_execve.o `test -f 'mock_win32_execve.c' || echo '$(srcdir)/'`mock_win32_execve.c
+
+pkt_testdriver-mock_win32_execve.obj: mock_win32_execve.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(pkt_testdriver_CFLAGS) $(CFLAGS) -MT pkt_testdriver-mock_win32_execve.obj -MD -MP -MF $(DEPDIR)/pkt_testdriver-mock_win32_execve.Tpo -c -o pkt_testdriver-mock_win32_execve.obj `if test -f 'mock_win32_execve.c'; then $(CYGPATH_W) 'mock_win32_execve.c'; else $(CYGPATH_W) '$(srcdir)/mock_win32_execve.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pkt_testdriver-mock_win32_execve.Tpo $(DEPDIR)/pkt_testdriver-mock_win32_execve.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mock_win32_execve.c' object='pkt_testdriver-mock_win32_execve.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(pkt_testdriver_CFLAGS) $(CFLAGS) -c -o pkt_testdriver-mock_win32_execve.obj `if test -f 'mock_win32_execve.c'; then $(CYGPATH_W) 'mock_win32_execve.c'; else $(CYGPATH_W) '$(srcdir)/mock_win32_execve.c'; fi`
+
 $(top_builddir)/src/openvpn/pkt_testdriver-argv.o: $(top_builddir)/src/openvpn/argv.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(pkt_testdriver_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/pkt_testdriver-argv.o -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/pkt_testdriver-argv.Tpo -c -o $(top_builddir)/src/openvpn/pkt_testdriver-argv.o `test -f '$(top_builddir)/src/openvpn/argv.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/argv.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/pkt_testdriver-argv.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/pkt_testdriver-argv.Po
@@ -3101,6 +3125,20 @@ tls_crypt_testdriver-mock_msg.obj: mock_msg.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mock_msg.c' object='tls_crypt_testdriver-mock_msg.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tls_crypt_testdriver_CFLAGS) $(CFLAGS) -c -o tls_crypt_testdriver-mock_msg.obj `if test -f 'mock_msg.c'; then $(CYGPATH_W) 'mock_msg.c'; else $(CYGPATH_W) '$(srcdir)/mock_msg.c'; fi`
+
+tls_crypt_testdriver-mock_win32_execve.o: mock_win32_execve.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tls_crypt_testdriver_CFLAGS) $(CFLAGS) -MT tls_crypt_testdriver-mock_win32_execve.o -MD -MP -MF $(DEPDIR)/tls_crypt_testdriver-mock_win32_execve.Tpo -c -o tls_crypt_testdriver-mock_win32_execve.o `test -f 'mock_win32_execve.c' || echo '$(srcdir)/'`mock_win32_execve.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tls_crypt_testdriver-mock_win32_execve.Tpo $(DEPDIR)/tls_crypt_testdriver-mock_win32_execve.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mock_win32_execve.c' object='tls_crypt_testdriver-mock_win32_execve.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tls_crypt_testdriver_CFLAGS) $(CFLAGS) -c -o tls_crypt_testdriver-mock_win32_execve.o `test -f 'mock_win32_execve.c' || echo '$(srcdir)/'`mock_win32_execve.c
+
+tls_crypt_testdriver-mock_win32_execve.obj: mock_win32_execve.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tls_crypt_testdriver_CFLAGS) $(CFLAGS) -MT tls_crypt_testdriver-mock_win32_execve.obj -MD -MP -MF $(DEPDIR)/tls_crypt_testdriver-mock_win32_execve.Tpo -c -o tls_crypt_testdriver-mock_win32_execve.obj `if test -f 'mock_win32_execve.c'; then $(CYGPATH_W) 'mock_win32_execve.c'; else $(CYGPATH_W) '$(srcdir)/mock_win32_execve.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tls_crypt_testdriver-mock_win32_execve.Tpo $(DEPDIR)/tls_crypt_testdriver-mock_win32_execve.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mock_win32_execve.c' object='tls_crypt_testdriver-mock_win32_execve.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tls_crypt_testdriver_CFLAGS) $(CFLAGS) -c -o tls_crypt_testdriver-mock_win32_execve.obj `if test -f 'mock_win32_execve.c'; then $(CYGPATH_W) 'mock_win32_execve.c'; else $(CYGPATH_W) '$(srcdir)/mock_win32_execve.c'; fi`
 
 $(top_builddir)/src/openvpn/tls_crypt_testdriver-argv.o: $(top_builddir)/src/openvpn/argv.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tls_crypt_testdriver_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/tls_crypt_testdriver-argv.o -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/tls_crypt_testdriver-argv.Tpo -c -o $(top_builddir)/src/openvpn/tls_crypt_testdriver-argv.o `test -f '$(top_builddir)/src/openvpn/argv.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/argv.c
@@ -3603,11 +3641,13 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/packet_id_testdriver-mock_msg.Po
 	-rm -f ./$(DEPDIR)/packet_id_testdriver-test_packet_id.Po
 	-rm -f ./$(DEPDIR)/pkt_testdriver-mock_msg.Po
+	-rm -f ./$(DEPDIR)/pkt_testdriver-mock_win32_execve.Po
 	-rm -f ./$(DEPDIR)/pkt_testdriver-test_pkt.Po
 	-rm -f ./$(DEPDIR)/provider_testdriver-mock_get_random.Po
 	-rm -f ./$(DEPDIR)/provider_testdriver-mock_msg.Po
 	-rm -f ./$(DEPDIR)/provider_testdriver-test_provider.Po
 	-rm -f ./$(DEPDIR)/tls_crypt_testdriver-mock_msg.Po
+	-rm -f ./$(DEPDIR)/tls_crypt_testdriver-mock_win32_execve.Po
 	-rm -f ./$(DEPDIR)/tls_crypt_testdriver-test_tls_crypt.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
@@ -3772,11 +3812,13 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/packet_id_testdriver-mock_msg.Po
 	-rm -f ./$(DEPDIR)/packet_id_testdriver-test_packet_id.Po
 	-rm -f ./$(DEPDIR)/pkt_testdriver-mock_msg.Po
+	-rm -f ./$(DEPDIR)/pkt_testdriver-mock_win32_execve.Po
 	-rm -f ./$(DEPDIR)/pkt_testdriver-test_pkt.Po
 	-rm -f ./$(DEPDIR)/provider_testdriver-mock_get_random.Po
 	-rm -f ./$(DEPDIR)/provider_testdriver-mock_msg.Po
 	-rm -f ./$(DEPDIR)/provider_testdriver-test_provider.Po
 	-rm -f ./$(DEPDIR)/tls_crypt_testdriver-mock_msg.Po
+	-rm -f ./$(DEPDIR)/tls_crypt_testdriver-mock_win32_execve.Po
 	-rm -f ./$(DEPDIR)/tls_crypt_testdriver-test_tls_crypt.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic

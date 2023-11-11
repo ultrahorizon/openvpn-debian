@@ -221,6 +221,7 @@ ENABLE_UNITTESTS = @ENABLE_UNITTESTS@
 ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
+FILECMD = @FILECMD@
 GIT = @GIT@
 GREP = @GREP@
 IFCONFIG = @IFCONFIG@
@@ -382,12 +383,6 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 MAINTAINERCLEANFILES = \
 	$(srcdir)/Makefile.in
-
-EXTRA_DIST = \
-	compat.vcxproj \
-	PropertySheet.props \
-	Debug.props \
-	Release.props
 
 noinst_LTLIBRARIES = libcompat.la
 libcompat_la_SOURCES = \
