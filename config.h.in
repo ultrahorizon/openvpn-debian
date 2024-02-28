@@ -111,9 +111,6 @@
 /* extra version available in config-version.h */
 #undef HAVE_CONFIG_VERSION_H
 
-/* Use mbedtls_ctr_drbg_update_ret from mbed TLS */
-#undef HAVE_CTR_DRBG_UPDATE_RET
-
 /* Define to 1 if you have the `daemon' function. */
 #undef HAVE_DAEMON
 
@@ -273,6 +270,21 @@
 
 /* Define to 1 if you have the `mbedtls_cipher_write_tag' function. */
 #undef HAVE_MBEDTLS_CIPHER_WRITE_TAG
+
+/* Use mbedtls_ctr_drbg_update_ret from mbed TLS */
+#undef HAVE_MBEDTLS_CTR_DRBG_UPDATE_RET
+
+/* no */
+#undef HAVE_MBEDTLS_PSA_CRYPTO_H
+
+/* no */
+#undef HAVE_MBEDTLS_SSL_CONF_EXPORT_KEYS_EXT_CB
+
+/* no */
+#undef HAVE_MBEDTLS_SSL_SET_EXPORT_KEYS_CB
+
+/* no */
+#undef HAVE_MBEDTLS_SSL_TLS_PRF
 
 /* Define to 1 if you have the <minix/config.h> header file. */
 #undef HAVE_MINIX_CONFIG_H
@@ -451,9 +463,6 @@
 /* Define to 1 if you have the <valgrind/memcheck.h> header file. */
 #undef HAVE_VALGRIND_MEMCHECK_H
 
-/* Define to 1 if you have the <versionhelpers.h> header file. */
-#undef HAVE_VERSIONHELPERS_H
-
 /* Define to 1 if you have the `vfork' function. */
 #undef HAVE_VFORK
 
@@ -516,9 +525,6 @@
 
 /* Enable pedantic mode */
 #undef PEDANTIC
-
-/* Define as the return type of signal handlers (`int' or `void'). */
-#undef RETSIGTYPE
 
 /* Path to route tool */
 #undef ROUTE_PATH
