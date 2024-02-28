@@ -1,1 +1,1 @@
-debian/openvpn-generator /lib/systemd/system-generators
+debian/openvpn-generator /usr/lib/systemd/system-generators
