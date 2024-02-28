@@ -221,7 +221,6 @@ ENABLE_UNITTESTS = @ENABLE_UNITTESTS@
 ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
-FILECMD = @FILECMD@
 GIT = @GIT@
 GREP = @GREP@
 IFCONFIG = @IFCONFIG@
@@ -391,8 +390,7 @@ libcompat_la_SOURCES = \
 	compat-basename.c \
 	compat-gettimeofday.c \
 	compat-daemon.c \
-	compat-strsep.c \
-	compat-versionhelpers.h
+	compat-strsep.c
 
 all: all-am
 
