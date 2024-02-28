@@ -1,3 +1,11 @@
+openvpn (2.6.9-1) unstable; urgency=medium
+
+  * New upstream version 2.6.9
+  * Switch to systemd-dev (Closes: #1060500)
+  * Install systemd generator and units into /usr. (Closes: #1064399)
+
+ -- Bernhard Schmidt <berni@debian.org>  Wed, 28 Feb 2024 08:43:25 +0100
+
 openvpn (2.6.7-1) unstable; urgency=medium
 
   [ Aquila Macedo ]
