@@ -18,7 +18,7 @@ Build-Depends:
  net-tools [!linux-any],
  pkg-config,
  python3-docutils,
- systemd [linux-any]
+ systemd-dev [linux-any]
 Standards-Version: 4.6.0.1
 Rules-Requires-Root: no
 Homepage: https://openvpn.net/
