@@ -4,7 +4,7 @@ dnl             session authentication and key exchange,
 dnl             packet encryption, packet authentication, and
 dnl             packet compression.
 dnl
-dnl  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+dnl  Copyright (C) 2002-2024 OpenVPN Inc <sales@openvpn.net>
 dnl  Copyright (C) 2006-2012 Alon Bar-Lev <alon.barlev@gmail.com>
 dnl
 dnl  This program is free software; you can redistribute it and/or modify
@@ -1169,15 +1169,6 @@ fi
 if test "${have_lzo}" = "yes"; then
 	saved_CFLAGS="${CFLAGS}"
 	CFLAGS="${CFLAGS} ${LZO_CFLAGS}"
-	AC_CHECK_HEADERS(
-		[lzo/lzoutil.h],
-		,
-		[AC_CHECK_HEADERS(
-			[lzoutil.h],
-			,
-			[AC_MSG_ERROR([lzoutil.h is missing])]
-		)]
-	)
 	AC_CHECK_HEADERS(
 		[lzo/lzo1x.h],
 		,

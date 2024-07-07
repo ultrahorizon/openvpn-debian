@@ -21,12 +21,12 @@
 #             packet encryption, packet authentication, and
 #             packet compression.
 #
-#  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+#  Copyright (C) 2002-2024 OpenVPN Inc <sales@openvpn.net>
 #
 
 #  SPDX-License-Identifier: GPL-2.0-only
 #
-#  Copyright (C) 2020-2023 OpenVPN Inc <sales@openvpn.net>
+#  Copyright (C) 2020-2024 OpenVPN Inc <sales@openvpn.net>
 #
 
 am__is_gnu_make = { \
@@ -216,7 +216,7 @@ OPENSSL_CFLAGS =
 OPENSSL_LIBS = -lssl -lcrypto
 OPENVPN_VERSION_MAJOR = 2
 OPENVPN_VERSION_MINOR = 6
-OPENVPN_VERSION_PATCH = .9
+OPENVPN_VERSION_PATCH = .11
 OPTIONAL_CRYPTO_CFLAGS =  
 OPTIONAL_CRYPTO_LIBS =  -lssl -lcrypto
 OPTIONAL_DL_LIBS = -ldl
@@ -237,10 +237,10 @@ P11KIT_LIBS =
 PACKAGE = openvpn
 PACKAGE_BUGREPORT = openvpn-users@lists.sourceforge.net
 PACKAGE_NAME = OpenVPN
-PACKAGE_STRING = OpenVPN 2.6.9
+PACKAGE_STRING = OpenVPN 2.6.11
 PACKAGE_TARNAME = openvpn
 PACKAGE_URL = 
-PACKAGE_VERSION = 2.6.9
+PACKAGE_VERSION = 2.6.11
 PATH_SEPARATOR = :
 PKCS11_HELPER_CFLAGS = 
 PKCS11_HELPER_LIBS = -lpthread -ldl -lcrypto -lpkcs11-helper
@@ -270,7 +270,7 @@ TAP_WIN_MIN_MINOR = 9
 TEST_CFLAGS =     -I$(top_srcdir)/include 
 TEST_LDFLAGS =  -lssl -lcrypto   -lcmocka
 TMPFILES_DIR = 
-VERSION = 2.6.9
+VERSION = 2.6.11
 WOLFSSL_CFLAGS = 
 WOLFSSL_INCLUDEDIR = 
 WOLFSSL_LIBS = 

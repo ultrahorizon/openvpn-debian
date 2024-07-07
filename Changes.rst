@@ -1,3 +1,123 @@
+Overview of changes in 2.6.11
+=============================
+Security fixes
+--------------
+- CVE-2024-4877: Windows: harden interactive service pipe.
+  Security scope: a malicious process with "some" elevated privileges
+  (SeImpersonatePrivilege) could open the pipe a second time, tricking
+  openvn GUI into providing user credentials (tokens), getting full
+  access to the account openvpn-gui.exe runs as.
+  (Zeze with TeamT5)
+
+- CVE-2024-5594: control channel: refuse control channel messages with
+  nonprintable characters in them.  Security scope: a malicious openvpn
+  peer can send garbage to openvpn log, or cause high CPU load.
+  (Reynir Björnsson)
+
+- CVE-2024-28882: only call schedule_exit() once (on a given peer).
+  Security scope: an authenticated client can make the server "keep the
+  session" even when the server has been told to disconnect this client
+  (Reynir Björnsson)
+
+New features
+------------
+- Windows Crypto-API: Implement Windows CA template match for searching
+  certificates in windows crypto store.
+
+- support pre-created DCO interface on FreeBSD (OpenVPN would fail to
+  set ifmode p2p/subnet otherwise)
+
+Bugfixes
+--------
+- fix connect timeout when using SOCKS proxies (trac #328, github #267)
+
+- work around LibreSSL crashing on OpenBSD 7.5 when enumerating ciphers
+  (LibreSSL bug, already fixed upstream, but not backported to OpenBSD 7.5,
+  see also https://github.com/libressl/openbsd/issues/150)
+
+- Add bracket in fingerprint message and do not warn about missing
+  verification (github #516)
+
+Documentation
+-------------
+- remove "experimental" denotation for --fast-io
+
+- correctly document ifconfig_* variables passed to scripts (script-options.rst)
+
+- documentation: make section levels consistent
+
+- samples: Update sample configurations
+   remove compression & old cipher settings, add more informative comments
+
+Code maintenance
+----------------
+- remove usage of <lzoutils.h> header & macro, discouraged by upstream
+
+- only run coverity scans in OpenVPN/OpenVPN repository (= do not spam
+  owners of cloned repos with "cannot run this" messages)
+
+- replace macOS 11 github runners with macOS 14
+
+- remove some unused code in misc.c (leftover from commit 3a4fb1)
+
+- phase2_tcp_server: fix Coverity issue 'Dereference after null check'
+  - the code itself was correct, just doing needless checks
+
+- Use snprintf instead of sprintf for get_ssl_library_version
+  - the code itself was correct, but macOS clang dislikes sprintf()
+
+
+Overview of changes in 2.6.10
+=============================
+Security fixes
+--------------
+- CVE-2024-27459: Windows: fix a possible stack overflow in the
+  interactive service component which might lead to a local privilege
+  escalation.
+  Reported-by: Vladimir Tokarev <vtokarev@microsoft.com>
+
+- CVE-2024-24974: Windows: disallow access to the interactive service
+  pipe from remote computers.
+  Reported-by: Vladimir Tokarev <vtokarev@microsoft.com>
+
+- CVE-2024-27903: Windows: disallow loading of plugins from untrusted
+  installation paths, which could be used to attack openvpn.exe via
+  a malicious plugin.  Plugins can now only be loaded from the OpenVPN
+  install directory, the Windows system directory, and possibly from
+  a directory specified by HKLM\SOFTWARE\OpenVPN\plugin_dir.
+  Reported-by: Vladimir Tokarev <vtokarev@microsoft.com>
+
+Bug fixes
+---------
+- Windows: if the win-dco driver is used (default) and the GUI requests
+  use of a proxy server, the connection would fail.  Disable DCO in
+  this case.  (Github: #522)
+
+- Compression: minor bugfix in checking option consistency vs. compiled-in
+  algorithm support
+
+- systemd unit files: remove obsolete syslog.target
+
+User visible changes
+--------------------
+- Update copyright notices to 2024
+
+New features
+------------
+- t_client.sh can now run pre-tests and skip a test block if needed
+  (e.g. skip NTLM proxy tests if SSL library does not support MD4)
+
+Documentation
+-------------
+- remove license warnings about mbedTLS linking (README.mbedtls)
+
+- update documentation references in systemd unit files
+
+- sample config files: remove obsolete tls-*.conf files
+
+- document that auth-user-pass may be inlined
+
+
 Overview of changes in 2.6.9
 ============================
 
@@ -1453,7 +1573,7 @@ Control channel encryption (``--tls-crypt``)
 Asynchronous push reply
     Plug-ins providing support for deferred authentication can benefit from a more
     responsive authentication where the server sends PUSH_REPLY immediately once
-    the authentication result is ready, instead of waiting for the the client to
+    the authentication result is ready, instead of waiting for the client to
     to send PUSH_REQUEST once more.  This requires OpenVPN to be built with
     ``./configure --enable-async-push``.  This is a compile-time only switch.
 
