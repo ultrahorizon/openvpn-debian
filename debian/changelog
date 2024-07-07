@@ -1,3 +1,15 @@
+openvpn (2.6.11-1) unstable; urgency=medium
+
+  * New upstream version 2.6.11 (Closes: #1074488)
+    - CVE-2024-28882
+      client can circumvent management client-kill
+    - CVE-2024-5594
+      malicious peer can DoS or send garbage to logs
+  * d/openvpn@.service: Add CAP_SETPCAP required for openvpn-dco-dkms
+    (Closes: #1074504)
+
+ -- Bernhard Schmidt <berni@debian.org>  Mon, 08 Jul 2024 00:06:59 +0200
+
 openvpn (2.6.9-1) unstable; urgency=medium
 
   * New upstream version 2.6.9
