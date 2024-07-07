@@ -158,7 +158,7 @@ to the configuration if no other compression options are present.
 2.4.x or lower: The cipher in \fB\-\-cipher\fP is appended to
 \fB\-\-data\-ciphers\fP\&.
 .IP \(bu 2
-2.3.x or lower: \fB\-\-data\-cipher\-fallback\fP is automatically added with
+2.3.x or lower: \fB\-\-data\-ciphers\-fallback\fP is automatically added with
 the same cipher as \fB\-\-cipher\fP\&.
 .IP \(bu 2
 2.3.6 or lower: \fB\-\-tls\-version\-min 1.0\fP is added to the configuration
@@ -336,7 +336,7 @@ If \fBengine\-name\fP is specified, use a specific crypto engine. Use the
 are supported by OpenSSL.
 .TP
 .B  \-\-fast\-io
-(Experimental) Optimize TUN/TAP/UDP I/O writes by avoiding a call to
+Optimize TUN/TAP/UDP I/O writes by avoiding a call to
 poll/epoll/select prior to the write operation. The purpose of such a
 call would normally be to block until the device or socket is ready to
 accept the write. Such blocking is unnecessary on some platforms which
@@ -1183,6 +1183,24 @@ lines. If the password line is missing, OpenVPN will prompt for one.
 .sp
 If \fBup\fP is omitted, username/password will be prompted from the
 console.
+.sp
+This option can also be inlined
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<auth\-user\-pass>
+username
+[password]
+</auth\-user\-pass>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+where password is optional, and will be prompted from the console if
+missing.
 .sp
 The server configuration must specify an \fB\-\-auth\-user\-pass\-verify\fP
 script to verify the username/password provided by the client.
@@ -2778,7 +2796,7 @@ the client context, the global value is inherited.
 In some switch implementations, the \fIPVID\fP is also referred to as "Native
 VLAN".
 .UNINDENT
-.SH ENCRYPTION OPTIONS
+.SS Encryption Options
 .SS SSL Library information
 .INDENT 0.0
 .TP
@@ -4076,7 +4094,7 @@ queried.
 \fB\-\-verb\fP option can be used BEFORE this option to produce debugging
 information.
 .UNINDENT
-.SH DATA CHANNEL CIPHER NEGOTIATION
+.SS Data channel cipher negotiation
 .sp
 OpenVPN 2.4 and higher have the capability to negotiate the data cipher that
 is used to encrypt data packets. This section describes the mechanism in more detail and the
@@ -4084,7 +4102,7 @@ different backwards compatibility mechanism with older server and clients.
 .SS OpenVPN 2.5 and later behaviour
 .sp
 When both client and server are at least running OpenVPN 2.5, that the order of
-the ciphers of the server\(aqs \fB\-\-data\-ciphers\fP is used to pick the the data cipher.
+the ciphers of the server\(aqs \fB\-\-data\-ciphers\fP is used to pick the data cipher.
 That means that the first cipher in that list that is also in the client\(aqs
 \fB\-\-data\-ciphers\fP list is chosen. If no common cipher is found the client is rejected
 with a AUTH_FAILED message (as seen in client log):
@@ -5015,7 +5033,7 @@ virtual "multipoint networks"), \fB\-\-ifconfig\fP is used to set an IP
 address and subnet mask just as a physical ethernet adapter would be
 similarly configured. If you are attempting to connect to a remote
 ethernet bridge, the IP address and subnet should be set to values which
-would be valid on the the bridged ethernet segment (note also that DHCP
+would be valid on the bridged ethernet segment (note also that DHCP
 can be used for the same purpose).
 .sp
 This option, while primarily a proxy for the \fBifconfig\fP(8) command,
@@ -5422,7 +5440,7 @@ deleted or the machine is rebooted.
 One of the advantages of persistent tunnels is that they eliminate the
 need for separate \fB\-\-up\fP and \fB\-\-down\fP scripts to run the appropriate
 \fBifconfig\fP(8) and \fBroute\fP(8) commands. These commands can be
-placed in the the same shell script which starts or terminates an
+placed in the same shell script which starts or terminates an
 OpenVPN session.
 .sp
 Another advantage is that open connections through the TUN/TAP\-based
@@ -6310,13 +6328,6 @@ support it, such as \fB\-\-dhcp\-option\fP on a non\-Windows system, will be
 recorded to this environmental variable sequence prior to \fB\-\-up\fP
 script execution.
 .TP
-.B \fBifconfig_broadcast\fP
-The broadcast address for the virtual ethernet segment which is derived
-from the \fB\-\-ifconfig\fP option when \fB\-\-dev tap\fP is used. Set prior to
-OpenVPN calling the \fBifconfig\fP or \fBnetsh\fP (windows version
-of ifconfig) commands which normally occurs prior to \fB\-\-up\fP script
-execution.
-.TP
 .B \fBifconfig_ipv6_local\fP
 The local VPN endpoint IPv6 address specified in the
 \fB\-\-ifconfig\-ipv6\fP option (first parameter). Set prior to OpenVPN
@@ -6359,30 +6370,53 @@ used. Set prior to OpenVPN calling the \fBifconfig\fP or
 occurs prior to \fB\-\-up\fP script execution.
 .TP
 .B \fBifconfig_pool_local_ip\fP
-The local virtual IP address for the TUN/TAP tunnel taken from an
+The local virtual IPv4 address for the TUN/TAP tunnel taken from an
 \fB\-\-ifconfig\-push\fP directive if specified, or otherwise from the
 ifconfig pool (controlled by the \fB\-\-ifconfig\-pool\fP config file
 directive). Only set for \fB\-\-dev tun\fP tunnels. This option is set on
 the server prior to execution of the \fB\-\-client\-connect\fP and
 \fB\-\-client\-disconnect\fP scripts.
 .TP
+.B \fBifconfig_pool_local_ip6\fP
+The local virtual IPv6 address for the TUN/TAP tunnel taken from an
+\fB\-\-ifconfig\-ipv6\-push\fP directive if specified, or otherwise from the
+ifconfig pool (controlled by the \fB\-\-ifconfig\-ipv6\-pool\fP config file
+directive). Only set for \fB\-\-dev tun\fP tunnels. This option is set on
+the server prior to execution of the \fB\-\-client\-connect\fP and
+\fB\-\-client\-disconnect\fP scripts.
+.TP
 .B \fBifconfig_pool_netmask\fP
-The virtual IP netmask for the TUN/TAP tunnel taken from an
+The virtual IPv4 netmask for the TUN/TAP tunnel taken from an
 \fB\-\-ifconfig\-push\fP directive if specified, or otherwise from the
 ifconfig pool (controlled by the \fB\-\-ifconfig\-pool\fP config file
 directive). Only set for \fB\-\-dev tap\fP tunnels. This option is set on
 the server prior to execution of the \fB\-\-client\-connect\fP and
 \fB\-\-client\-disconnect\fP scripts.
 .TP
+.B \fBifconfig_pool_ip6_netbits\fP
+The virtual IPv6 prefix length for the TUN/TAP tunnel taken from an
+\fB\-\-ifconfig\-ipv6\-push\fP directive if specified, or otherwise from the
+ifconfig pool (controlled by the \fB\-\-ifconfig\-ipv6\-pool\fP config file
+directive). Only set for \fB\-\-dev tap\fP tunnels. This option is set on
+the server prior to execution of the \fB\-\-client\-connect\fP and
+\fB\-\-client\-disconnect\fP scripts.
+.TP
 .B \fBifconfig_pool_remote_ip\fP
-The remote virtual IP address for the TUN/TAP tunnel taken from an
+The remote virtual IPv4 address for the TUN/TAP tunnel taken from an
 \fB\-\-ifconfig\-push\fP directive if specified, or otherwise from the
 ifconfig pool (controlled by the \fB\-\-ifconfig\-pool\fP config file
 directive). This option is set on the server prior to execution of the
 \fB\-\-client\-connect\fP and \fB\-\-client\-disconnect\fP scripts.
 .TP
+.B \fBifconfig_pool_remote_ip6\fP
+The remote virtual IPv6 address for the TUN/TAP tunnel taken from an
+\fB\-\-ifconfig\-ipv6\-push\fP directive if specified, or otherwise from the
+ifconfig pool (controlled by the \fB\-\-ifconfig\-ipv6\-pool\fP config file
+directive). This option is set on the server prior to execution of the
+\fB\-\-client\-connect\fP and \fB\-\-client\-disconnect\fP scripts.
+.TP
 .B \fBlink_mtu\fP
-No longer passed to scripts since OpenVPN 2.6.0.  Used to be the
+\fIREMOVED\fP No longer passed to scripts since OpenVPN 2.6.0.  Used to be the
 maximum packet size (not including the IP header) of tunnel data in
 UDP tunnel transport mode.
 .TP
@@ -6899,6 +6933,20 @@ cryptoapicert "ISSUER:Sample CA"
 .UNINDENT
 .UNINDENT
 .sp
+To select a certificate based on a certificate\(aqs template name or
+OID of the template:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+cryptoapicert "TMPL:Name of Template"
+cryptoapicert "TMPL:1.3.6.1.4..."
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
 The first non\-expired certificate found in the user\(aqs store or the
 machine store that matches the select\-string is used.
 .TP
@@ -7360,7 +7408,7 @@ OpenVPN allows including files in the main configuration for the \fB\-\-ca\fP,
 \fB\-\-cert\fP, \fB\-\-dh\fP, \fB\-\-extra\-certs\fP, \fB\-\-key\fP, \fB\-\-pkcs12\fP,
 \fB\-\-secret\fP, \fB\-\-crl\-verify\fP, \fB\-\-http\-proxy\-user\-pass\fP, \fB\-\-tls\-auth\fP,
 \fB\-\-auth\-gen\-token\-secret\fP, \fB\-\-peer\-fingerprint\fP, \fB\-\-tls\-crypt\fP,
-\fB\-\-tls\-crypt\-v2\fP and \fB\-\-verify\-hash\fP options.
+\fB\-\-tls\-crypt\-v2\fP, \fB\-\-verify\-hash\fP and \fB\-\-auth\-user\-pass\fP options.
 .sp
 Each inline file started by the line \fB<option>\fP and ended by the line
 \fB</option>\fP

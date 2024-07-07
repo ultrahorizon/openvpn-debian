@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2024 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -107,14 +107,14 @@ lzo_compress_init(struct compress_context *compctx)
     {
         msg(M_FATAL, "Cannot initialize LZO compression library (lzo_init() returns %d)", lzo_status);
     }
-    compctx->wu.lzo.wmem = (lzo_voidp) lzo_malloc(compctx->wu.lzo.wmem_size);
+    compctx->wu.lzo.wmem = (lzo_voidp) malloc(compctx->wu.lzo.wmem_size);
     check_malloc_return(compctx->wu.lzo.wmem);
 }
 
 static void
 lzo_compress_uninit(struct compress_context *compctx)
 {
-    lzo_free(compctx->wu.lzo.wmem);
+    free(compctx->wu.lzo.wmem);
     compctx->wu.lzo.wmem = NULL;
 }
 

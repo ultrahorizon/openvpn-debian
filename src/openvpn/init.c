@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2024 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -221,12 +221,6 @@ management_callback_proxy_cmd(void *arg, const char **p)
     }
     else if (p[2] && p[3])
     {
-        if (dco_enabled(&c->options))
-        {
-            msg(M_INFO, "Proxy set via management, disabling Data Channel Offload.");
-            c->options.tuntap_options.disable_dco = true;
-        }
-
         if (streq(p[1], "HTTP"))
         {
             struct http_proxy_options *ho;
@@ -3638,7 +3632,8 @@ do_option_warnings(struct context *c)
         && !o->tls_verify
         && o->verify_x509_type == VERIFY_X509_NONE
         && !(o->ns_cert_type & NS_CERT_CHECK_SERVER)
-        && !o->remote_cert_eku)
+        && !o->remote_cert_eku
+        && !(o->verify_hash_depth == 0 && o->verify_hash))
     {
         msg(M_WARN, "WARNING: No server certificate verification method has been enabled.  See http://openvpn.net/howto.html#mitm for more info.");
     }

@@ -21,7 +21,7 @@
 #             packet encryption, packet authentication, and
 #             packet compression.
 #
-#  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+#  Copyright (C) 2002-2024 OpenVPN Inc <sales@openvpn.net>
 #  Copyright (C) 2006-2012 Alon Bar-Lev <alon.barlev@gmail.com>
 #
 
@@ -100,6 +100,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+@WIN32_FALSE@check_PROGRAMS = ntlm_support$(EXEEXT)
 @HAVE_SITNL_TRUE@@WIN32_FALSE@am__append_1 = t_net.sh
 subdir = tests
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -118,6 +119,25 @@ CONFIG_HEADER = $(top_builddir)/config.h \
 	$(top_builddir)/include/openvpn-plugin.h
 CONFIG_CLEAN_FILES = t_client.sh
 CONFIG_CLEAN_VPATH_FILES =
+am__dirstamp = $(am__leading_dot)dirstamp
+am_ntlm_support_OBJECTS = ntlm_support-ntlm_support.$(OBJEXT) \
+	unit_tests/openvpn/ntlm_support-mock_msg.$(OBJEXT) \
+	$(top_builddir)/src/openvpn/ntlm_support-buffer.$(OBJEXT) \
+	$(top_builddir)/src/openvpn/ntlm_support-crypto.$(OBJEXT) \
+	$(top_builddir)/src/openvpn/ntlm_support-crypto_openssl.$(OBJEXT) \
+	$(top_builddir)/src/openvpn/ntlm_support-crypto_mbedtls.$(OBJEXT) \
+	$(top_builddir)/src/openvpn/ntlm_support-otime.$(OBJEXT) \
+	$(top_builddir)/src/openvpn/ntlm_support-packet_id.$(OBJEXT) \
+	$(top_builddir)/src/openvpn/ntlm_support-platform.$(OBJEXT)
+ntlm_support_OBJECTS = $(am_ntlm_support_OBJECTS)
+ntlm_support_LDADD = $(LDADD)
+AM_V_lt = $(am__v_lt_@AM_V@)
+am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
+am__v_lt_0 = --silent
+am__v_lt_1 = 
+ntlm_support_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(ntlm_support_CFLAGS) \
+	$(CFLAGS) $(ntlm_support_LDFLAGS) $(LDFLAGS) -o $@
 SCRIPTS = $(dist_noinst_SCRIPTS)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -131,8 +151,40 @@ AM_V_at = $(am__v_at_@AM_V@)
 am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
 am__v_at_1 = 
-SOURCES =
-DIST_SOURCES =
+DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir) -I$(top_builddir)/include
+depcomp = $(SHELL) $(top_srcdir)/depcomp
+am__maybe_remake_depfiles = depfiles
+am__depfiles_remade =  \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-buffer.Po \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto.Po \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_mbedtls.Po \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_openssl.Po \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-otime.Po \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-packet_id.Po \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-platform.Po \
+	./$(DEPDIR)/ntlm_support-ntlm_support.Po \
+	unit_tests/openvpn/$(DEPDIR)/ntlm_support-mock_msg.Po
+am__mv = mv -f
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) \
+	$(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) \
+	$(AM_CFLAGS) $(CFLAGS)
+AM_V_CC = $(am__v_CC_@AM_V@)
+am__v_CC_ = $(am__v_CC_@AM_DEFAULT_V@)
+am__v_CC_0 = @echo "  CC      " $@;
+am__v_CC_1 = 
+CCLD = $(CC)
+LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(AM_LDFLAGS) $(LDFLAGS) -o $@
+AM_V_CCLD = $(am__v_CCLD_@AM_V@)
+am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
+am__v_CCLD_0 = @echo "  CCLD    " $@;
+am__v_CCLD_1 = 
+SOURCES = $(ntlm_support_SOURCES)
+DIST_SOURCES = $(ntlm_support_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -195,7 +247,8 @@ am__tty_colors = { \
   fi; \
 }
 DIST_SUBDIRS = $(SUBDIRS)
-am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/t_client.sh.in
+am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/t_client.sh.in \
+	$(top_srcdir)/depcomp
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 am__relativize = \
   dir0=`pwd`; \
@@ -432,9 +485,22 @@ dist_noinst_SCRIPTS = \
 dist_noinst_DATA = \
 	t_client.rc-sample
 
+ntlm_support_CFLAGS = -I$(top_srcdir)/src/openvpn -I$(top_srcdir)/src/compat -I$(top_srcdir)/tests/unit_tests/openvpn -DNO_CMOCKA @TEST_CFLAGS@
+ntlm_support_LDFLAGS = @TEST_LDFLAGS@ -L$(top_srcdir)/src/openvpn $(OPTIONAL_CRYPTO_LIBS)
+ntlm_support_SOURCES = ntlm_support.c \
+	unit_tests/openvpn/mock_msg.c unit_tests/openvpn/mock_msg.h \
+	$(top_srcdir)/src/openvpn/buffer.c \
+	$(top_srcdir)/src/openvpn/crypto.c \
+	$(top_srcdir)/src/openvpn/crypto_openssl.c \
+	$(top_srcdir)/src/openvpn/crypto_mbedtls.c \
+	$(top_srcdir)/src/openvpn/otime.c \
+	$(top_srcdir)/src/openvpn/packet_id.c \
+	$(top_srcdir)/src/openvpn/platform.c
+
 all: all-recursive
 
 .SUFFIXES:
+.SUFFIXES: .c .lo .o .obj
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -466,6 +532,229 @@ $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 $(am__aclocal_m4_deps):
 t_client.sh: $(top_builddir)/config.status $(srcdir)/t_client.sh.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+
+clean-checkPROGRAMS:
+	@list='$(check_PROGRAMS)'; test -n "$$list" || exit 0; \
+	echo " rm -f" $$list; \
+	rm -f $$list || exit $$?; \
+	test -n "$(EXEEXT)" || exit 0; \
+	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
+	echo " rm -f" $$list; \
+	rm -f $$list
+unit_tests/openvpn/$(am__dirstamp):
+	@$(MKDIR_P) unit_tests/openvpn
+	@: > unit_tests/openvpn/$(am__dirstamp)
+unit_tests/openvpn/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) unit_tests/openvpn/$(DEPDIR)
+	@: > unit_tests/openvpn/$(DEPDIR)/$(am__dirstamp)
+unit_tests/openvpn/ntlm_support-mock_msg.$(OBJEXT):  \
+	unit_tests/openvpn/$(am__dirstamp) \
+	unit_tests/openvpn/$(DEPDIR)/$(am__dirstamp)
+$(top_builddir)/src/openvpn/$(am__dirstamp):
+	@$(MKDIR_P) $(top_builddir)/src/openvpn
+	@: > $(top_builddir)/src/openvpn/$(am__dirstamp)
+$(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) $(top_builddir)/src/openvpn/$(DEPDIR)
+	@: > $(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)
+$(top_builddir)/src/openvpn/ntlm_support-buffer.$(OBJEXT):  \
+	$(top_builddir)/src/openvpn/$(am__dirstamp) \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)
+$(top_builddir)/src/openvpn/ntlm_support-crypto.$(OBJEXT):  \
+	$(top_builddir)/src/openvpn/$(am__dirstamp) \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)
+$(top_builddir)/src/openvpn/ntlm_support-crypto_openssl.$(OBJEXT):  \
+	$(top_builddir)/src/openvpn/$(am__dirstamp) \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)
+$(top_builddir)/src/openvpn/ntlm_support-crypto_mbedtls.$(OBJEXT):  \
+	$(top_builddir)/src/openvpn/$(am__dirstamp) \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)
+$(top_builddir)/src/openvpn/ntlm_support-otime.$(OBJEXT):  \
+	$(top_builddir)/src/openvpn/$(am__dirstamp) \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)
+$(top_builddir)/src/openvpn/ntlm_support-packet_id.$(OBJEXT):  \
+	$(top_builddir)/src/openvpn/$(am__dirstamp) \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)
+$(top_builddir)/src/openvpn/ntlm_support-platform.$(OBJEXT):  \
+	$(top_builddir)/src/openvpn/$(am__dirstamp) \
+	$(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)
+
+ntlm_support$(EXEEXT): $(ntlm_support_OBJECTS) $(ntlm_support_DEPENDENCIES) $(EXTRA_ntlm_support_DEPENDENCIES) 
+	@rm -f ntlm_support$(EXEEXT)
+	$(AM_V_CCLD)$(ntlm_support_LINK) $(ntlm_support_OBJECTS) $(ntlm_support_LDADD) $(LIBS)
+
+mostlyclean-compile:
+	-rm -f *.$(OBJEXT)
+	-rm -f $(top_builddir)/src/openvpn/*.$(OBJEXT)
+	-rm -f unit_tests/openvpn/*.$(OBJEXT)
+
+distclean-compile:
+	-rm -f *.tab.c
+
+@AMDEP_TRUE@@am__include@ @am__quote@$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-buffer.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_mbedtls.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_openssl.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-otime.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-packet_id.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-platform.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ntlm_support-ntlm_support.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@unit_tests/openvpn/$(DEPDIR)/ntlm_support-mock_msg.Po@am__quote@ # am--include-marker
+
+$(am__depfiles_remade):
+	@$(MKDIR_P) $(@D)
+	@echo '# dummy' >$@-t && $(am__mv) $@-t $@
+
+am--depfiles: $(am__depfiles_remade)
+
+.c.o:
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ $<
+
+.c.obj:
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ `$(CYGPATH_W) '$<'` &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+
+.c.lo:
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.lo$$||'`;\
+@am__fastdepCC_TRUE@	$(LTCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
+
+ntlm_support-ntlm_support.o: ntlm_support.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT ntlm_support-ntlm_support.o -MD -MP -MF $(DEPDIR)/ntlm_support-ntlm_support.Tpo -c -o ntlm_support-ntlm_support.o `test -f 'ntlm_support.c' || echo '$(srcdir)/'`ntlm_support.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ntlm_support-ntlm_support.Tpo $(DEPDIR)/ntlm_support-ntlm_support.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ntlm_support.c' object='ntlm_support-ntlm_support.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o ntlm_support-ntlm_support.o `test -f 'ntlm_support.c' || echo '$(srcdir)/'`ntlm_support.c
+
+ntlm_support-ntlm_support.obj: ntlm_support.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT ntlm_support-ntlm_support.obj -MD -MP -MF $(DEPDIR)/ntlm_support-ntlm_support.Tpo -c -o ntlm_support-ntlm_support.obj `if test -f 'ntlm_support.c'; then $(CYGPATH_W) 'ntlm_support.c'; else $(CYGPATH_W) '$(srcdir)/ntlm_support.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ntlm_support-ntlm_support.Tpo $(DEPDIR)/ntlm_support-ntlm_support.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ntlm_support.c' object='ntlm_support-ntlm_support.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o ntlm_support-ntlm_support.obj `if test -f 'ntlm_support.c'; then $(CYGPATH_W) 'ntlm_support.c'; else $(CYGPATH_W) '$(srcdir)/ntlm_support.c'; fi`
+
+unit_tests/openvpn/ntlm_support-mock_msg.o: unit_tests/openvpn/mock_msg.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT unit_tests/openvpn/ntlm_support-mock_msg.o -MD -MP -MF unit_tests/openvpn/$(DEPDIR)/ntlm_support-mock_msg.Tpo -c -o unit_tests/openvpn/ntlm_support-mock_msg.o `test -f 'unit_tests/openvpn/mock_msg.c' || echo '$(srcdir)/'`unit_tests/openvpn/mock_msg.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) unit_tests/openvpn/$(DEPDIR)/ntlm_support-mock_msg.Tpo unit_tests/openvpn/$(DEPDIR)/ntlm_support-mock_msg.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='unit_tests/openvpn/mock_msg.c' object='unit_tests/openvpn/ntlm_support-mock_msg.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o unit_tests/openvpn/ntlm_support-mock_msg.o `test -f 'unit_tests/openvpn/mock_msg.c' || echo '$(srcdir)/'`unit_tests/openvpn/mock_msg.c
+
+unit_tests/openvpn/ntlm_support-mock_msg.obj: unit_tests/openvpn/mock_msg.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT unit_tests/openvpn/ntlm_support-mock_msg.obj -MD -MP -MF unit_tests/openvpn/$(DEPDIR)/ntlm_support-mock_msg.Tpo -c -o unit_tests/openvpn/ntlm_support-mock_msg.obj `if test -f 'unit_tests/openvpn/mock_msg.c'; then $(CYGPATH_W) 'unit_tests/openvpn/mock_msg.c'; else $(CYGPATH_W) '$(srcdir)/unit_tests/openvpn/mock_msg.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) unit_tests/openvpn/$(DEPDIR)/ntlm_support-mock_msg.Tpo unit_tests/openvpn/$(DEPDIR)/ntlm_support-mock_msg.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='unit_tests/openvpn/mock_msg.c' object='unit_tests/openvpn/ntlm_support-mock_msg.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o unit_tests/openvpn/ntlm_support-mock_msg.obj `if test -f 'unit_tests/openvpn/mock_msg.c'; then $(CYGPATH_W) 'unit_tests/openvpn/mock_msg.c'; else $(CYGPATH_W) '$(srcdir)/unit_tests/openvpn/mock_msg.c'; fi`
+
+$(top_builddir)/src/openvpn/ntlm_support-buffer.o: $(top_builddir)/src/openvpn/buffer.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-buffer.o -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-buffer.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-buffer.o `test -f '$(top_builddir)/src/openvpn/buffer.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/buffer.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-buffer.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-buffer.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/buffer.c' object='$(top_builddir)/src/openvpn/ntlm_support-buffer.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-buffer.o `test -f '$(top_builddir)/src/openvpn/buffer.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/buffer.c
+
+$(top_builddir)/src/openvpn/ntlm_support-buffer.obj: $(top_builddir)/src/openvpn/buffer.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-buffer.obj -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-buffer.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-buffer.obj `if test -f '$(top_builddir)/src/openvpn/buffer.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/buffer.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/buffer.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-buffer.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-buffer.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/buffer.c' object='$(top_builddir)/src/openvpn/ntlm_support-buffer.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-buffer.obj `if test -f '$(top_builddir)/src/openvpn/buffer.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/buffer.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/buffer.c'; fi`
+
+$(top_builddir)/src/openvpn/ntlm_support-crypto.o: $(top_builddir)/src/openvpn/crypto.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-crypto.o -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-crypto.o `test -f '$(top_builddir)/src/openvpn/crypto.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/crypto.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/crypto.c' object='$(top_builddir)/src/openvpn/ntlm_support-crypto.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-crypto.o `test -f '$(top_builddir)/src/openvpn/crypto.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/crypto.c
+
+$(top_builddir)/src/openvpn/ntlm_support-crypto.obj: $(top_builddir)/src/openvpn/crypto.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-crypto.obj -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-crypto.obj `if test -f '$(top_builddir)/src/openvpn/crypto.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/crypto.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/crypto.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/crypto.c' object='$(top_builddir)/src/openvpn/ntlm_support-crypto.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-crypto.obj `if test -f '$(top_builddir)/src/openvpn/crypto.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/crypto.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/crypto.c'; fi`
+
+$(top_builddir)/src/openvpn/ntlm_support-crypto_openssl.o: $(top_builddir)/src/openvpn/crypto_openssl.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-crypto_openssl.o -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_openssl.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-crypto_openssl.o `test -f '$(top_builddir)/src/openvpn/crypto_openssl.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/crypto_openssl.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_openssl.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_openssl.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/crypto_openssl.c' object='$(top_builddir)/src/openvpn/ntlm_support-crypto_openssl.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-crypto_openssl.o `test -f '$(top_builddir)/src/openvpn/crypto_openssl.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/crypto_openssl.c
+
+$(top_builddir)/src/openvpn/ntlm_support-crypto_openssl.obj: $(top_builddir)/src/openvpn/crypto_openssl.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-crypto_openssl.obj -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_openssl.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-crypto_openssl.obj `if test -f '$(top_builddir)/src/openvpn/crypto_openssl.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/crypto_openssl.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/crypto_openssl.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_openssl.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_openssl.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/crypto_openssl.c' object='$(top_builddir)/src/openvpn/ntlm_support-crypto_openssl.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-crypto_openssl.obj `if test -f '$(top_builddir)/src/openvpn/crypto_openssl.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/crypto_openssl.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/crypto_openssl.c'; fi`
+
+$(top_builddir)/src/openvpn/ntlm_support-crypto_mbedtls.o: $(top_builddir)/src/openvpn/crypto_mbedtls.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-crypto_mbedtls.o -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_mbedtls.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-crypto_mbedtls.o `test -f '$(top_builddir)/src/openvpn/crypto_mbedtls.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/crypto_mbedtls.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_mbedtls.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_mbedtls.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/crypto_mbedtls.c' object='$(top_builddir)/src/openvpn/ntlm_support-crypto_mbedtls.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-crypto_mbedtls.o `test -f '$(top_builddir)/src/openvpn/crypto_mbedtls.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/crypto_mbedtls.c
+
+$(top_builddir)/src/openvpn/ntlm_support-crypto_mbedtls.obj: $(top_builddir)/src/openvpn/crypto_mbedtls.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-crypto_mbedtls.obj -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_mbedtls.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-crypto_mbedtls.obj `if test -f '$(top_builddir)/src/openvpn/crypto_mbedtls.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/crypto_mbedtls.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/crypto_mbedtls.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_mbedtls.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_mbedtls.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/crypto_mbedtls.c' object='$(top_builddir)/src/openvpn/ntlm_support-crypto_mbedtls.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-crypto_mbedtls.obj `if test -f '$(top_builddir)/src/openvpn/crypto_mbedtls.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/crypto_mbedtls.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/crypto_mbedtls.c'; fi`
+
+$(top_builddir)/src/openvpn/ntlm_support-otime.o: $(top_builddir)/src/openvpn/otime.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-otime.o -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-otime.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-otime.o `test -f '$(top_builddir)/src/openvpn/otime.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/otime.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-otime.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-otime.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/otime.c' object='$(top_builddir)/src/openvpn/ntlm_support-otime.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-otime.o `test -f '$(top_builddir)/src/openvpn/otime.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/otime.c
+
+$(top_builddir)/src/openvpn/ntlm_support-otime.obj: $(top_builddir)/src/openvpn/otime.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-otime.obj -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-otime.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-otime.obj `if test -f '$(top_builddir)/src/openvpn/otime.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/otime.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/otime.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-otime.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-otime.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/otime.c' object='$(top_builddir)/src/openvpn/ntlm_support-otime.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-otime.obj `if test -f '$(top_builddir)/src/openvpn/otime.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/otime.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/otime.c'; fi`
+
+$(top_builddir)/src/openvpn/ntlm_support-packet_id.o: $(top_builddir)/src/openvpn/packet_id.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-packet_id.o -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-packet_id.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-packet_id.o `test -f '$(top_builddir)/src/openvpn/packet_id.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/packet_id.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-packet_id.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-packet_id.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/packet_id.c' object='$(top_builddir)/src/openvpn/ntlm_support-packet_id.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-packet_id.o `test -f '$(top_builddir)/src/openvpn/packet_id.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/packet_id.c
+
+$(top_builddir)/src/openvpn/ntlm_support-packet_id.obj: $(top_builddir)/src/openvpn/packet_id.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-packet_id.obj -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-packet_id.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-packet_id.obj `if test -f '$(top_builddir)/src/openvpn/packet_id.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/packet_id.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/packet_id.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-packet_id.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-packet_id.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/packet_id.c' object='$(top_builddir)/src/openvpn/ntlm_support-packet_id.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-packet_id.obj `if test -f '$(top_builddir)/src/openvpn/packet_id.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/packet_id.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/packet_id.c'; fi`
+
+$(top_builddir)/src/openvpn/ntlm_support-platform.o: $(top_builddir)/src/openvpn/platform.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-platform.o -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-platform.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-platform.o `test -f '$(top_builddir)/src/openvpn/platform.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/platform.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-platform.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-platform.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/platform.c' object='$(top_builddir)/src/openvpn/ntlm_support-platform.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-platform.o `test -f '$(top_builddir)/src/openvpn/platform.c' || echo '$(srcdir)/'`$(top_builddir)/src/openvpn/platform.c
+
+$(top_builddir)/src/openvpn/ntlm_support-platform.obj: $(top_builddir)/src/openvpn/platform.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -MT $(top_builddir)/src/openvpn/ntlm_support-platform.obj -MD -MP -MF $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-platform.Tpo -c -o $(top_builddir)/src/openvpn/ntlm_support-platform.obj `if test -f '$(top_builddir)/src/openvpn/platform.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/platform.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/platform.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-platform.Tpo $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-platform.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/src/openvpn/platform.c' object='$(top_builddir)/src/openvpn/ntlm_support-platform.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntlm_support_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/src/openvpn/ntlm_support-platform.obj `if test -f '$(top_builddir)/src/openvpn/platform.c'; then $(CYGPATH_W) '$(top_builddir)/src/openvpn/platform.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/src/openvpn/platform.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -723,6 +1012,7 @@ distdir-am: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
+	$(MAKE) $(AM_MAKEFLAGS) $(check_PROGRAMS)
 	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
 check: check-recursive
 all-am: Makefile $(SCRIPTS) $(DATA)
@@ -754,6 +1044,10 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
+	-rm -f unit_tests/openvpn/$(DEPDIR)/$(am__dirstamp)
+	-rm -f unit_tests/openvpn/$(am__dirstamp)
+	-test -z "$(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)" || rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/$(am__dirstamp)
+	-test -z "$(top_builddir)/src/openvpn/$(am__dirstamp)" || rm -f $(top_builddir)/src/openvpn/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -761,11 +1055,22 @@ maintainer-clean-generic:
 	-test -z "$(MAINTAINERCLEANFILES)" || rm -f $(MAINTAINERCLEANFILES)
 clean: clean-recursive
 
-clean-am: clean-generic clean-libtool mostlyclean-am
+clean-am: clean-checkPROGRAMS clean-generic clean-libtool \
+	mostlyclean-am
 
 distclean: distclean-recursive
+		-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-buffer.Po
+	-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto.Po
+	-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_mbedtls.Po
+	-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_openssl.Po
+	-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-otime.Po
+	-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-packet_id.Po
+	-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-platform.Po
+	-rm -f ./$(DEPDIR)/ntlm_support-ntlm_support.Po
+	-rm -f unit_tests/openvpn/$(DEPDIR)/ntlm_support-mock_msg.Po
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic distclean-tags
+distclean-am: clean-am distclean-compile distclean-generic \
+	distclean-tags
 
 dvi: dvi-recursive
 
@@ -808,12 +1113,22 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-recursive
+		-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-buffer.Po
+	-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto.Po
+	-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_mbedtls.Po
+	-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-crypto_openssl.Po
+	-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-otime.Po
+	-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-packet_id.Po
+	-rm -f $(top_builddir)/src/openvpn/$(DEPDIR)/ntlm_support-platform.Po
+	-rm -f ./$(DEPDIR)/ntlm_support-ntlm_support.Po
+	-rm -f unit_tests/openvpn/$(DEPDIR)/ntlm_support-mock_msg.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
 mostlyclean: mostlyclean-recursive
 
-mostlyclean-am: mostlyclean-generic mostlyclean-libtool
+mostlyclean-am: mostlyclean-compile mostlyclean-generic \
+	mostlyclean-libtool
 
 pdf: pdf-recursive
 
@@ -827,9 +1142,10 @@ uninstall-am:
 
 .MAKE: $(am__recursive_targets) check-am install-am install-strip
 
-.PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am check \
-	check-TESTS check-am clean clean-generic clean-libtool \
-	cscopelist-am ctags ctags-am distclean distclean-generic \
+.PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am \
+	am--depfiles check check-TESTS check-am clean \
+	clean-checkPROGRAMS clean-generic clean-libtool cscopelist-am \
+	ctags ctags-am distclean distclean-compile distclean-generic \
 	distclean-libtool distclean-tags distdir dvi dvi-am html \
 	html-am info info-am install install-am install-data \
 	install-data-am install-dvi install-dvi-am install-exec \
@@ -837,9 +1153,9 @@ uninstall-am:
 	install-info-am install-man install-pdf install-pdf-am \
 	install-ps install-ps-am install-strip installcheck \
 	installcheck-am installdirs installdirs-am maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-generic \
-	mostlyclean-libtool pdf pdf-am ps ps-am tags tags-am uninstall \
-	uninstall-am
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags tags-am uninstall uninstall-am
 
 .PRECIOUS: Makefile
 

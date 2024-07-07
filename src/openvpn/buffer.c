@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2024 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -1111,6 +1111,23 @@ string_mod(char *str, const unsigned int inclusive, const unsigned int exclusive
         }
     }
     return ret;
+}
+
+bool
+string_check_buf(struct buffer *buf, const unsigned int inclusive, const unsigned int exclusive)
+{
+    ASSERT(buf);
+
+    for (int i = 0; i < BLEN(buf); i++)
+    {
+        char c = BSTR(buf)[i];
+
+        if (!char_inc_exc(c, inclusive, exclusive))
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 const char *
