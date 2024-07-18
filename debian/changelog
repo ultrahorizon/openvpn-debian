@@ -1,3 +1,12 @@
+openvpn (2.6.12-1) unstable; urgency=medium
+
+  * New upstream version 2.6.12
+    - Fix regression in CVE-2024-5594 patch breaking user configurations with
+      AUTH_FAIL messages having trailing CR/NL characters. This often happens
+      if the AUTH_FAIL reason is set by a script
+
+ -- Bernhard Schmidt <berni@debian.org>  Thu, 18 Jul 2024 23:30:00 +0200
+
 openvpn (2.6.11-1) unstable; urgency=medium
 
   * New upstream version 2.6.11 (Closes: #1074488)
