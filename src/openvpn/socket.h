@@ -1075,6 +1075,8 @@ link_socket_read(struct link_socket *sock,
                  const uint8_t *xor_mask,
                  int xor_mask_length)
 {
+    int res;
+
     if (proto_is_udp(sock->info.proto) || socket_is_dco_win(sock))
     /* unified UDPv4 and UDPv6, for DCO-WIN the kernel
      * will strip the length header */
@@ -1090,7 +1092,7 @@ link_socket_read(struct link_socket *sock,
     {
         /* from address was returned by accept */
         from->dest = sock->info.lsa->actual.dest;
-        return link_socket_read_tcp(sock, buf);
+        res = link_socket_read_tcp(sock, buf);
     }
     else
     {
