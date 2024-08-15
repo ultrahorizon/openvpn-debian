@@ -50,6 +50,14 @@ configuration.
   after a failed auth. Older clients will keep using the token value and
   react according to ``--auth-retry``
 
+--auth-token-user base64username
+  Companion option to ``--auth-token``. This options allows one to override
+  the username used by the client when reauthenticating with the ``auth-token``.
+  It also allows one to use ``--auth-token`` in setups that normally do not use
+  username and password.
+
+  The username has to be base64 encoded.
+
 --auth-user-pass
   Authenticate with server using username/password.
 
@@ -64,6 +72,17 @@ configuration.
 
   If ``up`` is omitted, username/password will be prompted from the
   console.
+
+  This option can also be inlined
+  ::
+
+    <auth-user-pass>
+    username
+    [password]
+    </auth-user-pass>
+
+  where password is optional, and will be prompted from the console if
+  missing.
 
   The server configuration must specify an ``--auth-user-pass-verify``
   script to verify the username/password provided by the client.
@@ -130,12 +149,19 @@ configuration.
   Set ``--verb 6`` for debugging info showing the transformation of
   src/dest addresses in packets.
 
---connect-retry n
-  Wait ``n`` seconds between connection attempts (default :code:`5`).
+--connect-retry args
+  Wait ``n`` seconds between connection attempts (default :code:`1`).
   Repeated reconnection attempts are slowed down after 5 retries per
-  remote by doubling the wait time after each unsuccessful attempt. An
-  optional argument ``max`` specifies the maximum value of wait time in
-  seconds at which it gets capped (default :code:`300`).
+  remote by doubling the wait time after each unsuccessful attempt.
+
+  Valid syntaxes:
+  ::
+
+     connect retry n
+     connect retry n max
+
+  If the optional argument ``max`` is specified, the maximum wait time in
+  seconds gets capped at that value (default :code:`300`).
 
 --connect-retry-max n
   ``n`` specifies the number of times each ``--remote`` or
@@ -146,6 +172,62 @@ configuration.
 --connect-timeout n
   See ``--server-poll-timeout``.
 
+--dns args
+  Client DNS configuration to be used with the connection.
+
+  Valid syntaxes:
+  ::
+
+     dns search-domains domain [domain ...]
+     dns server n address addr[:port] [addr[:port] ...]
+     dns server n resolve-domains domain [domain ...]
+     dns server n dnssec yes|optional|no
+     dns server n transport DoH|DoT|plain
+     dns server n sni server-name
+
+  The ``--dns search-domains`` directive takes one or more domain names
+  to be added as DNS domain suffixes. If it is repeated multiple times within
+  a configuration the domains are appended, thus e.g. domain names pushed by
+  a server will amend locally defined ones.
+
+  The ``--dns server`` directive is used to configure DNS server ``n``.
+  The server id ``n`` must be a value between -128 and 127. For pushed
+  DNS server options it must be between 0 and 127. The server id is used
+  to group options and also for ordering the list of configured DNS servers;
+  lower numbers come first. DNS servers being pushed to a client replace
+  already configured DNS servers with the same server id.
+
+  The ``address`` option configures the IPv4 and / or IPv6 address(es) of
+  the DNS server. Up to eight addresses can be specified per DNS server.
+  Optionally a port can be appended after a colon. IPv6 addresses need to
+  be enclosed in brackets if a port is appended.
+
+  The ``resolve-domains`` option takes one or more DNS domains used to define
+  a split-dns or dns-routing setup, where only the given domains are resolved
+  by the server. Systems which do not support fine grained DNS domain
+  configuration will ignore this setting.
+
+  The ``dnssec`` option is used to configure validation of DNSSEC records.
+  While the exact semantics may differ for resolvers on different systems,
+  ``yes`` likely makes validation mandatory, ``no`` disables it, and ``optional``
+  uses it opportunistically.
+
+  The ``transport`` option enables DNS-over-HTTPS (``DoH``) or DNS-over-TLS (``DoT``)
+  for a DNS server. The ``sni`` option can be used with them to specify the
+  ``server-name`` for TLS server name indication.
+
+  Each server has to have at least one address configured for a configuration
+  to be valid. All the other options can be omitted.
+
+  Note that not all options may be supported on all platforms. As soon support
+  for different systems is implemented, information will be added here how
+  unsupported options are treated.
+
+  The ``--dns`` option will eventually obsolete the ``--dhcp-option`` directive.
+  Until then it will replace configuration at the places ``--dhcp-option`` puts it,
+  so that ``--dns`` overrides ``--dhcp-option``. Thus, ``--dns`` can be used today
+  to migrate from ``--dhcp-option``.
+
 --explicit-exit-notify n
   In UDP client mode or point-to-point mode, send server/peer an exit
   notification if tunnel is restarted or OpenVPN process is exited. In
@@ -153,9 +235,14 @@ configuration.
   immediately close its client instance object rather than waiting for a
   timeout.
 
+  If both server and client support sending this message using the control
+  channel, the message will be sent as control-channel message. Otherwise
+  the message is sent as data-channel message, which will be ignored by
+  data-channel offloaded peers.
+
   The **n** parameter (default :code:`1` if not present) controls the
   maximum number of attempts that the client will try to resend the exit
-  notification message.
+  notification message if messages are sent in data-channel mode.
 
   In UDP server mode, send :code:`RESTART` control channel command to
   connected clients. The ``n`` parameter (default :code:`1` if not present)
@@ -190,6 +277,16 @@ configuration.
 --proto-force p
   When iterating through connection profiles, only consider profiles using
   protocol ``p`` (:code:`tcp` \| :code:`udp`).
+
+  Note that this specifically only filters by the transport layer
+  protocol, i.e. UDP or TCP. This does not affect whether IPv4 or
+  IPv6 is used as IP protocol.
+
+  For implementation reasons the option accepts the :code:`4` and :code:`6`
+  suffixes when specifying the protocol
+  (i.e. :code:`udp4` / :code:`udp6` / :code:`tcp4` / :code:`tcp6`).
+  However, these behave the same as without the suffix and should be avoided
+  to prevent confusion.
 
 --pull
   This option must be used on a client which is connecting to a
@@ -243,44 +340,148 @@ configuration.
   next remote succeeds. To silently ignore an option pushed by the server,
   use :code:`ignore`.
 
+--push-peer-info
+  Push additional information about the client to server. The following
+  data is always pushed to the server:
+
+  :code:`IV_VER=<version>`
+        The client OpenVPN version
+
+  :code:`IV_PLAT=[linux|solaris|openbsd|mac|netbsd|freebsd|win]`
+        The client OS platform
+
+  :code:`IV_PROTO`
+    Details about protocol extensions that the peer supports. The
+    variable is a bitfield and the bits are defined as follows:
+
+    - bit 0: Reserved, should always be zero
+    - bit 1: The peer supports peer-id floating mechanism
+    - bit 2: The client expects a push-reply and the server may
+      send this reply without waiting for a push-request first.
+    - bit 3: The client is capable of doing key derivation using
+      RFC5705 key material exporter.
+    - bit 4: The client is capable of accepting additional arguments
+      to the ``AUTH_PENDING`` message.
+    - bit 5: The client supports doing feature negotiation in P2P mode
+    - bit 6: The client is capable of parsing and receiving the ``--dns`` pushed option
+    - bit 7: The client is capable of sending exit notification via control channel using ``EXIT`` message. Also, the client is accepting the protocol-flags pushed option for the EKM capability
+    - bit 8: The client is capable of accepting ``AUTH_FAILED,TEMP`` messages
+    - bit 9: The client is capable of dynamic tls-crypt
+
+  :code:`IV_NCP=2`
+        Negotiable ciphers, client supports ``--cipher`` pushed by
+        the server, a value of 2 or greater indicates client supports
+        *AES-GCM-128* and *AES-GCM-256*. IV_NCP is *deprecated* in
+        favor of ``IV_CIPHERS``.
+
+  :code:`IV_CIPHERS=<data-ciphers>`
+        The client announces the list of supported ciphers configured with the
+        ``--data-ciphers`` option to the server.
+
+  :code:`IV_MTU=<max_mtu>`
+        The client announces the support of pushable MTU and the maximum MTU
+        it is willing to accept.
+
+  :code:`IV_GUI_VER=<gui_id> <version>`
+        The UI version of a UI if one is running, for example
+        :code:`de.blinkt.openvpn 0.5.47` for the Android app.
+        This may be set by the client UI/GUI using ``--setenv``.
+
+  :code:`IV_SSO=[crtext,][openurl,][proxy_url]`
+        Additional authentication methods supported by the client.
+        This may be set by the client UI/GUI using ``--setenv``.
+
+  The following flags depend on which compression formats are compiled in
+  and whether compression is allowed by options. See `Protocol options`_
+  for more details.
+
+    :code:`IV_LZO=1`
+        If client supports LZO compression.
+
+    :code:`IV_LZO_STUB=1`
+        If client was built with LZO stub capability. This is only sent if
+        ``IV_LZO=1`` is not sent. This means the client can talk to a server
+        configured with ``--comp-lzo no``.
+
+    :code:`IV_LZ4=1` and :code:`IV_LZ4v2=1`
+        If the client supports LZ4 compression.
+
+    :code:`IV_COMP_STUB=1` and :code:`IV_COMP_STUBv2=1`
+        If the client supports stub compression. This means the client can talk
+        to a server configured with ``--compress``.
+
+  When ``--push-peer-info`` is enabled the additional information consists
+  of the following data:
+
+  :code:`IV_HWADDR=<string>`
+        This is intended to be a unique and persistent ID of the client.
+        The string value can be any readable ASCII string up to 64 bytes.
+        OpenVPN 2.x and some other implementations use the MAC address of
+        the client's interface used to reach the default gateway. If this
+        string is generated by the client, it should be consistent and
+        preserved across independent sessions and preferably
+        re-installations and upgrades.
+
+  :code:`IV_SSL=<version string>`
+        The ssl library version used by the client, e.g.
+        :code:`OpenSSL 1.0.2f 28 Jan 2016`.
+
+  :code:`IV_PLAT_VER=x.y`
+        The version of the operating system, e.g. 6.1 for Windows 7.
+        This may be set by the client UI/GUI using ``--setenv``.
+        On Windows systems it is automatically determined by openvpn
+        itself.
+
+  :code:`UV_<name>=<value>`
+        Client environment variables whose names start with
+        :code:`UV_`
+
 --remote args
-  Remote host name or IP address.  It supports two additional optional
-  arguments: ``port`` and ``proto``.  On the client, multiple ``--remote``
-  options may be specified for redundancy, each referring to a different
-  OpenVPN server. Specifying multiple ``--remote`` options for this
-  purpose is a special case of the more general connection-profile
-  feature. See the ``<connection>`` documentation below.
+  Remote host name or IP address, port and protocol.
 
-  The OpenVPN client will try to connect to a server at ``host:port`` in
-  the order specified by the list of ``--remote`` options.
-
-  Examples:
+  Valid syntaxes:
   ::
 
-     remote server.example.net
-     remote server.example.net 1194
-     remote server.example.net tcp
+     remote host
+     remote host port
+     remote host port proto
 
-  ``proto`` indicates the protocol to use when connecting with the remote,
-  and may be :code:`tcp` or :code:`udp`.
+  The ``port`` and ``proto`` arguments are optional. The OpenVPN client
+  will try to connect to a server at ``host:port``.  The ``proto`` argument
+  indicates the protocol to use when connecting with the remote, and may be
+  :code:`tcp` or :code:`udp`.  To enforce IPv4 or IPv6 connections add a
+  :code:`4` or :code:`6` suffix; like :code:`udp4` / :code:`udp6`
+  / :code:`tcp4` / :code:`tcp6`.
 
-  For forcing IPv4 or IPv6 connection suffix tcp or udp with 4/6 like
-  udp4/udp6/tcp4/tcp6.
+  On the client, multiple ``--remote`` options may be specified for
+  redundancy, each referring to a different OpenVPN server, in the order
+  specified by the list of ``--remote`` options. Specifying multiple
+  ``--remote`` options for this purpose is a special case of the more
+  general connection-profile feature. See the ``<connection>``
+  documentation below.
 
   The client will move on to the next host in the list, in the event of
   connection failure. Note that at any given time, the OpenVPN client will
   at most be connected to one server.
 
-  Note that since UDP is connectionless, connection failure is defined by
-  the ``--ping`` and ``--ping-restart`` options.
+  Examples:
+  ::
 
-  Note the following corner case: If you use multiple ``--remote``
-  options, AND you are dropping root privileges on the client with
-  ``--user`` and/or ``--group`` AND the client is running a non-Windows
-  OS, if the client needs to switch to a different server, and that server
-  pushes back different TUN/TAP or route settings, the client may lack the
-  necessary privileges to close and reopen the TUN/TAP interface. This
-  could cause the client to exit with a fatal error.
+     remote server1.example.net
+     remote server1.example.net 1194
+     remote server2.example.net 1194 tcp
+
+  *Note:*
+     Since UDP is connectionless, connection failure is defined by
+     the ``--ping`` and ``--ping-restart`` options.
+
+     Also, if you use multiple ``--remote`` options, AND you are dropping
+     root privileges on the client with ``--user`` and/or ``--group`` AND
+     the client is running a non-Windows OS, if the client needs to switch
+     to a different server, and that server pushes back different TUN/TAP
+     or route settings, the client may lack the necessary privileges to
+     close and reopen the TUN/TAP interface. This could cause the client
+     to exit with a fatal error.
 
   If ``--remote`` is unspecified, OpenVPN will listen for packets from any
   IP address, but will not act on those packets unless they pass all
@@ -313,7 +514,7 @@ configuration.
   If hostname resolve fails for ``--remote``, retry resolve for ``n``
   seconds before failing.
 
-  Set ``n`` to "infinite" to retry indefinitely.
+  Set ``n`` to :code:`infinite` to retry indefinitely.
 
   By default, ``--resolv-retry infinite`` is enabled. You can disable by
   setting n=0.
@@ -332,7 +533,7 @@ configuration.
 --server-poll-timeout n
   When connecting to a remote server do not wait for more than ``n``
   seconds for a response before trying the next server. The default value
-  is 120s. This timeout includes proxy and TCP connect timeouts.
+  is :code:`120`. This timeout includes proxy and TCP connect timeouts.
 
 --static-challenge args
   Enable static challenge/response protocol

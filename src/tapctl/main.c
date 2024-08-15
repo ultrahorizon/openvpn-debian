@@ -2,9 +2,8 @@
  *  tapctl -- Utility to manipulate TUN/TAP adapters on Windows
  *            https://community.openvpn.net/openvpn/wiki/Tapctl
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
- *  Copyright (C) 2008-2013 David Sommerseth <dazo@users.sourceforge.net>
- *  Copyright (C) 2018 Simon Rozman <simon@rozman.si>
+ *  Copyright (C) 2002-2024 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2018-2024 Simon Rozman <simon@rozman.si>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -22,11 +21,6 @@
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
-#elif defined(_MSC_VER)
-#include <config-msvc.h>
-#endif
-#ifdef HAVE_CONFIG_VERSION_H
-#include <config-version.h>
 #endif
 
 #include "tap.h"
@@ -45,11 +39,10 @@
 
 const TCHAR title_string[] =
     TEXT(PACKAGE_NAME) TEXT(" ") TEXT(PACKAGE_VERSION)
-    TEXT(" built on ") TEXT(__DATE__)
 ;
 
 static const TCHAR usage_message[] =
-    TEXT("%s\n")
+    TEXT("%") TEXT(PRIsLPTSTR) TEXT("\n")
     TEXT("\n")
     TEXT("Usage:\n")
     TEXT("\n")
@@ -66,7 +59,7 @@ static const TCHAR usage_message[] =
 ;
 
 static const TCHAR usage_message_create[] =
-    TEXT("%s\n")
+    TEXT("%") TEXT(PRIsLPTSTR) TEXT("\n")
     TEXT("\n")
     TEXT("Creates a new TUN/TAP adapter\n")
     TEXT("\n")
@@ -81,9 +74,9 @@ static const TCHAR usage_message_create[] =
     TEXT("               specified, a default adapter name is chosen by Windows.         \n")
     TEXT("               Note: This name can also be specified as OpenVPN's --dev-node   \n")
     TEXT("               option.                                                         \n")
-    TEXT("--hwid <hwid>  Adapter hardware ID. Default value is root\\tap0901, which       \n")
-    TEXT("               describes tap-windows6 driver. To work with wintun driver,      \n")
-    TEXT("               specify 'wintun'.                                               \n")
+    TEXT("--hwid <hwid>  Adapter hardware ID. Default value is root\\tap0901, which      \n")
+    TEXT("               describes tap-windows6 driver. To work with wintun or ovpn-dco  \n")
+    TEXT("               driver, specify 'wintun' or 'ovpn-dco'.                         \n")
     TEXT("\n")
     TEXT("Output:\n")
     TEXT("\n")
@@ -91,7 +84,7 @@ static const TCHAR usage_message_create[] =
 ;
 
 static const TCHAR usage_message_list[] =
-    TEXT("%s\n")
+    TEXT("%") TEXT(PRIsLPTSTR) TEXT("\n")
     TEXT("\n")
     TEXT("Lists TUN/TAP adapters\n")
     TEXT("\n")
@@ -101,8 +94,8 @@ static const TCHAR usage_message_list[] =
     TEXT("\n")
     TEXT("Options:\n")
     TEXT("\n")
-    TEXT("--hwid <hwid>  Adapter hardware ID. By default, root\\tap0901, tap0901 and      \n")
-    TEXT("               wintun adapters are listed. Use this switch to limit the list.  \n")
+    TEXT("--hwid <hwid>  Adapter hardware ID. By default, root\\tap0901, tap0901, wintun and \n")
+    TEXT("               ovpn-dco adapters are listed. Use this switch to limit the list.\n")
     TEXT("\n")
     TEXT("Output:\n")
     TEXT("\n")
@@ -110,7 +103,7 @@ static const TCHAR usage_message_list[] =
 ;
 
 static const TCHAR usage_message_delete[] =
-    TEXT("%s\n")
+    TEXT("%") TEXT(PRIsLPTSTR) TEXT("\n")
     TEXT("\n")
     TEXT("Deletes the specified network adapter\n")
     TEXT("\n")
@@ -131,6 +124,85 @@ usage(void)
               title_string);
 }
 
+/**
+ * Checks if adapter with given name doesn't already exist
+ */
+static BOOL
+is_adapter_name_available(LPCTSTR name, struct tap_adapter_node *adapter_list, BOOL log)
+{
+    for (struct tap_adapter_node *a = adapter_list; a; a = a->pNext)
+    {
+        if (_tcsicmp(name, a->szName) == 0)
+        {
+            if (log)
+            {
+                LPOLESTR adapter_id = NULL;
+                StringFromIID((REFIID)&a->guid, &adapter_id);
+                _ftprintf(stderr, TEXT("Adapter \"%") TEXT(PRIsLPTSTR) TEXT("\" already exists (GUID %")
+                          TEXT(PRIsLPOLESTR) TEXT(").\n"), a->szName, adapter_id);
+                CoTaskMemFree(adapter_id);
+            }
+
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
+/**
+ * Returns unique adapter name based on hwid or NULL if name cannot be generated.
+ * Caller is responsible for freeing it.
+ */
+static LPTSTR
+get_unique_adapter_name(LPCTSTR hwid, struct tap_adapter_node *adapter_list)
+{
+    if (hwid == NULL)
+    {
+        return NULL;
+    }
+
+    LPCTSTR base_name;
+    if (_tcsicmp(hwid, TEXT("ovpn-dco")) == 0)
+    {
+        base_name = TEXT("OpenVPN Data Channel Offload");
+    }
+    else if (_tcsicmp(hwid, TEXT("wintun")) == 0)
+    {
+        base_name = TEXT("OpenVPN Wintun");
+    }
+    else if (_tcsicmp(hwid, TEXT("root\\") TEXT(TAP_WIN_COMPONENT_ID)) == 0)
+    {
+        base_name = TEXT("OpenVPN TAP-Windows6");
+    }
+    else
+    {
+        return NULL;
+    }
+
+    if (is_adapter_name_available(base_name, adapter_list, FALSE))
+    {
+        return _tcsdup(base_name);
+    }
+
+    size_t name_len = _tcslen(base_name) + 10;
+    LPTSTR name = malloc(name_len * sizeof(TCHAR));
+    if (name == NULL)
+    {
+        return NULL;
+    }
+    for (int i = 1; i < 100; ++i)
+    {
+        _stprintf_s(name, name_len, TEXT("%ls #%d"), base_name, i);
+
+        if (is_adapter_name_available(name, adapter_list, FALSE))
+        {
+            return name;
+        }
+    }
+
+    return NULL;
+}
 
 /**
  * Program entry point
@@ -170,7 +242,8 @@ _tmain(int argc, LPCTSTR argv[])
         }
         else
         {
-            _ftprintf(stderr, TEXT("Unknown command \"%s\". Please, use \"tapctl help\" to list supported commands.\n"), argv[2]);
+            _ftprintf(stderr, TEXT("Unknown command \"%") TEXT(PRIsLPTSTR)
+                      TEXT("\". Please, use \"tapctl help\" to list supported commands.\n"), argv[2]);
         }
 
         return 1;
@@ -187,14 +260,15 @@ _tmain(int argc, LPCTSTR argv[])
             {
                 szName = argv[++i];
             }
-            else
-            if (_tcsicmp(argv[i], TEXT("--hwid")) == 0)
+            else if (_tcsicmp(argv[i], TEXT("--hwid")) == 0)
             {
                 szHwId = argv[++i];
             }
             else
             {
-                _ftprintf(stderr, TEXT("Unknown option \"%s\". Please, use \"tapctl help create\" to list supported options. Ignored.\n"), argv[i]);
+                _ftprintf(stderr, TEXT("Unknown option \"%") TEXT(PRIsLPTSTR)
+                          TEXT("\". Please, use \"tapctl help create\" to list supported options. Ignored.\n"),
+                          argv[i]);
             }
         }
 
@@ -213,47 +287,49 @@ _tmain(int argc, LPCTSTR argv[])
             iResult = 1; goto quit;
         }
 
-        if (szName)
+        /* Get existing network adapters. */
+        struct tap_adapter_node *pAdapterList = NULL;
+        dwResult = tap_list_adapters(NULL, NULL, &pAdapterList);
+        if (dwResult != ERROR_SUCCESS)
         {
-            /* Get existing network adapters. */
-            struct tap_adapter_node *pAdapterList = NULL;
-            dwResult = tap_list_adapters(NULL, NULL, &pAdapterList);
-            if (dwResult != ERROR_SUCCESS)
-            {
-                _ftprintf(stderr, TEXT("Enumerating adapters failed (error 0x%x).\n"), dwResult);
-                iResult = 1; goto create_delete_adapter;
-            }
+            _ftprintf(stderr, TEXT("Enumerating adapters failed (error 0x%x).\n"), dwResult);
+            iResult = 1;
+            goto create_delete_adapter;
+        }
 
-            /* Check for duplicates. */
-            for (struct tap_adapter_node *pAdapter = pAdapterList; pAdapter; pAdapter = pAdapter->pNext)
+        LPTSTR adapter_name = szName ? _tcsdup(szName) : get_unique_adapter_name(szHwId, pAdapterList);
+        if (adapter_name)
+        {
+            /* Check for duplicates when name was specified,
+             * otherwise get_adapter_default_name() takes care of it */
+            if (szName && !is_adapter_name_available(adapter_name, pAdapterList, TRUE))
             {
-                if (_tcsicmp(szName, pAdapter->szName) == 0)
-                {
-                    StringFromIID((REFIID)&pAdapter->guid, &szAdapterId);
-                    _ftprintf(stderr, TEXT("Adapter \"%s\" already exists (GUID %") TEXT(PRIsLPOLESTR) TEXT(").\n"), pAdapter->szName, szAdapterId);
-                    CoTaskMemFree(szAdapterId);
-                    iResult = 1; goto create_cleanup_pAdapterList;
-                }
+                iResult = 1;
+                goto create_cleanup_pAdapterList;
             }
 
             /* Rename the adapter. */
-            dwResult = tap_set_adapter_name(&guidAdapter, szName);
+            dwResult = tap_set_adapter_name(&guidAdapter, adapter_name, FALSE);
             if (dwResult != ERROR_SUCCESS)
             {
                 StringFromIID((REFIID)&guidAdapter, &szAdapterId);
-                _ftprintf(stderr, TEXT("Renaming TUN/TAP adapter %") TEXT(PRIsLPOLESTR) TEXT(" to \"%s\" failed (error 0x%x).\n"), szAdapterId, szName, dwResult);
+                _ftprintf(stderr, TEXT("Renaming TUN/TAP adapter %") TEXT(PRIsLPOLESTR)
+                          TEXT(" to \"%") TEXT(PRIsLPTSTR) TEXT("\" failed (error 0x%x).\n"),
+                          szAdapterId, adapter_name, dwResult);
                 CoTaskMemFree(szAdapterId);
                 iResult = 1; goto quit;
             }
+        }
 
-            iResult = 0;
+        iResult = 0;
 
 create_cleanup_pAdapterList:
-            tap_free_adapter_list(pAdapterList);
-            if (iResult)
-            {
-                goto create_delete_adapter;
-            }
+        free(adapter_name);
+
+        tap_free_adapter_list(pAdapterList);
+        if (iResult)
+        {
+            goto create_delete_adapter;
         }
 
         /* Output adapter GUID. */
@@ -275,7 +351,8 @@ create_delete_adapter:
         TCHAR szzHwId[0x100] =
             TEXT("root\\") TEXT(TAP_WIN_COMPONENT_ID) TEXT("\0")
             TEXT(TAP_WIN_COMPONENT_ID) TEXT("\0")
-            TEXT("Wintun\0");
+            TEXT("Wintun\0")
+            TEXT("ovpn-dco\0");
 
         /* Parse options. */
         for (int i = 2; i < argc; i++)
@@ -288,7 +365,9 @@ create_delete_adapter:
             }
             else
             {
-                _ftprintf(stderr, TEXT("Unknown option \"%s\". Please, use \"tapctl help list\" to list supported options. Ignored.\n"), argv[i]);
+                _ftprintf(stderr, TEXT("Unknown option \"%") TEXT(PRIsLPTSTR)
+                          TEXT("\". Please, use \"tapctl help list\" to list supported options. Ignored.\n"),
+                          argv[i]);
             }
         }
 
@@ -305,7 +384,8 @@ create_delete_adapter:
         {
             LPOLESTR szAdapterId = NULL;
             StringFromIID((REFIID)&pAdapter->guid, &szAdapterId);
-            _ftprintf(stdout, TEXT("%") TEXT(PRIsLPOLESTR) TEXT("\t%") TEXT(PRIsLPTSTR) TEXT("\n"), szAdapterId, pAdapter->szName);
+            _ftprintf(stdout, TEXT("%") TEXT(PRIsLPOLESTR) TEXT("\t%")
+                      TEXT(PRIsLPTSTR) TEXT("\n"), szAdapterId, pAdapter->szName);
             CoTaskMemFree(szAdapterId);
         }
 
@@ -336,7 +416,7 @@ create_delete_adapter:
             {
                 if (pAdapter == NULL)
                 {
-                    _ftprintf(stderr, TEXT("\"%s\" adapter not found.\n"), argv[2]);
+                    _ftprintf(stderr, TEXT("\"%") TEXT(PRIsLPTSTR) TEXT("\" adapter not found.\n"), argv[2]);
                     iResult = 1; goto delete_cleanup_pAdapterList;
                 }
                 else if (_tcsicmp(argv[2], pAdapter->szName) == 0)
@@ -363,7 +443,8 @@ delete_cleanup_pAdapterList:
             &bRebootRequired);
         if (dwResult != ERROR_SUCCESS)
         {
-            _ftprintf(stderr, TEXT("Deleting adapter \"%s\" failed (error 0x%x).\n"), argv[2], dwResult);
+            _ftprintf(stderr, TEXT("Deleting adapter \"%") TEXT(PRIsLPTSTR)
+                      TEXT("\" failed (error 0x%x).\n"), argv[2], dwResult);
             iResult = 1; goto quit;
         }
 
@@ -371,7 +452,8 @@ delete_cleanup_pAdapterList:
     }
     else
     {
-        _ftprintf(stderr, TEXT("Unknown command \"%s\". Please, use \"tapctl help\" to list supported commands.\n"), argv[1]);
+        _ftprintf(stderr, TEXT("Unknown command \"%") TEXT(PRIsLPTSTR)
+                  TEXT("\". Please, use \"tapctl help\" to list supported commands.\n"), argv[1]);
         return 1;
     }
 
@@ -433,7 +515,7 @@ x_msg_va(const unsigned int flags, const char *format, va_list arglist)
             }
 
             /* Output error message. */
-            _ftprintf(stderr, TEXT("Error 0x%x: %s\n"), dwResult, szErrMessage);
+            _ftprintf(stderr, TEXT("Error 0x%x: %") TEXT(PRIsLPTSTR) TEXT("\n"), dwResult, szErrMessage);
 
             LocalFree(szErrMessage);
         }

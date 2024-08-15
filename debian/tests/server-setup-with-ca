@@ -4,7 +4,7 @@
 # Test an OpenVPN server setup with CA
 # ----------------------------------------------
 
-set -e
+set -ex
 
 CONFIG_DIR=/etc/openvpn
 CA_DIR=easy-rsa
@@ -38,10 +38,12 @@ set_var EASYRSA_BATCH           "1"
 EOF
 
 info "Setup the CA and the server keys"
-./easyrsa init-pki
-./easyrsa build-ca nopass 2>/dev/null
-./easyrsa build-server-full server nopass 2>/dev/null
-./easyrsa gen-dh 2>/dev/null
+./easyrsa --batch init-pki
+# remove conflicting vars file to avoid easy-rsa errors
+rm -f vars
+./easyrsa --batch build-ca nopass 2>/dev/null
+./easyrsa --batch build-server-full server nopass 2>/dev/null
+./easyrsa --batch gen-dh 2>/dev/null
 
 info "Create the OpenVPN server config file"
 cat << EOF > /etc/openvpn/server.conf
@@ -75,10 +77,10 @@ info "Check if Diffie-Hellman was initialized"
 cat $LOG_FILE | grep 'Diffie-Hellman initialized'
 
 info "Check if the $DEVICE is linked"
-cat $LOG_FILE | grep "/sbin/ip link set dev $DEVICE up"
+cat $LOG_FILE | grep "net_iface_up: set $DEVICE up"
 
 info "Check if the network route was correctly configured"
-cat $LOG_FILE | grep "/sbin/ip route add $IP_NETWORK/24"
+cat $LOG_FILE | grep "net_route_v4_add: $IP_NETWORK/24 via"
 
 info "Check if the Initialization Sequence completed"
 cat $LOG_FILE | grep 'Initialization Sequence Completed'

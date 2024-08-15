@@ -5,9 +5,9 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2024 OpenVPN Inc <sales@openvpn.net>
  *  Copyright (C) 2014-2015 David Sommerseth <davids@redhat.com>
- *  Copyright (C) 2016-2018 David Sommerseth <davids@openvpn.net>
+ *  Copyright (C) 2016-2024 David Sommerseth <davids@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -25,8 +25,6 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#elif defined(_MSC_VER)
-#include "config-msvc.h"
 #endif
 
 #include "syshead.h"
@@ -72,26 +70,6 @@ set_std_files_to_null(bool stdin_only)
             close(fd);
         }
     }
-#endif
-}
-
-/*
- *  dup inetd/xinetd socket descriptor and save
- */
-
-int inetd_socket_descriptor = SOCKET_UNDEFINED; /* GLOBAL */
-
-void
-save_inetd_socket_descriptor(void)
-{
-    inetd_socket_descriptor = INETD_SOCKET_DESCRIPTOR;
-#if defined(HAVE_DUP) && defined(HAVE_DUP2)
-    /* use handle passed by inetd/xinetd */
-    if ((inetd_socket_descriptor = dup(INETD_SOCKET_DESCRIPTOR)) < 0)
-    {
-        msg(M_ERR, "INETD_SOCKET_DESCRIPTOR dup(%d) failed", INETD_SOCKET_DESCRIPTOR);
-    }
-    set_std_files_to_null(true);
 #endif
 }
 
@@ -217,6 +195,11 @@ get_user_pass_cr(struct user_pass *up,
                 buf_parse(&buf, '\n', up->username, USER_PASS_LEN);
             }
             buf_parse(&buf, '\n', up->password, USER_PASS_LEN);
+
+            if (strlen(up->password) == 0)
+            {
+                password_from_stdin = 1;
+            }
         }
         /*
          * Read from auth file unless this is a dynamic challenge request.
@@ -273,6 +256,7 @@ get_user_pass_cr(struct user_pass *up,
                 msg(D_LOW, "No password found in %s authfile '%s'. Querying the management interface", prefix, auth_file);
                 if (!auth_user_pass_mgmt(up, prefix, flags, auth_challenge))
                 {
+                    fclose(fp);
                     return false;
                 }
             }
@@ -507,19 +491,41 @@ purge_user_pass(struct user_pass *up, const bool force)
 }
 
 void
-set_auth_token(struct user_pass *up, struct user_pass *tk, const char *token)
+set_auth_token(struct user_pass *tk, const char *token)
 {
-
-    if (token && strlen(token) && up && up->defined)
+    if (strlen(token))
     {
         strncpynt(tk->password, token, USER_PASS_LEN);
-        strncpynt(tk->username, up->username, USER_PASS_LEN);
-        tk->defined = true;
-    }
+        tk->token_defined = true;
 
-    /* Cleans user/pass for nocache */
-    purge_user_pass(up, false);
+        /*
+         * If username already set, tk is fully defined.
+         */
+        if (strlen(tk->username))
+        {
+            tk->defined = true;
+        }
+    }
 }
+
+void
+set_auth_token_user(struct user_pass *tk, const char *username)
+{
+    if (strlen(username))
+    {
+        /* Clear the username before decoding to ensure no old material is left
+         * and also allow decoding to not use all space to ensure the last byte is
+         * always 0 */
+        CLEAR(tk->username);
+        int len = openvpn_base64_decode(username, tk->username, USER_PASS_LEN - 1);
+        tk->defined = len > 0;
+        if (!tk->defined)
+        {
+            msg(D_PUSH, "Error decoding auth-token-username");
+        }
+    }
+}
+
 
 /*
  * Process string received by untrusted peer before
@@ -781,4 +787,15 @@ get_num_elements(const char *string, char delimiter)
     }
 
     return element_count;
+}
+
+struct buffer
+prepend_dir(const char *dir, const char *path, struct gc_arena *gc)
+{
+    size_t len = strlen(dir) + strlen(PATH_SEPARATOR_STR) + strlen(path) + 1;
+    struct buffer combined_path = alloc_buf_gc(len, gc);
+    buf_printf(&combined_path, "%s%s%s", dir, PATH_SEPARATOR_STR, path);
+    ASSERT(combined_path.len > 0);
+
+    return combined_path;
 }

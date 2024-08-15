@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2024 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -23,8 +23,6 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#elif defined(_MSC_VER)
-#include "config-msvc.h"
 #endif
 
 #include "syshead.h"
@@ -36,8 +34,6 @@
 #include "otime.h"
 
 #include "memdbg.h"
-
-#if P2MP
 
 static void
 ifconfig_pool_entry_free(struct ifconfig_pool_entry *ipe, bool hard)
@@ -224,6 +220,24 @@ ifconfig_pool_init(const bool ipv4_pool, enum pool_type type, in_addr_t start,
         }
 
         pool->ipv6.base = ipv6_base;
+
+        /* if a pool starts at a base address that has all-zero in the
+         * host part, that first IPv6 address must not be assigned to
+         * clients because it is not usable (subnet anycast address).
+         * Start with 1, then.
+         *
+         * NOTE: this will also (mis-)fire for something like
+         *    ifconfig-ipv6-pool 2001:db8:0:1:1234::0/64
+         * as we only check the rightmost 32 bits of the host part.  So be it.
+         */
+        if (base == 0)
+        {
+            msg(D_IFCONFIG_POOL, "IFCONFIG POOL IPv6: incrementing pool start "
+                "to avoid ::0 assignment");
+            base++;
+            pool->ipv6.base.s6_addr[15]++;
+        }
+
         pool_ipv6_size = ipv6_netbits >= 112
                           ? (1 << (128 - ipv6_netbits)) - base
                           : IFCONFIG_POOL_MAX;
@@ -592,7 +606,6 @@ ifconfig_pool_read(struct ifconfig_pool_persist *persist, struct ifconfig_pool *
         struct gc_arena gc = gc_new();
         struct buffer in = alloc_buf_gc(256, &gc);
         char *cn_buf, *ip_buf, *ip6_buf;
-        int line = 0;
 
         ALLOC_ARRAY_CLEAR_GC(cn_buf, char, buf_size, &gc);
         ALLOC_ARRAY_CLEAR_GC(ip_buf, char, buf_size, &gc);
@@ -605,7 +618,6 @@ ifconfig_pool_read(struct ifconfig_pool_persist *persist, struct ifconfig_pool *
             {
                 break;
             }
-            ++line;
             if (!BLEN(&in))
             {
                 continue;
@@ -706,7 +718,7 @@ ifconfig_pool_read(struct ifconfig_pool_persist *persist, struct ifconfig_pool *
              */
             if (h >= 0)
             {
-                msg(M_INFO, "succeeded -> ifconfig_pool_set(hand=%d)",h);
+                msg(M_INFO, "succeeded -> ifconfig_pool_set(hand=%d)", h);
                 ifconfig_pool_set(pool, cn_buf, h, persist->fixed);
             }
         }
@@ -817,5 +829,3 @@ ifconfig_pool_test(in_addr_t start, in_addr_t end)
 }
 
 #endif /* ifdef IFCONFIG_POOL_TEST */
-
-#endif /* if P2MP */

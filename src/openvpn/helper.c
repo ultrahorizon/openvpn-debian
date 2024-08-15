@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2024 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -23,8 +23,6 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#elif defined(_MSC_VER)
-#include "config-msvc.h"
 #endif
 
 #include "syshead.h"
@@ -149,11 +147,9 @@ helper_client_server(struct options *o)
 {
     struct gc_arena gc = gc_new();
 
-#if P2MP
-
-/*
- * Get tun/tap/null device type
- */
+    /*
+     * Get tun/tap/null device type
+     */
     const int dev = dev_type_enum(o->dev, o->dev_type);
     const int topology = o->topology;
 
@@ -239,7 +235,7 @@ helper_client_server(struct options *o)
      * if tap OR (tun AND topology == subnet):
      *   ifconfig 10.8.0.1 255.255.255.0
      *   if !nopool:
-     *     ifconfig-pool 10.8.0.2 10.8.0.253 255.255.255.0
+     *     ifconfig-pool 10.8.0.2 10.8.0.254 255.255.255.0
      *   push "route-gateway 10.8.0.1"
      *   if route-gateway unset:
      *     route-gateway 10.8.0.2
@@ -342,7 +338,7 @@ helper_client_server(struct options *o)
                 {
                     o->ifconfig_pool_defined = true;
                     o->ifconfig_pool_start = o->server_network + 2;
-                    o->ifconfig_pool_end = (o->server_network | ~o->server_netmask) - 2;
+                    o->ifconfig_pool_end = (o->server_network | ~o->server_netmask) - 1;
                     ifconfig_pool_verify_range(M_USAGE, o->ifconfig_pool_start, o->ifconfig_pool_end);
                 }
                 o->ifconfig_pool_netmask = o->server_netmask;
@@ -493,8 +489,6 @@ helper_client_server(struct options *o)
         o->pull = true;
         o->tls_client = true;
     }
-
-#endif /* P2MP */
 
     gc_free(&gc);
 }

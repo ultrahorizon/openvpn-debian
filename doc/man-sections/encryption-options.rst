@@ -1,8 +1,8 @@
 Encryption Options
-==================
+------------------
 
 SSL Library information
------------------------
+```````````````````````
 
 --show-ciphers
   (Standalone) Show all cipher algorithms to use with the ``--cipher``
@@ -32,7 +32,7 @@ SSL Library information
   ``--ecdh-curve`` and ``tls-groups`` options.
 
 Generating key material
------------------------
+```````````````````````
 
 --genkey args
   (Standalone) Generate a key to be used of the type keytype. if keyfile
@@ -104,7 +104,8 @@ Generating key material
 
     If supplied, include the supplied ``metadata`` in the wrapped client
     key. This metadata must be supplied in base64-encoded form. The
-    metadata must be at most 735 bytes long (980 bytes in base64).
+    metadata must be at most 733 bytes long (980 characters in base64, though
+    note that 980 base64 characters can encode more than 733 bytes).
 
     If no metadata is supplied, OpenVPN will use a 64-bit unix timestamp
     representing the current time in UTC, encoded in network order, as

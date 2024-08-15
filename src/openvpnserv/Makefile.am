@@ -5,7 +5,7 @@
 #             packet encryption, packet authentication, and
 #             packet compression.
 #
-#  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
+#  Copyright (C) 2002-2024 OpenVPN Inc <sales@openvpn.net>
 #  Copyright (C) 2006-2012 Alon Bar-Lev <alon.barlev@gmail.com>
 #
 
@@ -13,12 +13,11 @@ include $(top_srcdir)/build/ltrc.inc
 
 MAINTAINERCLEANFILES = $(srcdir)/Makefile.in
 
-EXTRA_DIST = \
-	openvpnserv.vcxproj \
-	openvpnserv.vcxproj.filters
-
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/include -I$(top_srcdir)/src/openvpn -I$(top_srcdir)/src/compat
+
+EXTRA_DIST = \
+	CMakeLists.txt
 
 if WIN32
 sbin_PROGRAMS = openvpnserv
@@ -31,7 +30,6 @@ endif
 
 openvpnserv_SOURCES = \
         common.c \
-	automatic.c \
 	interactive.c \
 	service.c service.h \
 	validate.c validate.h \

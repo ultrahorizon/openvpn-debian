@@ -2,7 +2,7 @@
  *  tapctl -- Utility to manipulate TUN/TAP adapters on Windows
  *            https://community.openvpn.net/openvpn/wiki/Tapctl
  *
- *  Copyright (C) 2018-2020 Simon Rozman <simon@rozman.si>
+ *  Copyright (C) 2018-2024 Simon Rozman <simon@rozman.si>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -118,12 +118,16 @@ tap_enable_adapter(
  *
  * @param szName        New adapter name - must be unique
  *
+ * @param bSilent       If true, MSI installer won't display message box and
+ *                      only print error to log.
+ *
  * @return ERROR_SUCCESS on success; Win32 error code otherwise
  **/
 DWORD
 tap_set_adapter_name(
     _In_ LPCGUID pguidAdapter,
-    _In_ LPCTSTR szName);
+    _In_ LPCTSTR szName,
+    _In_ BOOL bSilent);
 
 
 /**

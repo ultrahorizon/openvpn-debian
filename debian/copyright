@@ -4,7 +4,7 @@ Upstream-Contact: OpenVPN Solutions LLC <info@openvpn.net>
 Source: https://openvpn.net/
 
 Files: *
-Copyright: 2002-2019 OpenVPN Inc <sales@openvpn.net>
+Copyright: 2002-2021 OpenVPN Inc <sales@openvpn.net>
 License: GPL-2 with OpenSSL exception
 
 Files: aclocal.m4
@@ -22,8 +22,17 @@ License: GPL-2+
 
 Files: */Makefile.*
 Copyright: 1994-2015 Free Software Foundation, Inc.
-           2002-2018 OpenVPN Inc <sales@openvpn.net>
+           2002-2021 OpenVPN Inc <sales@openvpn.net>
            2006-2012 Alon Bar-Lev <alon.barlev@gmail.com>
+           2010-2021 David Sommerseth <dazo@eurephia.org>
+License: GPL-2
+
+Files: doc/doxygen/Makefile.*
+Copyright: 2017-2021 Fox-IT B.V. <openvpn@foxcrypto.com>
+License: GPL-2
+
+Files: src/openvpn/networking*
+Copyright: 2016-2021 Antonio Quartulli <a@unstable.cc>
 License: GPL-2
 
 Files: src/openvpn/crypto.*
@@ -33,24 +42,31 @@ Files: src/openvpn/crypto.*
        src/openvpn/tls_*
        src/openvpn/openssl_compat.h
        tests/unit_tests/openvpn/*
-Copyright: 2010-2018 Fox Crypto B.V. <openvpn@fox-it.com>
+Copyright: 2010-2021 Fox Crypto B.V. <openvpn@fox-it.com>
+License: GPL-2
+
+Files: tests/unit_tests/openvpn/test_ncp.c
+Copyright: 2019-2021 Arne Schwabe <arne@rfc2549.org>
 License: GPL-2
 
 Files: build/ltrc.inc
-       build/msvc/msvc-generate/Makefile.mak
 Copyright: 2008-2012 Alon Bar-Lev <alon.barlev@gmail.com>
 License: GPL-2
 
-Files: build/msvc/msvc-generate/msvc-generate.js
-Copyright: 2008-2012 Alon Bar-Lev <alon.barlev@gmail.com>
-License: BSD-3
+Files: src/openvpnmsica/*
+Copyright: 2018-2021 Simon Rozman <simon@rozman.si>
+License: GPL-2
+
+Files: src/tapctl/*
+Copyright: 2018-2021 Simon Rozman <simon@rozman.si>
+           2002-2021 OpenVPN Inc <sales@openvpn.net>
+License: GPL-2
 
 Files: sample/sample-plugins/log/log_v3.c
+       sample/sample-plugins/simple/base64.c
        src/compat/compat-basename.c
        src/compat/compat-daemon.c
        src/compat/compat-dirname.c
-       src/compat/compat-inet_ntop.c
-       src/compat/compat-inet_pton.c
        src/compat/compat.h
        src/openvpn/console.c
        src/openvpn/console.h
@@ -59,14 +75,11 @@ Files: sample/sample-plugins/log/log_v3.c
        src/openvpn/misc.c
        src/openvpn/options.c
        src/openvpn/ssl.c
+       src/openvpn/env_set.c
+       src/openvpn/ssl_ncp.c
        src/plugins/down-root/down-root.c
-Copyright: 2010-2016 David Sommerseth <davids@redhat.com>
+Copyright: 2010-2021 David Sommerseth <davids@redhat.com>
 License: GPL-2
-
-Files: src/compat/compat-lz4.c
-       src/compat/compat-lz4.h
-Copyright: 2011-2016 Yann Collet
-License: BSD-2
 
 Files: src/openvpn/base64.c
        src/openvpn/base64.h
@@ -77,25 +90,26 @@ Files: include/openvpn-msg.h
        src/openvpnserv/common.c
        src/openvpnserv/service.h
        src/openvpnserv/interactive.c
-Copyright: 2011-2018 Heiko Hund <heiko.hund@sophos.com>
+Copyright: 2011-2021 Heiko Hund <heiko.hund@sophos.com>
 License: GPL-2
 
 Files: src/openvpn/block_dns.c
+       src/plugins/auth-pam/auth-pam.c
 Copyright: 2002-2018 OpenVPN Inc <sales@openvpn.net>
-           2015-2016  <iam@valdikss.org.ru>
-           2016 Selva Nair <selva.nair@gmail.com>
+           2015-2016 <iam@valdikss.org.ru>
+           2016-2021 Selva Nair <selva.nair@gmail.com>
 License: GPL-2
 
 Files: src/openvpn/block_dns.h
        src/openvpnserv/validate.h
        src/openvpnserv/validate.c
-Copyright: 2016 Selva Nair <selva.nair@gmail.com>
+Copyright: 2016-2021 Selva Nair <selva.nair@gmail.com>
 License: GPL-2
 
 Files: src/openvpn/comp-lz4.c
        src/openvpn/comp-lz4.h
-Copyright: 2002-2018 OpenVPN Inc <sales@openvpn.net>
-           2013-2018 Gert Doering <gert@greenie.muc.de>
+Copyright: 2002-2021 OpenVPN Inc <sales@openvpn.net>
+           2013-2021 Gert Doering <gert@greenie.muc.de>
 License: GPL-2
 
 Files: src/openvpn/cryptoapi.c
@@ -123,7 +137,7 @@ Copyright: 1993-2000 Microsoft Corporation
 License: other
 
 Files: sample/sample-keys/gen-sample-keys.sh
-Copyright: 2014      Steffan Karger <steffan@karger.me>
+Copyright: 2014-2021 Steffan Karger <steffan@karger.me>
 License: GPL-2
 
 Files: m4/pkg.m4
@@ -146,9 +160,11 @@ License: GPL-2+
 Files: debian/*
 Copyright: 2002-2017 Alberto Gonzalez Iniesta <agi@inittab.org>
            2017-2020 Bernhard Schmidt <berni@debian.org>
-           2017-2020 Jörg Frings-Fürst <debian@jff.email>
+           2017-2021 Jörg Frings-Fürst <debian@jff.email>
 License: GPL-3+
 
+Files: src/openvpn/ovpn_dco_freebsd.h
+Copyright: 2021 Rubicon Communications, LLC (Netgate)
 License: BSD-2
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are

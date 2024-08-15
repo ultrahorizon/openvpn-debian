@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2017 Fox Crypto B.V. <openvpn@fox-it.com>
+ *  Copyright (C) 2017-2021 Fox Crypto B.V. <openvpn@foxcrypto.com>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <setjmp.h>
+#include <stdint.h>
 #include <cmocka.h>
 
 unsigned long
@@ -33,4 +34,13 @@ get_random(void)
 {
     /* rand() is not very random, but it's C99 and this is just for testing */
     return rand();
+}
+
+void
+prng_bytes(uint8_t *output, int len)
+{
+    for (int i = 0; i < len; i++)
+    {
+        output[i] = rand();
+    }
 }

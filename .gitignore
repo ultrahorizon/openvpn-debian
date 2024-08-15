@@ -10,13 +10,8 @@
 *.idb
 *.suo
 *.ncb
-*.vcproj.*
-*.vcxproj.user
-*.sln.cache
 *.log
-Release
-Debug
-Win32-Output
+out
 .vs
 .deps
 .libs
@@ -46,9 +41,8 @@ m4/ltversion.m4
 m4/lt~obsolete.m4
 
 version.sh
-msvc-env-local.bat
-config-msvc-local.h
-config-msvc-version.h
+doc/openvpn-examples.5
+doc/openvpn-examples.5.html
 doc/openvpn.8
 doc/openvpn.8.html
 /doc/doxygen/html/
@@ -58,7 +52,6 @@ distro/systemd/*.service
 sample/sample-keys/sample-ca/
 vendor/cmocka_build
 vendor/dist
-build/msvc/msvc-generate/version.m4
 
 tests/t_client.sh
 tests/t_client-*-20??????-??????/

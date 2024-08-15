@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2024 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -42,7 +42,6 @@
 #include "sig.h"
 #include "misc.h"
 #include "mbuf.h"
-#include "pf.h"
 #include "pool.h"
 #include "plugin.h"
 #include "manage.h"
@@ -66,6 +65,9 @@ struct key_schedule
     /* optional TLS control channel wrapping */
     struct key_type tls_auth_key_type;
     struct key_ctx_bi tls_wrap_key;
+    /** original tls-crypt key preserved to xored into the tls_crypt
+     * renegotiation key */
+    struct key2 original_wrap_keydata;
     struct key_ctx tls_crypt_v2_server_key;
     struct buffer tls_crypt_v2_wkc;             /**< Wrapped client key */
     struct key_ctx auth_token_key;
@@ -189,7 +191,6 @@ struct context_1
     struct socks_proxy_info *socks_proxy;
     bool socks_proxy_owned;
 
-#if P2MP
     /* persist --ifconfig-pool db to file */
     struct ifconfig_pool_persist *ifconfig_pool_persist;
     bool ifconfig_pool_persist_owned;
@@ -203,27 +204,11 @@ struct context_1
     struct user_pass *auth_user_pass;
     /**< Username and password for
      *   authentication. */
-
-    const char *ciphername;     /**< Data channel cipher from config file */
-    const char *authname;       /**< Data channel auth from config file */
-    int keysize;                /**< Data channel keysize from config file */
-#endif
 };
 
-
-/* client authentication state, CAS_SUCCEEDED must be 0 since
- * non multi code path still checks this variable but does not initialise it
- * so the code depends on zero initialisation */
-enum client_connect_status {
-    CAS_SUCCEEDED=0,
-    CAS_PENDING,
-    CAS_PENDING_DEFERRED,
-    CAS_PENDING_DEFERRED_PARTIAL,   /**< at least handler succeeded, no result yet*/
-    CAS_FAILED,
-};
 
 static inline bool
-is_cas_pending(enum client_connect_status cas)
+is_cas_pending(enum multi_status cas)
 {
     return cas == CAS_PENDING || cas == CAS_PENDING_DEFERRED
            || cas == CAS_PENDING_DEFERRED_PARTIAL;
@@ -234,7 +219,7 @@ is_cas_pending(enum client_connect_status cas)
  * \c SIGUSR1 restarts.
  *
  * This structure is initialized at the top of the \c
- * tunnel_point_to_point(), \c tunnel_server_udp_single_threaded(), and \c
+ * tunnel_point_to_point(), \c tunnel_server_udp(), and \c
  * tunnel_server_tcp() functions.  In other words, it is reset for every
  * iteration of the \c main() function's inner \c SIGUSR1 loop.
  */
@@ -249,25 +234,13 @@ struct context_2
     int event_set_max;
     bool event_set_owned;
 
-    /* event flags returned by io_wait */
-#define SOCKET_READ       (1<<0)
-#define SOCKET_WRITE      (1<<1)
-#define TUN_READ          (1<<2)
-#define TUN_WRITE         (1<<3)
-#define ES_ERROR          (1<<4)
-#define ES_TIMEOUT        (1<<5)
-#ifdef ENABLE_MANAGEMENT
-#define MANAGEMENT_READ  (1<<6)
-#define MANAGEMENT_WRITE (1<<7)
-#endif
-#ifdef ENABLE_ASYNC_PUSH
-#define FILE_CLOSED       (1<<8)
-#endif
-
+    /* bitmask for event status. Check event.h for possible values */
     unsigned int event_set_status;
 
     struct link_socket *link_socket;     /* socket used for TCP/UDP connection to remote */
     bool link_socket_owned;
+
+    /** This variable is used instead link_socket->info for P2MP UDP childs */
     struct link_socket_info *link_socket_info;
     const struct link_socket *accept_from; /* possibly do accept() on a parent link_socket */
 
@@ -276,22 +249,17 @@ struct context_2
 
     /* MTU frame parameters */
     struct frame frame;                         /* Active frame parameters */
-    struct frame frame_initial;                 /* Restored on new session */
 
 #ifdef ENABLE_FRAGMENT
     /* Object to handle advanced MTU negotiation and datagram fragmentation */
     struct fragment_master *fragment;
     struct frame frame_fragment;
-    struct frame frame_fragment_initial;
-    struct frame frame_fragment_omit;
 #endif
 
-#ifdef ENABLE_FEATURE_SHAPER
     /*
      * Traffic shaper object.
      */
     struct shaper shaper;
-#endif
 
     /*
      * Statistics
@@ -299,8 +267,10 @@ struct context_2
     counter_type tun_read_bytes;
     counter_type tun_write_bytes;
     counter_type link_read_bytes;
+    counter_type dco_read_bytes;
     counter_type link_read_bytes_auth;
     counter_type link_write_bytes;
+    counter_type dco_write_bytes;
 #ifdef PACKET_TRUNCATION_CHECK
     counter_type n_trunc_tun_read;
     counter_type n_trunc_tun_write;
@@ -318,7 +288,12 @@ struct context_2
 
     /* --inactive */
     struct event_timeout inactivity_interval;
-    int inactivity_bytes;
+    int64_t inactivity_bytes;
+
+    struct event_timeout session_interval;
+
+    /* auth token renewal timer */
+    struct event_timeout auth_token_renewal_interval;
 
     /* the option strings must match across peers */
     char *options_string_local;
@@ -361,6 +336,12 @@ struct context_2
      *   on the first connection packet
      *   received from a new client.  See the
      *   \c --tls-auth commandline option. */
+
+
+    hmac_ctx_t *session_id_hmac;
+    /**< the HMAC we use to generate and verify our syn cookie like
+     * session ids from the server.
+     */
 
     /* used to optimize calls to tls_multi_process */
     struct interval tmp_int;
@@ -412,7 +393,9 @@ struct context_2
      * Event loop info
      */
 
-    /* how long to wait on link/tun read before we will need to be serviced */
+    /** Time to next event of timers and similar. This is used to determine
+     *  how long to wait on event wait (select/poll on link/tun read)
+     *  before this context wants to be serviced. */
     struct timeval timeval;
 
     /* next wakeup for processing coarse timers (>1 sec resolution) */
@@ -443,8 +426,6 @@ struct context_2
     /* don't wait for TUN/TAP/UDP to be ready to accept write */
     bool fast_io;
 
-#if P2MP
-
     /* --ifconfig endpoints to be pushed to client */
     bool push_request_received;
     bool push_ifconfig_defined;
@@ -458,12 +439,8 @@ struct context_2
     int push_ifconfig_ipv6_netbits;
     struct in6_addr push_ifconfig_ipv6_remote;
 
-
-    enum client_connect_status context_auth;
-
     struct event_timeout push_request_interval;
-    int n_sent_push_requests;
-    bool did_pre_pull_restore;
+    time_t push_request_timeout;
 
     /* hash of pulled options, so we can compare when options change */
     bool pulled_options_digest_init_done;
@@ -472,14 +449,10 @@ struct context_2
 
     struct event_timeout scheduled_exit;
     int scheduled_exit_signal;
-#endif /* if P2MP */
 
     /* packet filter */
-#ifdef ENABLE_PF
-    struct pf_context pf;
-#endif
 
-#ifdef MANAGEMENT_DEF_AUTH
+#ifdef ENABLE_MANAGEMENT
     struct man_def_auth_context mda_context;
 #endif
 
@@ -568,10 +541,9 @@ struct context
 #define PROTO_DUMP(buf, gc) protocol_dump((buf), \
                                           PROTO_DUMP_FLAGS   \
                                           |(c->c2.tls_multi ? PD_TLS : 0)   \
-                                          |(c->options.tls_auth_file ? c->c1.ks.key_type.hmac_length : 0), \
+                                          |(c->options.tls_auth_file ? md_kt_size(c->c1.ks.key_type.digest) : 0) \
+                                          |(c->options.tls_crypt_file || c->options.tls_crypt_v2_file ? PD_TLS_CRYPT : 0), \
                                           gc)
-
-#define CIPHER_ENABLED(c) (c->c1.ks.key_type.cipher != NULL)
 
 /* this represents "disabled peer-id" */
 #define MAX_PEER_ID 0xFFFFFF

@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2024 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -23,8 +23,6 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#elif defined(_MSC_VER)
-#include "config-msvc.h"
 #endif
 
 #include "syshead.h"
@@ -126,7 +124,7 @@ recv_line(socket_descriptor_t sd,
         }
 
         /* read single char */
-        size = recv(sd, &c, 1, MSG_NOSIGNAL);
+        size = recv(sd, (void *)&c, 1, MSG_NOSIGNAL);
 
         /* error? */
         if (size != 1)
@@ -273,7 +271,12 @@ get_user_pass_http(struct http_proxy_info *p, const bool force)
     if (!static_proxy_user_pass.defined)
     {
         unsigned int flags = GET_USER_PASS_MANAGEMENT;
-        if (p->queried_creds)
+        const char *auth_file = p->options.auth_file;
+        if (p->options.auth_file_up)
+        {
+            auth_file = p->options.auth_file_up;
+        }
+        if (p->queried_creds && !static_proxy_user_pass.nocache)
         {
             flags |= GET_USER_PASS_PREVIOUS_CREDS_FAILED;
         }
@@ -282,12 +285,17 @@ get_user_pass_http(struct http_proxy_info *p, const bool force)
             flags |= GET_USER_PASS_INLINE_CREDS;
         }
         get_user_pass(&static_proxy_user_pass,
-                      p->options.auth_file,
+                      auth_file,
                       UP_TYPE_PROXY,
                       flags);
-        p->queried_creds = true;
-        p->up = static_proxy_user_pass;
+        static_proxy_user_pass.nocache = p->options.nocache;
     }
+
+    /*
+     * Using cached credentials
+     */
+    p->queried_creds = true;
+    p->up = static_proxy_user_pass;
 }
 
 #if 0
@@ -366,10 +374,7 @@ get_proxy_authenticate(socket_descriptor_t sd,
 static void
 store_proxy_authenticate(struct http_proxy_info *p, char *data)
 {
-    if (p->proxy_authenticate)
-    {
-        free(p->proxy_authenticate);
-    }
+    free(p->proxy_authenticate);
     p->proxy_authenticate = data;
 }
 
@@ -522,6 +527,8 @@ http_proxy_new(const struct http_proxy_options *o)
 #if NTLM
         else if (!strcmp(o->auth_method_string, "ntlm"))
         {
+            msg(M_INFO, "NTLM v1 authentication is deprecated and will be removed in "
+                "OpenVPN 2.7");
             p->auth_method = HTTP_AUTH_NTLM;
         }
         else if (!strcmp(o->auth_method_string, "ntlm2"))
@@ -539,7 +546,7 @@ http_proxy_new(const struct http_proxy_options *o)
     /* only basic and NTLM/NTLMv2 authentication supported so far */
     if (p->auth_method == HTTP_AUTH_BASIC || p->auth_method == HTTP_AUTH_NTLM || p->auth_method == HTTP_AUTH_NTLM2)
     {
-        get_user_pass_http(p, true);
+        get_user_pass_http(p, p->options.first_time);
     }
 
 #if !NTLM
@@ -637,16 +644,16 @@ establish_http_proxy_passthru(struct http_proxy_info *p,
                               const char *port,          /* openvpn server port */
                               struct event_timeout *server_poll_timeout,
                               struct buffer *lookahead,
-                              volatile int *signal_received)
+                              struct signal_info *sig_info)
 {
     struct gc_arena gc = gc_new();
     char buf[512];
-    char buf2[129];
     char get[80];
     int status;
     int nparms;
     bool ret = false;
     bool processed = false;
+    volatile int *signal_received = &sig_info->signal_received;
 
     /* get user/pass if not previously given */
     if (p->auth_method == HTTP_AUTH_BASIC
@@ -654,6 +661,11 @@ establish_http_proxy_passthru(struct http_proxy_info *p,
         || p->auth_method == HTTP_AUTH_NTLM)
     {
         get_user_pass_http(p, false);
+
+        if (p->up.nocache)
+        {
+            clear_user_pass_http();
+        }
     }
 
     /* are we being called again after getting the digest server nonce in the previous transaction? */
@@ -760,7 +772,7 @@ establish_http_proxy_passthru(struct http_proxy_info *p,
         {
 #if NTLM
             /* look for the phase 2 response */
-
+            char buf2[512];
             while (true)
             {
                 if (!recv_line(sd, buf, sizeof(buf), get_server_poll_remaining_time(server_poll_timeout), true, NULL, signal_received))
@@ -770,9 +782,9 @@ establish_http_proxy_passthru(struct http_proxy_info *p,
                 chomp(buf);
                 msg(D_PROXY, "HTTP proxy returned: '%s'", buf);
 
-                openvpn_snprintf(get, sizeof get, "%%*s NTLM %%%ds", (int) sizeof(buf2) - 1);
+                CLEAR(buf2);
+                openvpn_snprintf(get, sizeof(get), "%%*s NTLM %%%zus", sizeof(buf2) - 1);
                 nparms = sscanf(buf, get, buf2);
-                buf2[128] = 0; /* we only need the beginning - ensure it's null terminated. */
 
                 /* check for "Proxy-Authenticate: NTLM TlRM..." */
                 if (nparms == 1)
@@ -1029,13 +1041,6 @@ establish_http_proxy_passthru(struct http_proxy_info *p,
             }
             goto error;
         }
-
-        /* clear state */
-        if (p->options.auth_retry)
-        {
-            clear_user_pass_http();
-        }
-        store_proxy_authenticate(p, NULL);
     }
 
     /* check return code, success = 200 */
@@ -1080,10 +1085,7 @@ done:
     return ret;
 
 error:
-    if (!*signal_received)
-    {
-        *signal_received = SIGUSR1; /* SOFT-SIGUSR1 -- HTTP proxy error */
-    }
+    register_signal(sig_info, SIGUSR1, "HTTP proxy error"); /* SOFT-SIGUSR1 -- HTTP proxy error */
     gc_free(&gc);
     return ret;
 }

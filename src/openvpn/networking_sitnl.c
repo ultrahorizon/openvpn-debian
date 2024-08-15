@@ -1,7 +1,7 @@
 /*
  *  Simplified Interface To NetLink
  *
- *  Copyright (C) 2016-2018 Antonio Quartulli <a@unstable.cc>
+ *  Copyright (C) 2016-2024 Antonio Quartulli <a@unstable.cc>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -20,17 +20,18 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#elif defined(_MSC_VER)
-#include "config-msvc.h"
 #endif
 
 #ifdef TARGET_LINUX
 
 #include "syshead.h"
 
+#include "dco.h"
 #include "errlevel.h"
 #include "buffer.h"
+#include "misc.h"
 #include "networking.h"
+#include "proto.h"
 
 #include <errno.h>
 #include <string.h>
@@ -53,6 +54,18 @@
 
 #define NLMSG_TAIL(nmsg) \
     ((struct rtattr *)(((uint8_t *)(nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
+
+#define SITNL_NEST(_msg, _max_size, _attr)              \
+    ({                                                  \
+        struct rtattr *_nest = NLMSG_TAIL(_msg);        \
+        SITNL_ADDATTR(_msg, _max_size, _attr, NULL, 0); \
+        _nest;                                          \
+    })
+
+#define SITNL_NEST_END(_msg, _nest)                                 \
+    {                                                               \
+        _nest->rta_len = (void *)NLMSG_TAIL(_msg) - (void *)_nest;  \
+    }
 
 /**
  * Generic address data structure used to pass addresses and prefixes as
@@ -345,6 +358,13 @@ sitnl_send(struct nlmsghdr *payload, pid_t peer, unsigned int groups,
  *               continue;
  *           }
  */
+
+            if (h->nlmsg_type == NLMSG_DONE)
+            {
+                ret = 0;
+                goto out;
+            }
+
             if (h->nlmsg_type == NLMSG_ERROR)
             {
                 err = (struct nlmsgerr *)NLMSG_DATA(h);
@@ -360,7 +380,11 @@ sitnl_send(struct nlmsghdr *payload, pid_t peer, unsigned int groups,
                         ret = 0;
                         if (cb)
                         {
-                            ret = cb(h, arg_cb);
+                            int r = cb(h, arg_cb);
+                            if (r <= 0)
+                            {
+                                ret = r;
+                            }
                         }
                     }
                     else
@@ -375,8 +399,12 @@ sitnl_send(struct nlmsghdr *payload, pid_t peer, unsigned int groups,
 
             if (cb)
             {
-                ret = cb(h, arg_cb);
-                goto out;
+                int r = cb(h, arg_cb);
+                if (r <= 0)
+                {
+                    ret = r;
+                    goto out;
+                }
             }
             else
             {
@@ -410,6 +438,8 @@ typedef struct {
     int addr_size;
     inet_address_t gw;
     char iface[IFNAMSIZ];
+    bool default_only;
+    unsigned int table;
 } route_res_t;
 
 static int
@@ -419,7 +449,17 @@ sitnl_route_save(struct nlmsghdr *n, void *arg)
     struct rtmsg *r = NLMSG_DATA(n);
     struct rtattr *rta = RTM_RTA(r);
     int len = n->nlmsg_len - NLMSG_LENGTH(sizeof(*r));
-    unsigned int ifindex = 0;
+    unsigned int table, ifindex = 0;
+    void *gw = NULL;
+
+    /* filter-out non-zero dst prefixes */
+    if (res->default_only && r->rtm_dst_len != 0)
+    {
+        return 1;
+    }
+
+    /* route table, ignored with RTA_TABLE */
+    table = r->rtm_table;
 
     while (RTA_OK(rta, len))
     {
@@ -436,11 +476,22 @@ sitnl_route_save(struct nlmsghdr *n, void *arg)
 
             /* GW for the route */
             case RTA_GATEWAY:
-                memcpy(&res->gw, RTA_DATA(rta), res->addr_size);
+                gw = RTA_DATA(rta);
+                break;
+
+            /* route table */
+            case RTA_TABLE:
+                table = *(unsigned int *)RTA_DATA(rta);
                 break;
         }
 
         rta = RTA_NEXT(rta, len);
+    }
+
+    /* filter out any route not coming from the selected table */
+    if (res->table && res->table != table)
+    {
+        return 1;
     }
 
     if (!if_indextoname(ifindex, res->iface))
@@ -448,6 +499,11 @@ sitnl_route_save(struct nlmsghdr *n, void *arg)
         msg(M_WARN | M_ERRNO, "%s: rtnl: can't get ifname for index %d",
             __func__, ifindex);
         return -1;
+    }
+
+    if (gw)
+    {
+        memcpy(&res->gw, gw, res->addr_size);
     }
 
     return 0;
@@ -477,11 +533,26 @@ sitnl_route_best_gw(sa_family_t af_family, const inet_address_t *dst,
     {
         case AF_INET:
             res.addr_size = sizeof(in_addr_t);
-            req.n.nlmsg_flags |= NLM_F_DUMP;
+            /*
+             * kernel can't return 0.0.0.0/8 host route, dump all
+             * the routes and filter for 0.0.0.0/0 in cb()
+             */
+            if (!dst || !dst->ipv4)
+            {
+                req.n.nlmsg_flags |= NLM_F_DUMP;
+                res.default_only = true;
+                res.table = RT_TABLE_MAIN;
+            }
+            else
+            {
+                req.r.rtm_dst_len = 32;
+            }
             break;
 
         case AF_INET6:
             res.addr_size = sizeof(struct in6_addr);
+            /* kernel can return ::/128 host route */
+            req.r.rtm_dst_len = 128;
             break;
 
         default:
@@ -536,27 +607,6 @@ net_route_v6_best_gw(openvpn_net_ctx_t *ctx, const struct in6_addr *dst,
 }
 
 #ifdef ENABLE_SITNL
-
-int
-net_ctx_init(struct context *c, openvpn_net_ctx_t *ctx)
-{
-    (void)c;
-    (void)ctx;
-
-    return 0;
-}
-
-void
-net_ctx_reset(openvpn_net_ctx_t *ctx)
-{
-    (void)ctx;
-}
-
-void
-net_ctx_free(openvpn_net_ctx_t *ctx)
-{
-    (void)ctx;
-}
 
 int
 net_route_v4_best_gw(openvpn_net_ctx_t *ctx, const in_addr_t *dst,
@@ -659,6 +709,40 @@ net_iface_mtu_set(openvpn_net_ctx_t *ctx, const char *iface,
     SITNL_ADDATTR(&req.n, sizeof(req), IFLA_MTU, &mtu, 4);
 
     msg(M_INFO, "%s: mtu %u for %s", __func__, mtu, iface);
+
+    ret = sitnl_send(&req.n, 0, 0, NULL, NULL);
+err:
+    return ret;
+}
+
+int
+net_addr_ll_set(openvpn_net_ctx_t *ctx, const openvpn_net_iface_t *iface,
+                uint8_t *addr)
+{
+    struct sitnl_link_req req;
+    int ifindex, ret = -1;
+
+    CLEAR(req);
+
+    ifindex = if_nametoindex(iface);
+    if (ifindex == 0)
+    {
+        msg(M_WARN | M_ERRNO, "%s: rtnl: cannot get ifindex for %s", __func__,
+            iface);
+        return -1;
+    }
+
+    req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.i));
+    req.n.nlmsg_flags = NLM_F_REQUEST;
+    req.n.nlmsg_type = RTM_NEWLINK;
+
+    req.i.ifi_family = AF_PACKET;
+    req.i.ifi_index = ifindex;
+
+    SITNL_ADDATTR(&req.n, sizeof(req), IFLA_ADDRESS, addr, OPENVPN_ETH_ALEN);
+
+    msg(M_INFO, "%s: lladdr " MAC_FMT " for %s", __func__, MAC_PRINT_ARG(addr),
+        iface);
 
     ret = sitnl_send(&req.n, 0, 0, NULL, NULL);
 err:
@@ -858,10 +942,6 @@ sitnl_route_set(int cmd, uint32_t flags, int ifindex, sa_family_t af_family,
     }
 
     ret = sitnl_send(&req.n, 0, 0, NULL, NULL);
-    if (ret == -EEXIST)
-    {
-        ret = 0;
-    }
 err:
     return ret;
 }
@@ -949,7 +1029,7 @@ net_addr_v4_add(openvpn_net_ctx_t *ctx, const char *iface,
     addr_v4.ipv4 = htonl(*addr);
 
     msg(M_INFO, "%s: %s/%d dev %s", __func__,
-        inet_ntop(AF_INET, &addr_v4.ipv4, buf, sizeof(buf)), prefixlen,iface);
+        inet_ntop(AF_INET, &addr_v4.ipv4, buf, sizeof(buf)), prefixlen, iface);
 
     return sitnl_addr_add(AF_INET, iface, &addr_v4, prefixlen);
 }
@@ -1091,7 +1171,7 @@ sitnl_route_add(const char *iface, sa_family_t af_family, const void *dst,
         scope = RT_SCOPE_LINK;
     }
 
-    return sitnl_route_set(RTM_NEWROUTE, NLM_F_CREATE | NLM_F_REPLACE, ifindex,
+    return sitnl_route_set(RTM_NEWROUTE, NLM_F_CREATE, ifindex,
                            af_family, dst, prefixlen, gw, table, metric, scope,
                            RTPROT_BOOT, RTN_UNICAST);
 }
@@ -1239,6 +1319,177 @@ net_route_v6_del(openvpn_net_ctx_t *ctx, const struct in6_addr *dst,
 
     return sitnl_route_del(iface, AF_INET6, &dst_v6, prefixlen, &gw_v6,
                            table, metric);
+}
+
+
+int
+net_iface_new(openvpn_net_ctx_t *ctx, const char *iface, const char *type,
+              void *arg)
+{
+    struct sitnl_link_req req = { };
+    int ret = -1;
+
+    ASSERT(iface);
+
+    req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.i));
+    req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_EXCL;
+    req.n.nlmsg_type = RTM_NEWLINK;
+
+    SITNL_ADDATTR(&req.n, sizeof(req), IFLA_IFNAME, iface, strlen(iface) + 1);
+
+    struct rtattr *linkinfo = SITNL_NEST(&req.n, sizeof(req), IFLA_LINKINFO);
+    SITNL_ADDATTR(&req.n, sizeof(req), IFLA_INFO_KIND, type, strlen(type) + 1);
+#if defined(ENABLE_DCO)
+    if (arg && (strcmp(type, "ovpn-dco") == 0))
+    {
+        dco_context_t *dco = arg;
+        struct rtattr *data = SITNL_NEST(&req.n, sizeof(req), IFLA_INFO_DATA);
+        SITNL_ADDATTR(&req.n, sizeof(req), IFLA_OVPN_MODE, &dco->ifmode,
+                      sizeof(uint8_t));
+        SITNL_NEST_END(&req.n, data);
+    }
+#endif
+    SITNL_NEST_END(&req.n, linkinfo);
+
+    req.i.ifi_family = AF_PACKET;
+
+    msg(D_ROUTE, "%s: add %s type %s", __func__,  iface, type);
+
+    ret = sitnl_send(&req.n, 0, 0, NULL, NULL);
+err:
+    return ret;
+}
+
+static int
+sitnl_parse_rtattr_flags(struct rtattr *tb[], int max, struct rtattr *rta,
+                         int len, unsigned short flags)
+{
+    unsigned short type;
+
+    memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
+
+    while (RTA_OK(rta, len))
+    {
+        type = rta->rta_type & ~flags;
+
+        if ((type <= max) && (!tb[type]))
+        {
+            tb[type] = rta;
+        }
+
+        rta = RTA_NEXT(rta, len);
+    }
+
+    if (len)
+    {
+        msg(D_ROUTE, "%s: %d bytes not parsed! (rta_len=%d)", __func__, len,
+            rta->rta_len);
+    }
+
+    return 0;
+}
+
+static int
+sitnl_parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
+{
+    return sitnl_parse_rtattr_flags(tb, max, rta, len, 0);
+}
+
+#define sitnl_parse_rtattr_nested(tb, max, rta) \
+    (sitnl_parse_rtattr_flags(tb, max, RTA_DATA(rta), RTA_PAYLOAD(rta), \
+                              NLA_F_NESTED))
+
+static int
+sitnl_type_save(struct nlmsghdr *n, void *arg)
+{
+    char *type = arg;
+    struct ifinfomsg *ifi = NLMSG_DATA(n);
+    struct rtattr *tb[IFLA_MAX + 1];
+    int ret;
+
+    ret = sitnl_parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), IFLA_PAYLOAD(n));
+    if (ret < 0)
+    {
+        return ret;
+    }
+
+    if (tb[IFLA_LINKINFO])
+    {
+        struct rtattr *tb_link[IFLA_INFO_MAX + 1];
+
+        ret = sitnl_parse_rtattr_nested(tb_link, IFLA_INFO_MAX,
+                                        tb[IFLA_LINKINFO]);
+        if (ret < 0)
+        {
+            return ret;
+        }
+
+        if (!tb_link[IFLA_INFO_KIND])
+        {
+            return -ENOENT;
+        }
+
+        strncpynt(type, RTA_DATA(tb_link[IFLA_INFO_KIND]), IFACE_TYPE_LEN_MAX);
+    }
+
+    return 0;
+}
+
+int
+net_iface_type(openvpn_net_ctx_t *ctx, const char *iface,
+               char type[IFACE_TYPE_LEN_MAX])
+{
+    struct sitnl_link_req req = { };
+    int ifindex = if_nametoindex(iface);
+
+    if (!ifindex)
+    {
+        return -errno;
+    }
+
+    req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.i));
+    req.n.nlmsg_flags = NLM_F_REQUEST;
+    req.n.nlmsg_type = RTM_GETLINK;
+
+    req.i.ifi_family = AF_PACKET;
+    req.i.ifi_index = ifindex;
+
+    memset(type, 0, IFACE_TYPE_LEN_MAX);
+
+    int ret = sitnl_send(&req.n, 0, 0, sitnl_type_save, type);
+    if (ret < 0)
+    {
+        msg(D_ROUTE, "%s: cannot retrieve iface %s: %s (%d)", __func__, iface,
+            strerror(-ret), ret);
+        return ret;
+    }
+
+    msg(D_ROUTE, "%s: type of %s: %s", __func__, iface, type);
+
+    return 0;
+}
+
+int
+net_iface_del(openvpn_net_ctx_t *ctx, const char *iface)
+{
+    struct sitnl_link_req req = { };
+    int ifindex = if_nametoindex(iface);
+
+    if (!ifindex)
+    {
+        return -errno;
+    }
+
+    req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.i));
+    req.n.nlmsg_flags = NLM_F_REQUEST;
+    req.n.nlmsg_type = RTM_DELLINK;
+
+    req.i.ifi_family = AF_PACKET;
+    req.i.ifi_index = ifindex;
+
+    msg(D_ROUTE, "%s: delete %s", __func__, iface);
+
+    return sitnl_send(&req.n, 0, 0, NULL, NULL);
 }
 
 #endif /* !ENABLE_SITNL */
