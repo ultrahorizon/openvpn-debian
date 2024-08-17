@@ -1,5 +1,5 @@
-openvpn (2.6.12-2) noble; urgency=medium
+openvpn (2.6.12-3) focal jammy noble; urgency=medium
 
   * OpenVPN 2.6.12 stable with DPI Evasion.
 
- -- James Webb <james@ultra-horizon.com>  Thu, 15 Aug 2024 14:00:00 +0000
+ -- James Webb <james@ultra-horizon.com>  Sat, 17 Aug 2024 12:00:00 +0000
